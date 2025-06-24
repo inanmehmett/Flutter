@@ -2,20 +2,20 @@ import 'package:flutter/material.dart';
 import '../../data/models/book_model.dart';
 
 class BookPreviewPage extends StatelessWidget {
-  final BookModel book;
-  const BookPreviewPage({Key? key, required this.book}) : super(key: key);
+  final BookModel? book;
+  const BookPreviewPage({Key? key, this.book}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    // Mock data - gerçek veriler gelene kadar
-    final mockBook = _getMockBook();
-    final imageUrl = mockBook.imageUrl ?? mockBook.iconUrl;
-    final title = mockBook.title;
-    final author = mockBook.author;
-    final description = mockBook.summary ?? 'The murder of a curator at the Louvre reveals a sinister plot to uncover a secret that has been protected since the days of Christ. Only the victim\'s granddaughter and Robert Langdon, a famed symbologist, can untangle the clues he left behind.';
-    final level = mockBook.textLevel ?? '1';
-    final readingTime = mockBook.estimatedReadingTimeInMinutes;
-    final rating = 4.5;
+    // Eğer arguments ile BookModel gelirse onu kullan, yoksa mockBook göster
+    final BookModel displayBook = book ?? ModalRoute.of(context)?.settings.arguments as BookModel? ?? _getMockBook();
+    final imageUrl = displayBook.imageUrl ?? displayBook.iconUrl;
+    final title = displayBook.title;
+    final author = displayBook.author;
+    final description = displayBook.summary ?? 'The murder of a curator at the Louvre reveals a sinister plot to uncover a secret that has been protected since the days of Christ. Only the victim\'s granddaughter and Robert Langdon, a famed symbologist, can untangle the clues he left behind.';
+    final level = displayBook.textLevel ?? '1';
+    final readingTime = displayBook.estimatedReadingTimeInMinutes;
+    final rating = displayBook.rating ?? 4.5;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -39,7 +39,7 @@ class BookPreviewPage extends StatelessWidget {
                     SizedBox(height: 16),
                     _buildMetadataSection(level, readingTime),
                     SizedBox(height: 32),
-                    _buildStartReadingButton(context),
+                    _buildStartReadingButton(context, displayBook),
                     SizedBox(height: 20), // Alt boşluk ekle
                   ],
                 ),
@@ -192,7 +192,7 @@ class BookPreviewPage extends StatelessWidget {
     );
   }
 
-  Widget _buildStartReadingButton(BuildContext context) {
+  Widget _buildStartReadingButton(BuildContext context, BookModel book) {
     return Column(
       children: [
         SizedBox(

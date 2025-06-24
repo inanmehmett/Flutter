@@ -200,11 +200,7 @@ class BookRepositoryImpl implements BookRepository {
   @override
   Future<List<String>> getFavorites(String bookId) async {
     try {
-      final response = await networkManager.request(
-        'books/$bookId/favorites',
-        method: 'GET',
-        cacheKey: 'favorites_$bookId',
-      );
+      final response = await networkManager.get('/books/$bookId/favorites');
       return List<String>.from(response.data);
     } catch (e) {
       return [];
@@ -768,7 +764,7 @@ class BookRepositoryImpl implements BookRepository {
   Future<void> removeFromFavorites(String bookId, String word) async {
     try {
       await networkManager
-          .delete('/books/$bookId/favorites', data: {'word': word});
+          .delete('/books/$bookId/favorites/$word');
     } catch (e) {
       print('Error removing from favorites: $e');
       rethrow;

@@ -69,15 +69,23 @@ class BookService {
       }
 
       print('📚 [BookService] Cache miss, fetching from API...');
-      final book = await _bookRepository.getBookById(id);
-      if (book != null) {
-        print('📚 [BookService] ✅ Fetched book from API: ${book.title}');
-        await _cacheManager.setData(cacheKey, book);
-        print('📚 [BookService] ✅ Cached book: ${book.title}');
-      } else {
-        print('📚 [BookService] ⚠️ Book not found: $id');
-      }
-      return book;
+      final result = await _bookRepository.getBook(id);
+      return result.fold(
+        (failure) {
+          print('📚 [BookService] ❌ Failed to get book: ${failure.message}');
+          return null;
+        },
+        (book) async {
+          if (book != null) {
+            print('📚 [BookService] ✅ Fetched book from API: ${book.title}');
+            await _cacheManager.setData(cacheKey, book);
+            print('📚 [BookService] ✅ Cached book: ${book.title}');
+          } else {
+            print('📚 [BookService] ⚠️ Book not found: $id');
+          }
+          return book;
+        },
+      );
     } catch (e) {
       print('📚 [BookService] ❌ Error getting book by ID: $e');
       rethrow;
@@ -183,31 +191,6 @@ class BookService {
     }
   }
 
-  Future<List<BookModel>> getBooksByGenre(String genre) async {
-    print('📚 [BookService] Getting books by genre: $genre');
-    try {
-      final books = await _bookRepository.getBooksByGenre(genre);
-      print('📚 [BookService] ✅ Found ${books.length} books in genre: $genre');
-      return books;
-    } catch (e) {
-      print('📚 [BookService] ❌ Error getting books by genre: $e');
-      rethrow;
-    }
-  }
-
-  Future<List<BookModel>> getBooksByAuthor(String author) async {
-    print('📚 [BookService] Getting books by author: $author');
-    try {
-      final books = await _bookRepository.getBooksByAuthor(author);
-      print(
-          '📚 [BookService] ✅ Found ${books.length} books by author: $author');
-      return books;
-    } catch (e) {
-      print('📚 [BookService] ❌ Error getting books by author: $e');
-      rethrow;
-    }
-  }
-
   // MARK: - Favorites Management
 
   Future<List<String>> getFavorites(String bookId) async {
@@ -257,47 +240,12 @@ class BookService {
     }
   }
 
-  // MARK: - Reviews and Ratings
-
-  Future<void> rateBook(String id, double rating) async {
-    print('📚 [BookService] Rating book: $id -> $rating stars');
-    try {
-      await _bookRepository.rateBook(id, rating);
-      print('📚 [BookService] ✅ Book rated: $id -> $rating stars');
-    } catch (e) {
-      print('📚 [BookService] ❌ Error rating book: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> addReview(String id, String review) async {
-    print('📚 [BookService] Adding review to book: $id');
-    try {
-      await _bookRepository.addReview(id, review);
-      print('📚 [BookService] ✅ Review added to book: $id');
-    } catch (e) {
-      print('📚 [BookService] ❌ Error adding review: $e');
-      rethrow;
-    }
-  }
-
-  Future<List<String>> getReviews(String id) async {
-    print('📚 [BookService] Getting reviews for book: $id');
-    try {
-      final reviews = await _bookRepository.getReviews(id);
-      print('📚 [BookService] ✅ Found ${reviews.length} reviews for book: $id');
-      return reviews;
-    } catch (e) {
-      print('📚 [BookService] ❌ Error getting reviews: $e');
-      rethrow;
-    }
-  }
-
   // MARK: - Cache Management
 
   Future<void> clearCache() async {
     print('📚 [BookService] Clearing cache...');
     try {
+      await _bookRepository.clearCache();
       await _cacheManager.clearCache();
       print('📚 [BookService] ✅ Cache cleared');
     } catch (e) {
@@ -309,8 +257,8 @@ class BookService {
   Future<void> refreshBooks() async {
     print('📚 [BookService] Refreshing books...');
     try {
-      await _cacheManager.removeData('books');
-      await getBooks();
+      await _cacheManager.clearCache();
+      await _bookRepository.getBooks();
       print('📚 [BookService] ✅ Books refreshed');
     } catch (e) {
       print('📚 [BookService] ❌ Error refreshing books: $e');
@@ -320,11 +268,14 @@ class BookService {
 
   // MARK: - Utility Methods
 
-  bool isBookDownloaded(String id) {
-    // This would check if the book is available offline
+  Future<bool> isBookDownloaded(String id) async {
     print('📚 [BookService] Checking if book is downloaded: $id');
-    // Implementation would depend on your offline storage strategy
-    return false; // Placeholder
+    try {
+      return await _bookRepository.isBookDownloaded(id);
+    } catch (e) {
+      print('📚 [BookService] ❌ Error checking if book is downloaded: $e');
+      return false;
+    }
   }
 
   String getApiBaseUrl() {

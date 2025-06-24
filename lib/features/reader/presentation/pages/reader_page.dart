@@ -8,14 +8,15 @@ import '../widgets/speech_control_view.dart';
 import '../bloc/reader_bloc.dart';
 import '../bloc/reader_event.dart';
 import '../bloc/reader_state.dart';
+import '../../data/models/book_model.dart';
 
 class ReaderPage extends StatefulWidget {
-  final int bookId;
+  final BookModel book;
 
   const ReaderPage({
-    super.key,
-    required this.bookId,
-  });
+    Key? key,
+    required this.book,
+  }) : super(key: key);
 
   @override
   State<ReaderPage> createState() => _ReaderPageState();
@@ -32,6 +33,12 @@ class _ReaderPageState extends State<ReaderPage> {
   final bool _isAutoAdvancing = false;
   DateTime _lastUserInteraction = DateTime.now();
   final _tooltipAutoHideDelay = const Duration(seconds: 5);
+  int currentPage = 0;
+  late List<String> pages;
+  double fontSize = 20;
+  Color backgroundColor = const Color(0xFFFCFCF7);
+  Color textColor = Colors.black87;
+  bool isDarkMode = false;
 
   @override
   void initState() {
@@ -40,6 +47,7 @@ class _ReaderPageState extends State<ReaderPage> {
     _flutterTts = FlutterTts();
     _initializeTts();
     _loadBook();
+    pages = _splitTextIntoPages(widget.book.content ?? '', 1100);
   }
 
   Future<void> _initializeTts() async {
@@ -50,46 +58,159 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   void _loadBook() {
-    _readerBloc.add(LoadBook(widget.bookId.toString()));
+    _readerBloc.add(LoadBook(widget.book.id.toString()));
+  }
+
+  List<String> _splitTextIntoPages(String text, int charsPerPage) {
+    List<String> result = [];
+    int start = 0;
+    while (start < text.length) {
+      int end = (start + charsPerPage < text.length) ? start + charsPerPage : text.length;
+      result.add(text.substring(start, end));
+      start = end;
+    }
+    return result.isEmpty ? ['No content'] : result;
+  }
+
+  void _toggleTheme() {
+    setState(() {
+      isDarkMode = !isDarkMode;
+      backgroundColor = isDarkMode ? Color(0xFF232323) : Color(0xFFFCFCF7);
+      textColor = isDarkMode ? Colors.white : Colors.black87;
+    });
+  }
+
+  void _changeFontSize(double delta) {
+    setState(() {
+      fontSize = (fontSize + delta).clamp(14, 32);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ReaderBloc, ReaderState>(
-      builder: (context, state) {
-        if (state is ReaderLoading) {
-          return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
+    final title = widget.book.title ?? '';
+    final totalPages = pages.length;
+    final progress = (currentPage + 1) / totalPages;
 
-        if (state is ReaderError) {
-          return Scaffold(
-            body: Center(
-              child: Text('Error: ${state.message}'),
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Üst bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.arrow_back, color: textColor),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(isDarkMode ? Icons.wb_sunny_outlined : Icons.nightlight_round, color: textColor),
+                    onPressed: _toggleTheme,
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.text_fields, color: textColor),
+                    onPressed: () => _changeFontSize(2),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.text_fields, color: textColor.withOpacity(0.5)),
+                    onPressed: () => _changeFontSize(-2),
+                  ),
+                ],
+              ),
             ),
-          );
-        }
-
-        if (state is ReaderLoaded) {
-          return Scaffold(
-            body: Stack(
-              children: [
-                _buildMainContent(state),
-                if (_showTooltip) _buildTooltip(),
-              ],
+            // İlerleme barı
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 4,
+                      backgroundColor: Colors.grey[200],
+                      color: Colors.blueAccent,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Text('${((progress) * 100).toStringAsFixed(0)}%', style: TextStyle(fontWeight: FontWeight.w500, color: textColor)),
+                ],
+              ),
             ),
-          );
-        }
-
-        return const Scaffold(
-          body: Center(
-            child: Text('Unknown state'),
-          ),
-        );
-      },
+            SizedBox(height: 8),
+            // Sayfa numarası
+            Text('${currentPage + 1}/$totalPages', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+            SizedBox(height: 8),
+            // Kitap metni (sayfa swipe)
+            Expanded(
+              child: GestureDetector(
+                onHorizontalDragEnd: (details) {
+                  if (details.primaryVelocity != null) {
+                    if (details.primaryVelocity! < 0 && currentPage < totalPages - 1) {
+                      setState(() => currentPage++);
+                    } else if (details.primaryVelocity! > 0 && currentPage > 0) {
+                      setState(() => currentPage--);
+                    }
+                  }
+                },
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Text(
+                    pages[currentPage],
+                    style: TextStyle(fontSize: fontSize, height: 1.6, color: textColor),
+                  ),
+                ),
+              ),
+            ),
+            // Alt bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: backgroundColor,
+                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, -2))],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.skip_previous, size: 32, color: currentPage > 0 ? textColor : Colors.grey[400]),
+                    onPressed: currentPage > 0 ? () => setState(() => currentPage--) : null,
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.record_voice_over, size: 28, color: textColor),
+                        onPressed: () {}, // TTS entegrasyonu için
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.timer, size: 28, color: textColor),
+                        onPressed: () {},
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.edit, size: 28, color: textColor),
+                        onPressed: () {},
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.skip_next, size: 32, color: currentPage < totalPages - 1 ? textColor : Colors.grey[400]),
+                    onPressed: currentPage < totalPages - 1 ? () => setState(() => currentPage++) : null,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

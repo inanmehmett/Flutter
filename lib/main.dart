@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'core/di/injection.dart';
 import 'features/reader/data/models/book_model.dart';
+import 'features/reader/domain/repositories/book_repository.dart';
 import 'core/sync/sync_state.dart';
 import 'features/main/presentation/pages/splash_page.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
@@ -13,6 +14,9 @@ import 'features/home/presentation/pages/home_page.dart';
 import 'features/reader/presentation/viewmodels/book_list_view_model.dart';
 import 'features/reader/presentation/pages/book_list_page.dart';
 import 'features/reader/presentation/pages/book_preview_page.dart';
+import 'features/reader/presentation/pages/reader_page.dart';
+import 'features/reader/presentation/bloc/reader_bloc.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 void main() async {
   print('🚀 App starting...');
@@ -86,12 +90,16 @@ class MyApp extends StatelessWidget {
                         style: TextStyle(fontSize: 24)),
                   ),
                 ),
-            '/reader': (context) => const Scaffold(
-                  body: Center(
-                    child: Text('Reader Page - Coming Soon!',
-                        style: TextStyle(fontSize: 24)),
-                  ),
+            '/reader': (context) {
+              final book = ModalRoute.of(context)!.settings.arguments;
+              return BlocProvider(
+                create: (_) => ReaderBloc(
+                  bookRepository: getIt<BookRepository>(),
+                  flutterTts: FlutterTts(),
                 ),
+                child: ReaderPage(book: book as BookModel),
+              );
+            },
             '/games': (context) => const Scaffold(
                   body: Center(
                     child: Text('Games Page - Coming Soon!',

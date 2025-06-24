@@ -3,66 +3,30 @@ import '../../../../core/error/failures.dart';
 import '../../data/models/book_model.dart';
 
 abstract class BookRepository {
+  // Core CRUD operations
   Future<Either<Failure, List<BookModel>>> getBooks();
-  Future<Either<Failure, List<BookModel>>> fetchBooks();
-  Future<Either<Failure, List<BookModel>>> getCachedBooks();
   Future<Either<Failure, BookModel?>> getBook(String id);
-  Future<Either<Failure, BookModel>> getBookDetails(int id);
   Future<Either<Failure, void>> updateBook(BookModel book);
   Future<Either<Failure, void>> deleteBook(String id);
-  Future<BookModel?> getBookById(String id);
+  
+  // Book management
   Future<BookModel> downloadBook(String id);
   Future<List<BookModel>> getOfflineBooks();
+  Future<bool> isBookDownloaded(String id);
+  
+  // Progress tracking
   Future<void> updateBookProgress(String id, int progress);
   Future<int> getBookProgress(String id);
-  Future<Either<Failure, List<String>>> getBookPages(String id);
-  Future<Either<Failure, BookModel?>> fetchBookDetails(String id);
+  
+  // Search and filtering
+  Future<List<BookModel>> searchBooks(String query);
+  Future<List<BookModel>> getRecommendedBooks();
+  
+  // Favorites
   Future<Either<Failure, void>> addToFavorites(String bookId, String word);
   Future<void> removeFromFavorites(String bookId, String word);
   Future<List<String>> getFavorites(String bookId);
-  Future<void> updateLastReadPage(String bookId, int page);
-  Future<bool> isBookDownloaded(String id);
-  Future<List<BookModel>> getDownloadedBooks();
-  Future<List<BookModel>> searchBooks(String query);
-  Future<List<BookModel>> getRecommendedBooks();
-  Future<List<BookModel>> getBooksByGenre(String genre);
-  Future<List<BookModel>> getBooksByAuthor(String author);
-  Future<void> rateBook(String id, double rating);
-  Future<void> addReview(String id, String review);
-  Future<List<String>> getReviews(String id);
-  Future<void> shareBook(String id);
-  Future<void> reportBook(String id, String reason);
-  Future<void> syncBookProgress(String id);
-  Future<void> clearBookProgress(String id);
-  Future<void> exportBook(String id, String format);
-  Future<void> importBook(String path);
-  Future<void> backupBooks();
-  Future<void> restoreBooks();
+  
+  // Cache management
   Future<void> clearCache();
-  Future<void> updateBookMetadata(String id, Map<String, dynamic> metadata);
-  Future<Map<String, dynamic>> getBookMetadata(String id);
-  Future<void> updateBookCover(String id, String coverUrl);
-  Future<String> getBookCover(String id);
-  Future<void> updateBookDescription(String id, String description);
-  Future<String> getBookDescription(String id);
-  Future<void> updateBookTitle(String id, String title);
-  Future<String> getBookTitle(String id);
-  Future<void> updateBookAuthor(String id, String author);
-  Future<String> getBookAuthor(String id);
-  Future<void> updateBookGenres(String id, List<String> genres);
-  Future<List<String>> getBookGenres(String id);
-  Future<void> updateBookRating(String id, double rating);
-  Future<double> getBookRating(String id);
-  Future<void> updateBookPageCount(String id, int pageCount);
-  Future<int> getBookPageCount(String id);
-  Future<void> updateBookPublishedDate(String id, DateTime date);
-  Future<DateTime> getBookPublishedDate(String id);
-  Future<void> updateBookLastReadDate(String id, DateTime date);
-  Future<DateTime> getBookLastReadDate(String id);
-  Future<void> updateBookLastReadPage(String id, int page);
-  Future<int> getBookLastReadPage(String id);
-  Future<void> updateBookIsDownloaded(String id, bool isDownloaded);
-  Future<bool> getBookIsDownloaded(String id);
-  Future<void> updateBookCoverUrl(String id, String url);
-  Future<String> getBookCoverUrl(String id);
 }

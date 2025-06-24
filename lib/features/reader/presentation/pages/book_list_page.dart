@@ -7,6 +7,7 @@ import '../widgets/book_card.dart';
 import '../widgets/loading_view.dart';
 import '../widgets/error_view.dart';
 import '../widgets/empty_state_view.dart';
+import '../../data/models/book_model.dart';
 
 class BookListPage extends StatefulWidget {
   const BookListPage({super.key});
@@ -115,11 +116,11 @@ class _BookListPageState extends State<BookListPage> {
                       return BookCard(
                         book: book,
                         onTap: () {
-                          // Navigate to book preview
+                          // Book entity'yi BookModel'e dönüştürerek gönder
                           Navigator.pushNamed(
                             context,
                             '/book-preview',
-                            arguments: book,
+                            arguments: BookModel.fromBook(book),
                           );
                         },
                       );

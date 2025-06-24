@@ -46,9 +46,10 @@ Future<void> configureDependencies() async {
   // Register Duration for CacheManager
   getIt.registerLazySingleton<Duration>(() => const Duration(hours: 24));
 
-  // Register base URL for AuthService
+  // Register base URL from environment or config
   getIt.registerLazySingleton<String>(
-    () => 'http://192.168.1.105:5173',
+    () => const String.fromEnvironment('API_BASE_URL', 
+           defaultValue: 'http://localhost:5173'),
     instanceName: 'baseUrl',
   );
 

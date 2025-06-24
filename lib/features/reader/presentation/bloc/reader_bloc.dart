@@ -68,7 +68,6 @@ class ReaderBloc extends Bloc<ReaderEvent, ReaderState> {
       emit(ReaderLoading());
 
       final bookResult = await _bookRepository.getBook(event.bookId);
-      final pagesResult = await _bookRepository.getBookPages(event.bookId);
 
       await bookResult.fold(
         (failure) async {
@@ -80,34 +79,54 @@ class ReaderBloc extends Bloc<ReaderEvent, ReaderState> {
             return;
           }
 
-          await pagesResult.fold(
-            (failure) async {
-              emit(ReaderError(failure.toString()));
-            },
-            (pages) async {
-              _currentBook = bookModel;
-              _pages = pages;
+          // Split book content into pages
+          final content = bookModel.content;
+          final pages = _splitContentIntoPages(content);
 
-              emit(ReaderLoaded(
-                book: bookModel,
-                currentPage: 0,
-                totalPages: pages.length,
-                currentPageContent: pages[0],
-                fontSize: _fontSize,
-                isSpeaking: _isSpeaking,
-                isPaused: _isPaused,
-                speechRate: _speechRate,
-                pitch: _pitch,
-                selectedVoice: _selectedVoice,
-                availableVoices: _availableVoices,
-              ));
-            },
-          );
+          _currentBook = bookModel;
+          _pages = pages;
+
+          emit(ReaderLoaded(
+            book: bookModel,
+            currentPage: 0,
+            totalPages: pages.length,
+            currentPageContent: pages.isNotEmpty ? pages[0] : '',
+            fontSize: _fontSize,
+            isSpeaking: _isSpeaking,
+            isPaused: _isPaused,
+            speechRate: _speechRate,
+            pitch: _pitch,
+            selectedVoice: _selectedVoice,
+            availableVoices: _availableVoices,
+          ));
         },
       );
     } catch (e) {
       emit(ReaderError(e.toString()));
     }
+  }
+
+  List<String> _splitContentIntoPages(String content) {
+    // Simple page splitting logic - split by paragraphs
+    final paragraphs = content.split('\n\n');
+    final pages = <String>[];
+    String currentPage = '';
+    
+    for (final paragraph in paragraphs) {
+      if (currentPage.length + paragraph.length > 1000) { // ~1000 chars per page
+        if (currentPage.isNotEmpty) {
+          pages.add(currentPage.trim());
+          currentPage = '';
+        }
+      }
+      currentPage += paragraph + '\n\n';
+    }
+    
+    if (currentPage.isNotEmpty) {
+      pages.add(currentPage.trim());
+    }
+    
+    return pages.isEmpty ? [content] : pages;
   }
 
   void _onNextPage(NextPage event, Emitter<ReaderState> emit) {
