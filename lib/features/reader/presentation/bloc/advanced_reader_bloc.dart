@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../../domain/entities/book.dart';
@@ -5,36 +6,34 @@ import '../../domain/repositories/book_repository.dart';
 import 'reader_event.dart';
 import 'reader_state.dart';
 
-class ReaderBloc extends Bloc<ReaderEvent, ReaderState> {
+class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   final BookRepository _bookRepository;
   final FlutterTts _flutterTts;
+  
   Book? _currentBook;
   List<String> _pages = [];
+  int _currentPageIndex = 0;
   bool _isSpeaking = false;
   bool _isPaused = false;
   double _speechRate = 0.5;
-  double _pitch = 1.0;
-  String _selectedVoice = '';
-  List<String> _availableVoices = [];
   double _fontSize = 16.0;
 
-  ReaderBloc({
+  AdvancedReaderBloc({
     required BookRepository bookRepository,
     required FlutterTts flutterTts,
   })  : _bookRepository = bookRepository,
         _flutterTts = flutterTts,
         super(ReaderInitial()) {
+    
+    // Event handlers
     on<LoadBook>(_onLoadBook);
     on<NextPage>(_onNextPage);
     on<PreviousPage>(_onPreviousPage);
     on<GoToPage>(_onGoToPage);
     on<TogglePlayPause>(_onTogglePlayPause);
+    on<StopSpeech>(_onStopSpeech);
     on<UpdateSpeechRate>(_onUpdateSpeechRate);
-    on<UpdatePitch>(_onUpdatePitch);
-    on<UpdateVoice>(_onUpdateVoice);
     on<UpdateFontSize>(_onUpdateFontSize);
-    on<UpdateTheme>(_onUpdateTheme);
-    on<AddToFavorites>(_onAddToFavorites);
 
     _initializeTts();
   }
@@ -43,21 +42,7 @@ class ReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     try {
       await _flutterTts.setLanguage('en-US');
       await _flutterTts.setSpeechRate(_speechRate);
-      await _flutterTts.setPitch(_pitch);
       await _flutterTts.setVolume(1.0);
-
-      final voices = await _flutterTts.getVoices;
-      if (voices != null) {
-        _availableVoices = voices
-            .where((voice) => voice['locale'] == 'en-US')
-            .map((voice) => voice['name'] as String)
-            .toList();
-        if (_availableVoices.isNotEmpty) {
-          _selectedVoice = _availableVoices.first;
-          await _flutterTts
-              .setVoice({'name': _selectedVoice, 'locale': 'en-US'});
-        }
-      }
     } catch (e) {
       // Handle TTS initialization error
     }
@@ -85,6 +70,7 @@ class ReaderBloc extends Bloc<ReaderEvent, ReaderState> {
 
           _currentBook = bookModel;
           _pages = pages;
+          _currentPageIndex = 0;
 
           emit(ReaderLoaded(
             book: bookModel,
@@ -95,9 +81,6 @@ class ReaderBloc extends Bloc<ReaderEvent, ReaderState> {
             isSpeaking: _isSpeaking,
             isPaused: _isPaused,
             speechRate: _speechRate,
-            pitch: _pitch,
-            selectedVoice: _selectedVoice,
-            availableVoices: _availableVoices,
           ));
         },
       );
@@ -112,10 +95,15 @@ class ReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     final pages = <String>[];
     String currentPage = '';
     
+    print('📖 [AdvancedReaderBloc] Splitting content into pages...');
+    print('📖 [AdvancedReaderBloc] Total content length: ${content.length} characters');
+    print('📖 [AdvancedReaderBloc] Number of paragraphs: ${paragraphs.length}');
+    
     for (final paragraph in paragraphs) {
       if (currentPage.length + paragraph.length > 1000) { // ~1000 chars per page
         if (currentPage.isNotEmpty) {
           pages.add(currentPage.trim());
+          print('📖 [AdvancedReaderBloc] Created page ${pages.length} with ${currentPage.length} characters');
           currentPage = '';
         }
       }
@@ -124,19 +112,27 @@ class ReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     
     if (currentPage.isNotEmpty) {
       pages.add(currentPage.trim());
+      print('📖 [AdvancedReaderBloc] Created final page ${pages.length} with ${currentPage.length} characters');
     }
     
+    print('📖 [AdvancedReaderBloc] Total pages created: ${pages.length}');
     return pages.isEmpty ? [content] : pages;
   }
 
   void _onNextPage(NextPage event, Emitter<ReaderState> emit) {
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
-      if (currentState.currentPage < currentState.totalPages - 1) {
+      print('📖 [AdvancedReaderBloc] NextPage event - Current page: $_currentPageIndex, Total pages: ${_pages.length}');
+      
+      if (_currentPageIndex < _pages.length - 1) {
+        _currentPageIndex++;
+        print('📖 [AdvancedReaderBloc] Moving to page $_currentPageIndex');
         emit(currentState.copyWith(
-          currentPage: currentState.currentPage + 1,
-          currentPageContent: _pages[currentState.currentPage + 1],
+          currentPage: _currentPageIndex,
+          currentPageContent: _pages[_currentPageIndex],
         ));
+      } else {
+        print('📖 [AdvancedReaderBloc] Already at last page');
       }
     }
   }
@@ -144,11 +140,17 @@ class ReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   void _onPreviousPage(PreviousPage event, Emitter<ReaderState> emit) {
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
-      if (currentState.currentPage > 0) {
+      print('📖 [AdvancedReaderBloc] PreviousPage event - Current page: $_currentPageIndex, Total pages: ${_pages.length}');
+      
+      if (_currentPageIndex > 0) {
+        _currentPageIndex--;
+        print('📖 [AdvancedReaderBloc] Moving to page $_currentPageIndex');
         emit(currentState.copyWith(
-          currentPage: currentState.currentPage - 1,
-          currentPageContent: _pages[currentState.currentPage - 1],
+          currentPage: _currentPageIndex,
+          currentPageContent: _pages[_currentPageIndex],
         ));
+      } else {
+        print('📖 [AdvancedReaderBloc] Already at first page');
       }
     }
   }
@@ -156,21 +158,23 @@ class ReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   void _onGoToPage(GoToPage event, Emitter<ReaderState> emit) {
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
-      if (event.page >= 0 && event.page < currentState.totalPages) {
+      if (event.page >= 0 && event.page < _pages.length) {
+        _currentPageIndex = event.page;
         emit(currentState.copyWith(
-          currentPage: event.page,
-          currentPageContent: _pages[event.page],
+          currentPage: _currentPageIndex,
+          currentPageContent: _pages[_currentPageIndex],
         ));
       }
     }
   }
 
-  Future<void> _onTogglePlayPause(
-      TogglePlayPause event, Emitter<ReaderState> emit) async {
+  Future<void> _onTogglePlayPause(TogglePlayPause event, Emitter<ReaderState> emit) async {
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
+      
       if (_isSpeaking) {
         if (_isPaused) {
+          // FlutterTts doesn't have resume, so we restart speaking
           await _flutterTts.speak(currentState.currentPageContent);
           _isPaused = false;
         } else {
@@ -190,58 +194,37 @@ class ReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     }
   }
 
-  Future<void> _onUpdateSpeechRate(
-      UpdateSpeechRate event, Emitter<ReaderState> emit) async {
+  Future<void> _onStopSpeech(StopSpeech event, Emitter<ReaderState> emit) async {
+    await _flutterTts.stop();
+    _isSpeaking = false;
+    _isPaused = false;
+    
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
-      _speechRate = event.rate;
-      await _flutterTts.setSpeechRate(_speechRate);
+      emit(currentState.copyWith(
+        isSpeaking: false,
+        isPaused: false,
+      ));
+    }
+  }
+
+  Future<void> _onUpdateSpeechRate(UpdateSpeechRate event, Emitter<ReaderState> emit) async {
+    _speechRate = event.rate;
+    await _flutterTts.setSpeechRate(_speechRate);
+    
+    if (state is ReaderLoaded) {
+      final currentState = state as ReaderLoaded;
       emit(currentState.copyWith(speechRate: _speechRate));
     }
   }
 
-  Future<void> _onUpdatePitch(
-      UpdatePitch event, Emitter<ReaderState> emit) async {
-    if (state is ReaderLoaded) {
-      final currentState = state as ReaderLoaded;
-      _pitch = event.pitch;
-      await _flutterTts.setPitch(_pitch);
-      emit(currentState.copyWith(pitch: _pitch));
-    }
-  }
-
-  Future<void> _onUpdateVoice(
-      UpdateVoice event, Emitter<ReaderState> emit) async {
-    if (state is ReaderLoaded) {
-      final currentState = state as ReaderLoaded;
-      _selectedVoice = event.voice;
-      await _flutterTts.setVoice({'name': _selectedVoice, 'locale': 'en-US'});
-      emit(currentState.copyWith(selectedVoice: _selectedVoice));
-    }
-  }
-
   void _onUpdateFontSize(UpdateFontSize event, Emitter<ReaderState> emit) {
+    _fontSize = event.size;
+    
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
-      _fontSize = event.size;
       emit(currentState.copyWith(fontSize: _fontSize));
     }
-  }
-
-  void _onUpdateTheme(UpdateTheme event, Emitter<ReaderState> emit) {
-    // Theme changes are handled at the app level
-  }
-
-  Future<void> _onAddToFavorites(
-      AddToFavorites event, Emitter<ReaderState> emit) async {
-    if (_currentBook != null) {
-      await _bookRepository.addToFavorites(_currentBook!.id, event.word);
-    }
-  }
-
-  Future<String> translateWord(String word) async {
-    // Implement translation logic here
-    return 'Translation of $word';
   }
 
   @override
@@ -249,4 +232,4 @@ class ReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     await _flutterTts.stop();
     return super.close();
   }
-}
+} 

@@ -1,5 +1,4 @@
 import 'package:equatable/equatable.dart';
-import 'package:flutter/material.dart';
 
 abstract class ReaderEvent extends Equatable {
   const ReaderEvent();
@@ -32,6 +31,8 @@ class GoToPage extends ReaderEvent {
 
 class TogglePlayPause extends ReaderEvent {}
 
+class StopSpeech extends ReaderEvent {}
+
 class UpdateSpeechRate extends ReaderEvent {
   final double rate;
 
@@ -41,24 +42,6 @@ class UpdateSpeechRate extends ReaderEvent {
   List<Object?> get props => [rate];
 }
 
-class UpdatePitch extends ReaderEvent {
-  final double pitch;
-
-  const UpdatePitch(this.pitch);
-
-  @override
-  List<Object?> get props => [pitch];
-}
-
-class UpdateVoice extends ReaderEvent {
-  final String voice;
-
-  const UpdateVoice(this.voice);
-
-  @override
-  List<Object?> get props => [voice];
-}
-
 class UpdateFontSize extends ReaderEvent {
   final double size;
 
@@ -66,22 +49,4 @@ class UpdateFontSize extends ReaderEvent {
 
   @override
   List<Object?> get props => [size];
-}
-
-class UpdateTheme extends ReaderEvent {
-  final ThemeMode theme;
-
-  const UpdateTheme(this.theme);
-
-  @override
-  List<Object?> get props => [theme];
-}
-
-class AddToFavorites extends ReaderEvent {
-  final String word;
-
-  const AddToFavorites(this.word);
-
-  @override
-  List<Object?> get props => [word];
-}
+} 

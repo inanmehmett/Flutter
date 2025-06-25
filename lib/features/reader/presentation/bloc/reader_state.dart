@@ -30,9 +30,6 @@ class ReaderLoaded extends ReaderState {
   final bool isSpeaking;
   final bool isPaused;
   final double speechRate;
-  final double pitch;
-  final String selectedVoice;
-  final List<String> availableVoices;
 
   const ReaderLoaded({
     required this.book,
@@ -43,9 +40,6 @@ class ReaderLoaded extends ReaderState {
     required this.isSpeaking,
     required this.isPaused,
     required this.speechRate,
-    required this.pitch,
-    required this.selectedVoice,
-    required this.availableVoices,
   });
 
   ReaderLoaded copyWith({
@@ -57,9 +51,6 @@ class ReaderLoaded extends ReaderState {
     bool? isSpeaking,
     bool? isPaused,
     double? speechRate,
-    double? pitch,
-    String? selectedVoice,
-    List<String>? availableVoices,
   }) {
     return ReaderLoaded(
       book: book ?? this.book,
@@ -70,9 +61,6 @@ class ReaderLoaded extends ReaderState {
       isSpeaking: isSpeaking ?? this.isSpeaking,
       isPaused: isPaused ?? this.isPaused,
       speechRate: speechRate ?? this.speechRate,
-      pitch: pitch ?? this.pitch,
-      selectedVoice: selectedVoice ?? this.selectedVoice,
-      availableVoices: availableVoices ?? this.availableVoices,
     );
   }
 
@@ -86,8 +74,5 @@ class ReaderLoaded extends ReaderState {
         isSpeaking,
         isPaused,
         speechRate,
-        pitch,
-        selectedVoice,
-        availableVoices,
       ];
 }

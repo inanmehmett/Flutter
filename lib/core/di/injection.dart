@@ -3,6 +3,7 @@ import 'package:get_it/get_it.dart';
 import 'package:injectable/injectable.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive/hive.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../cache/cache_manager.dart';
 import '../network/network_manager.dart';
 import '../storage/secure_storage_service.dart';
@@ -42,6 +43,14 @@ Future<void> configureDependencies() async {
   if (!Hive.isBoxOpen('last_read')) {
     await Hive.openBox<DateTime>('last_read');
   }
+  if (!Hive.isBoxOpen('user_preferences')) {
+    await Hive.openBox<String>('user_preferences');
+  }
+
+  // Register Hive adapters
+  if (!Hive.isAdapterRegistered(0)) {
+    Hive.registerAdapter(BookModelAdapter());
+  }
 
   // Register Duration for CacheManager
   getIt.registerLazySingleton<Duration>(() => const Duration(hours: 24));
@@ -54,7 +63,7 @@ Future<void> configureDependencies() async {
   );
 
   // Initialize auto-generated dependencies
-  getIt.init();
+  await getIt.init();
 
   // Register AuthServiceProtocol as AuthService
   getIt.registerLazySingleton<auth.AuthServiceProtocol>(
@@ -69,4 +78,7 @@ Future<void> configureDependencies() async {
       bookRepository: getIt<BookRepository>(),
     ),
   );
+
+  // Register FlutterTts
+  getIt.registerLazySingleton<FlutterTts>(() => FlutterTts());
 }
