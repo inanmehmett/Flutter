@@ -1,18 +1,19 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../../domain/entities/book.dart';
 import '../../domain/repositories/book_repository.dart';
+import '../../services/page_manager.dart';
 import 'reader_event.dart';
 import 'reader_state.dart';
 
 class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   final BookRepository _bookRepository;
   final FlutterTts _flutterTts;
+  final PageManager _pageManager;
   
   Book? _currentBook;
-  List<String> _pages = [];
-  int _currentPageIndex = 0;
   bool _isSpeaking = false;
   bool _isPaused = false;
   double _speechRate = 0.5;
@@ -23,6 +24,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     required FlutterTts flutterTts,
   })  : _bookRepository = bookRepository,
         _flutterTts = flutterTts,
+        _pageManager = PageManager(),
         super(ReaderInitial()) {
     
     // Event handlers
@@ -36,6 +38,13 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     on<UpdateFontSize>(_onUpdateFontSize);
 
     _initializeTts();
+    _setupPageManager();
+  }
+
+  void _setupPageManager() {
+    _pageManager.onPageChanged = (pageIndex) {
+      print('📖 [AdvancedReaderBloc] Page changed to: $pageIndex');
+    };
   }
 
   Future<void> _initializeTts() async {
@@ -44,7 +53,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
       await _flutterTts.setSpeechRate(_speechRate);
       await _flutterTts.setVolume(1.0);
     } catch (e) {
-      // Handle TTS initialization error
+      print('❌ [AdvancedReaderBloc] TTS initialization error: $e');
     }
   }
 
@@ -64,19 +73,19 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
             return;
           }
 
-          // Split book content into pages
-          final content = bookModel.content;
-          final pages = _splitContentIntoPages(content);
-
           _currentBook = bookModel;
-          _pages = pages;
-          _currentPageIndex = 0;
+          
+          // Configure page manager for this book
+          _pageManager.configureBook(int.tryParse(bookModel.id) ?? 0);
+          
+          // Initialize pagination with the book content
+          await _initializePagination(bookModel.content);
 
           emit(ReaderLoaded(
             book: bookModel,
-            currentPage: 0,
-            totalPages: pages.length,
-            currentPageContent: pages.isNotEmpty ? pages[0] : '',
+            currentPage: _pageManager.currentPageIndex,
+            totalPages: _pageManager.totalPages,
+            currentPageContent: _getCurrentPageContent(),
             fontSize: _fontSize,
             isSpeaking: _isSpeaking,
             isPaused: _isPaused,
@@ -89,82 +98,82 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     }
   }
 
-  List<String> _splitContentIntoPages(String content) {
-    // Simple page splitting logic - split by paragraphs
-    final paragraphs = content.split('\n\n');
-    final pages = <String>[];
-    String currentPage = '';
+  Future<void> _initializePagination(String content) async {
+    print('📖 [AdvancedReaderBloc] Initializing pagination for ${content.length} characters');
     
-    print('📖 [AdvancedReaderBloc] Splitting content into pages...');
-    print('📖 [AdvancedReaderBloc] Total content length: ${content.length} characters');
-    print('📖 [AdvancedReaderBloc] Number of paragraphs: ${paragraphs.length}');
+    final textStyle = TextStyle(
+      fontSize: _fontSize,
+      height: 1.6,
+      letterSpacing: 0.1,
+    );
     
-    for (final paragraph in paragraphs) {
-      if (currentPage.length + paragraph.length > 1000) { // ~1000 chars per page
-        if (currentPage.isNotEmpty) {
-          pages.add(currentPage.trim());
-          print('📖 [AdvancedReaderBloc] Created page ${pages.length} with ${currentPage.length} characters');
-          currentPage = '';
-        }
-      }
-      currentPage += paragraph + '\n\n';
+    // Use a reasonable page size (will be updated when UI is available)
+    const pageSize = Size(400, 600);
+    
+    await _pageManager.paginateText(
+      text: content,
+      style: textStyle,
+      size: pageSize,
+    );
+    
+    print('📖 [AdvancedReaderBloc] Pagination initialized: ${_pageManager.totalPages} pages');
+  }
+
+  String _getCurrentPageContent() {
+    if (_pageManager.currentPageIndex < _pageManager.attributedPages.length) {
+      return _pageManager.attributedPages[_pageManager.currentPageIndex].string;
     }
-    
-    if (currentPage.isNotEmpty) {
-      pages.add(currentPage.trim());
-      print('📖 [AdvancedReaderBloc] Created final page ${pages.length} with ${currentPage.length} characters');
-    }
-    
-    print('📖 [AdvancedReaderBloc] Total pages created: ${pages.length}');
-    return pages.isEmpty ? [content] : pages;
+    return '';
   }
 
   void _onNextPage(NextPage event, Emitter<ReaderState> emit) {
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
-      print('📖 [AdvancedReaderBloc] NextPage event - Current page: $_currentPageIndex, Total pages: ${_pages.length}');
+      print('📖 [AdvancedReaderBloc] NextPage event - Current page: ${_pageManager.currentPageIndex}, Total pages: ${_pageManager.totalPages}');
       
-      if (_currentPageIndex < _pages.length - 1) {
-        _currentPageIndex++;
-        print('📖 [AdvancedReaderBloc] Moving to page $_currentPageIndex');
-        emit(currentState.copyWith(
-          currentPage: _currentPageIndex,
-          currentPageContent: _pages[_currentPageIndex],
-        ));
-      } else {
-        print('📖 [AdvancedReaderBloc] Already at last page');
-      }
+      _pageManager.nextPage().then((_) {
+        if (state is ReaderLoaded) {
+          final updatedState = state as ReaderLoaded;
+          emit(updatedState.copyWith(
+            currentPage: _pageManager.currentPageIndex,
+            currentPageContent: _getCurrentPageContent(),
+          ));
+        }
+      });
     }
   }
 
   void _onPreviousPage(PreviousPage event, Emitter<ReaderState> emit) {
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
-      print('📖 [AdvancedReaderBloc] PreviousPage event - Current page: $_currentPageIndex, Total pages: ${_pages.length}');
+      print('📖 [AdvancedReaderBloc] PreviousPage event - Current page: ${_pageManager.currentPageIndex}, Total pages: ${_pageManager.totalPages}');
       
-      if (_currentPageIndex > 0) {
-        _currentPageIndex--;
-        print('📖 [AdvancedReaderBloc] Moving to page $_currentPageIndex');
-        emit(currentState.copyWith(
-          currentPage: _currentPageIndex,
-          currentPageContent: _pages[_currentPageIndex],
-        ));
-      } else {
-        print('📖 [AdvancedReaderBloc] Already at first page');
-      }
+      _pageManager.previousPage().then((_) {
+        if (state is ReaderLoaded) {
+          final updatedState = state as ReaderLoaded;
+          emit(updatedState.copyWith(
+            currentPage: _pageManager.currentPageIndex,
+            currentPageContent: _getCurrentPageContent(),
+          ));
+        }
+      });
     }
   }
 
   void _onGoToPage(GoToPage event, Emitter<ReaderState> emit) {
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
-      if (event.page >= 0 && event.page < _pages.length) {
-        _currentPageIndex = event.page;
-        emit(currentState.copyWith(
-          currentPage: _currentPageIndex,
-          currentPageContent: _pages[_currentPageIndex],
-        ));
-      }
+      print('📖 [AdvancedReaderBloc] GoToPage event - Target page: ${event.page}');
+      
+      _pageManager.goToPage(event.page).then((_) {
+        if (state is ReaderLoaded) {
+          final updatedState = state as ReaderLoaded;
+          emit(updatedState.copyWith(
+            currentPage: _pageManager.currentPageIndex,
+            currentPageContent: _getCurrentPageContent(),
+          ));
+        }
+      });
     }
   }
 
@@ -224,12 +233,30 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
       emit(currentState.copyWith(fontSize: _fontSize));
+      
+      // Reinitialize pagination with new font size
+      if (_currentBook != null) {
+        _initializePagination(_currentBook!.content);
+      }
     }
   }
+
+  // MARK: - Debug Methods
+  Map<String, dynamic> getMemoryStats() {
+    return _pageManager.getMemoryStats();
+  }
+
+  Map<String, dynamic> getPerformanceMetrics() {
+    return _pageManager.getPerformanceMetrics();
+  }
+
+  // MARK: - PageManager Access
+  PageManager get pageManager => _pageManager;
 
   @override
   Future<void> close() async {
     await _flutterTts.stop();
+    _pageManager.dispose();
     return super.close();
   }
 } 

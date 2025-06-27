@@ -11,7 +11,7 @@ class AppConfig {
   static const String appVersion = '1.0.0';
   static const String buildNumber = '1';
   static const bool isDebug = true;
-  static const String apiBaseUrl = 'http://192.168.1.100:5173';
+  static const String apiBaseUrl = 'http://192.168.1.103:5173';
   static const String apiVersion = ''; // Remove version from path
   static const Duration connectionTimeout = Duration(seconds: 30);
   static const Duration receiveTimeout = Duration(seconds: 30);

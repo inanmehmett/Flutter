@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/advanced_reader_bloc.dart';
 import '../bloc/reader_event.dart';
@@ -19,12 +20,27 @@ class AdvancedReaderPage extends StatefulWidget {
 
 class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
   late final AdvancedReaderBloc _readerBloc;
+  final PageController _pageController = PageController(
+    viewportFraction: 1.0,
+    keepPage: true,
+  );
+  Size? _pageSize;
+  bool _showSwipeHint = true;
 
   @override
   void initState() {
     super.initState();
     _readerBloc = context.read<AdvancedReaderBloc>();
     _loadBook();
+    
+    // 3 saniye sonra kaydırma ipucunu gizle
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _showSwipeHint = false;
+        });
+      }
+    });
   }
 
   void _loadBook() {
@@ -192,33 +208,190 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
   }
 
   Widget _buildReadingArea(ReaderLoaded state) {
-    final pageController = PageController(initialPage: state.currentPage);
-    return PageView.builder(
-      controller: pageController,
-      itemCount: state.totalPages,
-      onPageChanged: (index) {
-        if (index != state.currentPage) {
-          _readerBloc.add(GoToPage(index));
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Update page size for pagination
+        final newPageSize = Size(constraints.maxWidth, constraints.maxHeight);
+        if (_pageSize != newPageSize) {
+          _pageSize = newPageSize;
+          // Trigger pagination update with new size
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _updatePaginationWithNewSize();
+          });
         }
-      },
-      itemBuilder: (context, index) {
-        return Container(
-          color: Theme.of(context).colorScheme.surface,
-          padding: const EdgeInsets.all(20),
-          child: SingleChildScrollView(
-            child: Text(
-              state.currentPage == index ? state.currentPageContent : '',
-              // Sadece aktif sayfanın içeriğini gösteriyoruz, diğerleri boş
-              style: TextStyle(
-                fontSize: state.fontSize,
-                color: Theme.of(context).colorScheme.onSurface,
-                height: 1.6,
-              ),
+
+        return Stack(
+          children: [
+            // Ana sayfa görüntüleme alanı
+            PageView.builder(
+              controller: _pageController,
+              itemCount: state.totalPages,
+              // Sayfa geçiş animasyonu
+              pageSnapping: true,
+              // Kaydırma yönü - sadece yatay
+              scrollDirection: Axis.horizontal,
+              // Sayfa geçiş animasyon süresi
+              padEnds: false,
+              // Kaydırma fizikleri
+              physics: const PageScrollPhysics(),
+              onPageChanged: (index) {
+                if (index != state.currentPage) {
+                  // Haptic feedback
+                  HapticFeedback.lightImpact();
+                  _readerBloc.add(GoToPage(index));
+                }
+              },
+              itemBuilder: (context, index) {
+                // Get content for this specific page from PageManager
+                final pageContent = _getPageContent(index);
+                
+                return Hero(
+                  tag: 'page_$index',
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                    color: Theme.of(context).colorScheme.surface,
+                    padding: const EdgeInsets.all(20),
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Sayfa numarası göstergesi
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              'Sayfa ${index + 1}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          // Sayfa içeriği
+                          Text(
+                            pageContent,
+                            style: TextStyle(
+                              fontSize: state.fontSize,
+                              color: Theme.of(context).colorScheme.onSurface,
+                              height: 1.6,
+                              letterSpacing: 0.1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
-          ),
+            
+            // Kaydırma yönü göstergeleri (sadece ilk ve son sayfalarda)
+            if (state.currentPage > 0)
+              Positioned(
+                left: 8,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: AnimatedOpacity(
+                    opacity: _showSwipeHint ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 500),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Icon(
+                        Icons.arrow_back_ios,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            
+            if (state.currentPage < state.totalPages - 1)
+              Positioned(
+                right: 8,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: AnimatedOpacity(
+                    opacity: _showSwipeHint ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 500),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Icon(
+                        Icons.arrow_forward_ios,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            
+            // Sayfa geçiş ipucu (ilk kullanım için)
+            if (_showSwipeHint && state.currentPage == 0)
+              Positioned(
+                bottom: 100,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: AnimatedOpacity(
+                    opacity: _showSwipeHint ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 500),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'Sağa kaydırarak sonraki sayfaya geçin',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         );
       },
     );
+  }
+
+  String _getPageContent(int pageIndex) {
+    // Access the PageManager to get content for the specific page
+    final pageManager = _readerBloc.pageManager;
+    if (pageIndex < pageManager.attributedPages.length) {
+      return pageManager.attributedPages[pageIndex].string;
+    }
+    return '';
+  }
+
+  void _updatePaginationWithNewSize() {
+    // This would trigger pagination update with new page size
+    // For now, we'll just log the size change
+    if (_pageSize != null) {
+      print('📖 [AdvancedReaderPage] Page size updated: $_pageSize');
+    }
   }
 
   Widget _buildControls(ReaderLoaded state) {
@@ -291,7 +464,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
               // Previous page
               IconButton(
                 icon: const Icon(Icons.skip_previous),
-                onPressed: () => _readerBloc.add(PreviousPage()),
+                onPressed: _goToPreviousPage,
                 iconSize: 32,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
@@ -325,7 +498,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
               // Next page
               IconButton(
                 icon: const Icon(Icons.skip_next),
-                onPressed: () => _readerBloc.add(NextPage()),
+                onPressed: _goToNextPage,
                 iconSize: 32,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
@@ -385,8 +558,41 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     );
   }
 
+  // Sayfa geçiş animasyonu
+  void _animateToPage(int pageIndex) {
+    _pageController.animateToPage(
+      pageIndex,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  // Sayfa geçiş animasyonu (butonlarla)
+  void _goToNextPage() {
+    if (mounted) {
+      final currentState = _readerBloc.state;
+      if (currentState is ReaderLoaded && currentState.currentPage < currentState.totalPages - 1) {
+        HapticFeedback.lightImpact();
+        _animateToPage(currentState.currentPage + 1);
+        _readerBloc.add(NextPage());
+      }
+    }
+  }
+
+  void _goToPreviousPage() {
+    if (mounted) {
+      final currentState = _readerBloc.state;
+      if (currentState is ReaderLoaded && currentState.currentPage > 0) {
+        HapticFeedback.lightImpact();
+        _animateToPage(currentState.currentPage - 1);
+        _readerBloc.add(PreviousPage());
+      }
+    }
+  }
+
   @override
   void dispose() {
+    _pageController.dispose();
     super.dispose();
   }
 } 

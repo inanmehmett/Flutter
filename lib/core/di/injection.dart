@@ -16,7 +16,9 @@ import '../../features/reader/domain/services/user_service.dart';
 import '../../features/reader/domain/services/achievement_manager.dart';
 import '../../features/reader/data/datasources/book_local_data_source.dart';
 import '../../features/reader/data/datasources/book_remote_data_source.dart';
-import '../../features/auth/data/services/auth_service.dart' as auth;
+import '../../features/reader/services/page_manager.dart';
+import '../../features/reader/services/page_cache.dart';
+import '../../features/reader/services/pagination_worker.dart';
 import 'injection.config.dart';
 
 final getIt = GetIt.instance;
@@ -65,11 +67,6 @@ Future<void> configureDependencies() async {
   // Initialize auto-generated dependencies
   await getIt.init();
 
-  // Register AuthServiceProtocol as AuthService
-  getIt.registerLazySingleton<auth.AuthServiceProtocol>(
-    () => getIt<auth.AuthService>(),
-  );
-
   // Register BookService
   getIt.registerLazySingleton<BookService>(
     () => BookService(
@@ -81,4 +78,13 @@ Future<void> configureDependencies() async {
 
   // Register FlutterTts
   getIt.registerLazySingleton<FlutterTts>(() => FlutterTts());
+  
+  // Register Pagination Services
+  getIt.registerLazySingleton<SimplePageCache>(
+    () => SimplePageCache(capacity: 15, maxMemoryMB: 25),
+  );
+  
+  getIt.registerLazySingleton<PageManager>(
+    () => PageManager(),
+  );
 }

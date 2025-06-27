@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../reader/presentation/viewmodels/book_list_view_model.dart';
 import '../../../reader/domain/entities/book.dart';
+import '../../../reader/data/models/book_model.dart';
 import '../../../../core/di/injection.dart';
 
 class HomePage extends StatefulWidget {
@@ -171,7 +172,7 @@ class _HomePageState extends State<HomePage> {
                                 Navigator.pushNamed(
                                   context,
                                   '/book-preview',
-                                  arguments: book,
+                                  arguments: BookModel.fromBook(book),
                                 );
                               },
                               child: Column(
@@ -310,7 +311,7 @@ class _HomePageState extends State<HomePage> {
                                 Navigator.pushNamed(
                                   context,
                                   '/book-preview',
-                                  arguments: book,
+                                  arguments: BookModel.fromBook(book),
                                 );
                               },
                               child: Column(
