@@ -409,6 +409,10 @@ class BookRepositoryImpl implements BookRepository {
   Future<void> clearCache() async {
     try {
       await cacheManager.clearCache();
+      await bookBox.clear();
+      await favoritesBox.clear();
+      await progressBox.clear();
+      await lastReadBox.clear();
     } catch (e) {
       print('Error clearing cache: $e');
       rethrow;

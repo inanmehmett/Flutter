@@ -45,10 +45,10 @@ class BookListBloc extends Bloc<BookListEvent, BookListState> {
 
   BookListBloc({required this.bookRepository}) : super(BookListInitial()) {
     on<LoadBooks>(_onLoadBooks);
-    _loadCachedBooksFirst();
+    _loadCachedBooksFirst(emit);
   }
 
-  Future<void> _loadCachedBooksFirst() async {
+  Future<void> _loadCachedBooksFirst(Emitter<BookListState> emit) async {
     try {
       final cachedBooksEither = await bookRepository.getCachedBooks();
       cachedBooksEither.fold(

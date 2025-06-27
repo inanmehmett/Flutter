@@ -9,6 +9,11 @@ abstract class BookRepository {
   Future<Either<Failure, void>> updateBook(BookModel book);
   Future<Either<Failure, void>> deleteBook(String id);
   
+  // Book details and fetching
+  Future<Either<Failure, BookModel?>> fetchBookDetails(String bookId);
+  Future<Either<Failure, List<BookModel>>> fetchBooks();
+  Future<Either<Failure, List<BookModel>>> getCachedBooks();
+  
   // Book management
   Future<BookModel> downloadBook(String id);
   Future<List<BookModel>> getOfflineBooks();
