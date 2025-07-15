@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/book_list_view_model.dart';
+import '../../domain/entities/book.dart';
 import '../widgets/category_picker.dart';
 import '../widgets/book_card.dart';
 import '../widgets/loading_view.dart';
@@ -24,6 +25,7 @@ class _BookListPageState extends State<BookListPage> {
   @override
   void initState() {
     super.initState();
+    // ViewModel'den kitapları yükle
     Future.microtask(() =>
         Provider.of<BookListViewModel>(context, listen: false).fetchBooks());
   }
@@ -55,30 +57,33 @@ class _BookListPageState extends State<BookListPage> {
             IconButton(
               icon: const Icon(Icons.bug_report),
               onPressed: () {
-                context.read<BookListViewModel>().debugBooks();
+                final viewModel = Provider.of<BookListViewModel>(context, listen: false);
+                viewModel.debugBooks();
               },
             ),
         ],
       ),
       body: Consumer<BookListViewModel>(
-        builder: (context, viewModel, child) {
-          if (viewModel.isLoading) {
+        builder: (context, bookViewModel, child) {
+          if (bookViewModel.state == BookListState.initial || 
+              bookViewModel.state == BookListState.loading) {
             return const LoadingView();
           }
 
-          if (viewModel.errorMessage != null) {
-            return ErrorView(errorMessage: viewModel.errorMessage!);
+          if (bookViewModel.state == BookListState.error && !bookViewModel.hasBooks) {
+            return ErrorView(errorMessage: bookViewModel.errorMessage ?? 'Bilinmeyen hata');
           }
 
-          if (viewModel.books.isEmpty) {
+          if (!bookViewModel.hasBooks) {
             return const EmptyStateView();
           }
+
+          final filteredBooks = bookViewModel.filterBooks(_searchController.text);
 
           return Column(
             children: [
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
@@ -103,16 +108,43 @@ class _BookListPageState extends State<BookListPage> {
                     setState(() => _selectedCategory = index);
                   },
                 ),
+              if (bookViewModel.hasError && bookViewModel.hasBooks)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange[100],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning, color: Colors.orange[700]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          bookViewModel.errorMessage!,
+                          style: TextStyle(color: Colors.orange[700]),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => bookViewModel.clearError(),
+                        child: const Text('Kapat'),
+                      ),
+                    ],
+                  ),
+                ),
               Expanded(
                 child: RefreshIndicator(
-                  onRefresh: () => viewModel.fetchBooks(),
+                  onRefresh: () async {
+                    await bookViewModel.refreshBooks();
+                  },
                   child: ListView.builder(
                     padding: const EdgeInsets.all(16),
-                    itemCount:
-                        viewModel.filterBooks(_searchController.text).length,
+                    itemCount: filteredBooks.length,
                     itemBuilder: (context, index) {
-                      final book =
-                          viewModel.filterBooks(_searchController.text)[index];
+                      final book = filteredBooks[index];
                       return BookCard(
                         book: book,
                         onTap: () {

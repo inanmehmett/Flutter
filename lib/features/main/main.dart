@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/di/injection.dart';
 import '../../core/theme/app_theme.dart';
-import 'presentation/pages/splash_page.dart';
+import '../onboarding/presentation/widgets/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,7 +21,9 @@ class MyApp extends StatelessWidget {
       title: 'Daily English',
       theme: AppTheme.getTheme(AppTheme.light),
       darkTheme: AppTheme.getTheme(AppTheme.dark),
-      home: const SplashPage(),
+      home: SplashScreen(onComplete: () {
+        Navigator.of(context).pushReplacementNamed('/home');
+      }),
     );
   }
 }

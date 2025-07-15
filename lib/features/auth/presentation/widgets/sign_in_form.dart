@@ -206,13 +206,118 @@ class _SignInFormState extends State<SignInForm> {
             TextButton(
               onPressed: () {
                 print('🔐 [SignInForm] Forgot password pressed');
-                // TODO: Implement forgot password
+                _showForgotPasswordDialog();
               },
               child: const Text('Şifremi Unuttum'),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  void _showForgotPasswordDialog() {
+    final emailController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Şifremi Unuttum'),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Lütfen kayıtlı e-posta adresinizi giriniz. Şifre sıfırlama linki size gönderilecektir.',
+                      style: TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: emailController,
+                      decoration: const InputDecoration(
+                        labelText: 'E-posta Adresi',
+                        prefixIcon: Icon(Icons.email),
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'E-posta adresi gerekli';
+                        }
+                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                          return 'Geçerli bir e-posta adresi giriniz';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('İptal'),
+                  onPressed: isLoading ? null : () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+                ElevatedButton(
+                  child: isLoading 
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Gönder'),
+                  onPressed: isLoading ? null : () async {
+                    if (formKey.currentState!.validate()) {
+                      setState(() => isLoading = true);
+                      
+                      try {
+                        // Call the auth service to reset password
+                        final authService = context.read<AuthBloc>().authService;
+                        final success = await authService.resetPassword(email: emailController.text.trim());
+                        
+                        if (success) {
+                          if (context.mounted) {
+                            Navigator.of(context).pop();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Şifre sıfırlama linki e-posta adresinize gönderildi.'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } else {
+                          throw Exception('Şifre sıfırlama işlemi başarısız oldu.');
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Hata: ${e.toString()}'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      } finally {
+                        if (context.mounted) {
+                          setState(() => isLoading = false);
+                        }
+                      }
+                    }
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

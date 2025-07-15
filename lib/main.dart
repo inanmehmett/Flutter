@@ -7,7 +7,7 @@ import 'core/di/injection.dart';
 import 'features/reader/data/models/book_model.dart';
 import 'features/reader/domain/repositories/book_repository.dart';
 import 'core/sync/sync_state.dart';
-import 'features/main/presentation/pages/splash_page.dart';
+import 'features/onboarding/presentation/widgets/splash_screen.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/data/services/auth_service.dart' as auth;
 import 'features/auth/presentation/pages/login_page.dart';
@@ -64,58 +64,62 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     print('🏗️ Building MyApp...');
-    return MultiBlocProvider(
+    return MultiProvider(
       providers: [
         BlocProvider<AuthBloc>(
           create: (context) => AuthBloc(getIt<auth.AuthServiceProtocol>()),
         ),
-      ],
-      child: ChangeNotifierProvider(
-        create: (context) => BookListViewModel(getIt()),
-        child: MaterialApp(
-          title: 'Daily English',
-          debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(seedColor: Color(0xFFFF9800)),
-            useMaterial3: true,
-          ),
-          home: const HomePage(),
-          routes: {
-            '/login': (context) => const LoginPage(),
-            '/home': (context) => const HomePage(),
-            '/books': (context) => const BookListPage(),
-            '/quiz': (context) => const Scaffold(
-                  body: Center(
-                    child: Text('Quiz Page - Coming Soon!',
-                        style: TextStyle(fontSize: 24)),
-                  ),
-                ),
-            '/reader': (context) {
-              final book = ModalRoute.of(context)!.settings.arguments;
-              return BlocProvider(
-                create: (_) => AdvancedReaderBloc(
-                  bookRepository: getIt<BookRepository>(),
-                  flutterTts: getIt<FlutterTts>(),
-                ),
-                child: AdvancedReaderPage(book: book as BookModel),
-              );
-            },
-            '/games': (context) => const Scaffold(
-                  body: Center(
-                    child: Text('Games Page - Coming Soon!',
-                        style: TextStyle(fontSize: 24)),
-                  ),
-                ),
-            '/book-preview': (context) {
-              final args = ModalRoute.of(context)!.settings.arguments;
-              if (args is BookModel) {
-                return BookPreviewPage(book: args);
-              } else {
-                return Scaffold(body: Center(child: Text('No book data!')));
-              }
-            },
-          },
+        ChangeNotifierProvider<BookListViewModel>(
+          create: (context) => BookListViewModel(getIt<BookRepository>()),
         ),
+      ],
+      child: MaterialApp(
+        title: 'Daily English',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Color(0xFFFF9800)),
+          useMaterial3: true,
+        ),
+        home: Builder(
+          builder: (context) => SplashScreen(onComplete: () {
+            Navigator.of(context).pushReplacementNamed('/home');
+          }),
+        ),
+        routes: {
+          '/login': (context) => const LoginPage(),
+          '/home': (context) => const HomePage(),
+          '/books': (context) => const BookListPage(),
+          '/quiz': (context) => const Scaffold(
+                body: Center(
+                  child: Text('Quiz Page - Coming Soon!',
+                      style: TextStyle(fontSize: 24)),
+                ),
+              ),
+          '/reader': (context) {
+            final book = ModalRoute.of(context)!.settings.arguments;
+            return BlocProvider(
+              create: (_) => AdvancedReaderBloc(
+                bookRepository: getIt<BookRepository>(),
+                flutterTts: getIt<FlutterTts>(),
+              ),
+              child: AdvancedReaderPage(book: book as BookModel),
+            );
+          },
+          '/games': (context) => const Scaffold(
+                body: Center(
+                  child: Text('Games Page - Coming Soon!',
+                      style: TextStyle(fontSize: 24)),
+                ),
+              ),
+          '/book-preview': (context) {
+            final args = ModalRoute.of(context)!.settings.arguments;
+            if (args is BookModel) {
+              return BookPreviewPage(book: args);
+            } else {
+              return Scaffold(body: Center(child: Text('No book data!')));
+            }
+          },
+        },
       ),
     );
   }

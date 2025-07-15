@@ -15,4 +15,6 @@ abstract class QuizRepository {
   });
 
   Future<Either<Failure, void>> saveQuizResult(QuizResult result);
+  
+  Future<Either<Failure, List<QuizResult>>> getQuizResults();
 }

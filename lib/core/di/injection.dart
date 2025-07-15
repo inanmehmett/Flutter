@@ -58,11 +58,10 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<Duration>(() => const Duration(hours: 24));
 
   // Register base URL from environment or config
-  getIt.registerLazySingleton<String>(
-    () => const String.fromEnvironment('API_BASE_URL', 
-           defaultValue: 'http://localhost:5173'),
-    instanceName: 'baseUrl',
-  );
+  // getIt.registerLazySingleton<String>(
+  //   () => const String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:5173'),
+  //   instanceName: 'baseUrl',
+  // );
 
   // Initialize auto-generated dependencies
   await getIt.init();

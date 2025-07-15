@@ -101,6 +101,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     print('🔐 [AuthBloc] ===== INITIALIZATION COMPLETE =====');
   }
 
+  // Getter to access the auth service
+  AuthServiceProtocol get authService => _authService;
+
   Future<void> _onCheckAuthStatus(
     CheckAuthStatus event,
     Emitter<AuthState> emit,

@@ -63,10 +63,23 @@ class _SplashScreenState extends State<SplashScreen>
                   child: Opacity(
                     opacity: _opacityAnimation.value,
                     child: Image.asset(
-                      'assets/images/launch_logo.png',
+                      'assets/images/logo.png',
                       width: 120,
                       height: 120,
                       fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.menu_book, size: 64, color: Colors.orange),
+                            SizedBox(height: 12),
+                            Text(
+                              'Daily English',
+                              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.orange),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 );

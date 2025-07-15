@@ -23,6 +23,7 @@ class BookRemoteDataSourceImpl implements BookRemoteDataSource {
   Future<List<BookModel>> fetchBooks() async {
     print('📚 [BookRemoteDataSource] Fetching books from API...');
     try {
+      // API endpoint'ini düzelt - backend'in beklediği endpoint
       final response = await _dio.get('/api/ReadingTexts');
       print('📚 [BookRemoteDataSource] ✅ API Response received');
       print('📚 [BookRemoteDataSource] Response status: ${response.statusCode}');
@@ -58,6 +59,17 @@ class BookRemoteDataSourceImpl implements BookRemoteDataSource {
       }
     } catch (e) {
       print('📚 [BookRemoteDataSource] ❌ Error fetching books: $e');
+      print('📚 [BookRemoteDataSource] Error type: ${e.runtimeType}');
+      
+      // CORS veya network hatası durumunda test data döndür
+      if (e is DioException) {
+        print('📚 [BookRemoteDataSource] DioException details:');
+        print('📚 [BookRemoteDataSource] - Type: ${e.type}');
+        print('📚 [BookRemoteDataSource] - Message: ${e.message}');
+        print('📚 [BookRemoteDataSource] - Status code: ${e.response?.statusCode}');
+        print('📚 [BookRemoteDataSource] - Response data: ${e.response?.data}');
+      }
+      
       print('📚 [BookRemoteDataSource] 🔄 Returning test data instead...');
       return _getTestBooks();
     }
@@ -67,7 +79,8 @@ class BookRemoteDataSourceImpl implements BookRemoteDataSource {
   Future<BookModel> fetchBookDetails(int id) async {
     print('📚 [BookRemoteDataSource] Fetching book details: $id');
     try {
-      final response = await _dio.get('/books/$id');
+      // API endpoint'ini düzelt
+      final response = await _dio.get('/api/ReadingTexts/$id');
       final book = BookModel.fromJson(response.data as Map<String, dynamic>);
       print('📚 [BookRemoteDataSource] ✅ Fetched book details: ${book.title}');
       return book;
@@ -84,7 +97,8 @@ class BookRemoteDataSourceImpl implements BookRemoteDataSource {
   Future<void> updateBook(BookModel book) async {
     print('📚 [BookRemoteDataSource] Updating book: ${book.title}');
     try {
-      await _dio.put('/books/${book.id}', data: book.toJson());
+      // API endpoint'ini düzelt
+      await _dio.put('/api/ReadingTexts/${book.id}', data: book.toJson());
       print('📚 [BookRemoteDataSource] ✅ Book updated: ${book.title}');
     } catch (e) {
       print('📚 [BookRemoteDataSource] ❌ Error updating book: $e');
@@ -97,7 +111,8 @@ class BookRemoteDataSourceImpl implements BookRemoteDataSource {
   Future<void> deleteBook(String id) async {
     print('📚 [BookRemoteDataSource] Deleting book: $id');
     try {
-      await _dio.delete('/books/$id');
+      // API endpoint'ini düzelt
+      await _dio.delete('/api/ReadingTexts/$id');
       print('📚 [BookRemoteDataSource] ✅ Book deleted: $id');
     } catch (e) {
       print('📚 [BookRemoteDataSource] ❌ Error deleting book: $e');
@@ -242,107 +257,31 @@ The key to improving your conversation skills is practice. Don't be afraid to ma
         iconUrl: 'https://picsum.photos/100/150?random=3',
         slug: 'daily-conversations',
       ),
-      BookModel(
-        id: '4',
-        title: 'Business English Basics',
-        author: 'David Wilson',
-        content: '''In today's global business environment, English has become the lingua franca of international commerce. Whether you're attending meetings, writing emails, or networking with colleagues from around the world, strong English skills are essential for professional success.
-
-Business communication requires a specific set of vocabulary and phrases that differ from everyday conversation. Understanding these terms and knowing how to use them appropriately can make a significant difference in your professional relationships and career advancement.
-
-When introducing yourself in a business setting, you might say: "Hello, I'm [name] from [company]. I work in [department]." This provides essential information about your role and organization. You might also add: "I've been with the company for [time period]" to give context about your experience.
-
-During meetings, common phrases include: "Let's get started" or "Shall we begin?" When you want to contribute to the discussion, you can say: "I'd like to add something" or "If I may interject." If you need clarification, ask: "Could you please clarify that point?" or "I'm not sure I understand. Could you explain further?"
-
-When presenting ideas, you might use phrases like: "I propose that we..." or "My recommendation would be..." If you're expressing agreement, say: "I completely agree" or "That's an excellent point." For disagreement, use polite phrases like: "I see it differently" or "I have a different perspective on this."
-
-Email communication is a crucial part of modern business. Start emails with appropriate greetings: "Dear [name]" for formal communication or "Hi [name]" for more casual situations. When closing emails, use phrases like: "Best regards," "Sincerely," or "Looking forward to hearing from you."
-
-When scheduling meetings, you might say: "Would you be available for a meeting on [date] at [time]?" or "I'd like to schedule a call to discuss [topic]." Always confirm the details: "Just to confirm, we're meeting on [date] at [time] at [location]."
-
-If you need to reschedule, be polite and give advance notice: "I apologize, but I need to reschedule our meeting. Would [alternative time] work for you?" Always provide alternative options and apologize for the inconvenience.
-
-When discussing projects, use phrases like: "We're currently working on..." or "The project is progressing well." If there are challenges, be honest but professional: "We're facing some challenges with..." or "We need to address some issues."
-
-Performance reviews and feedback are important aspects of business communication. When giving feedback, be constructive: "I appreciate your work on..." or "One area for improvement might be..." When receiving feedback, respond positively: "Thank you for the feedback" or "I'll work on improving that."
-
-Networking is essential for career growth. At business events, you might ask: "What do you do?" or "What industry are you in?" Show interest in others: "That sounds fascinating. Could you tell me more about..." or "How did you get into that field?"
-
-Remember that business English is not just about vocabulary; it's also about cultural awareness and professional etiquette. Understanding the cultural context of your business partners and clients can help you communicate more effectively and build stronger relationships.
-
-The key to mastering business English is practice and exposure. Read business articles, watch business news, and participate in professional discussions. The more you immerse yourself in business English, the more natural it will become.''',
-        translation: 'Günümüzün küresel iş ortamında, İngilizce ortak dil haline geldi...',
-        summary: 'Essential business English vocabulary and phrases.',
-        textLevel: '3',
-        textLanguage: 'en',
-        translationLanguage: 'tr',
-        estimatedReadingTimeInMinutes: 18,
-        wordCount: 1000,
-        isActive: true,
-        categoryId: 4,
-        categoryName: 'Business',
-        createdAt: now,
-        updatedAt: now,
-        imageUrl: 'https://picsum.photos/200/300?random=4',
-        iconUrl: 'https://picsum.photos/100/150?random=4',
-        slug: 'business-english-basics',
-      ),
-      BookModel(
-        id: '5',
-        title: 'Travel English',
-        author: 'Lisa Chen',
-        content: '''Planning a trip abroad? Here are some essential English phrases that will help you navigate airports, hotels, restaurants, and tourist attractions with confidence. Whether you're traveling for business or pleasure, these expressions will make your journey smoother and more enjoyable.
-
-At the airport, you'll need to check in for your flight. You might say: "I'd like to check in for my flight to [destination]" or "I have a reservation under the name [your name]." The agent might ask: "Do you have any luggage to check?" or "Would you like a window or aisle seat?"
-
-When going through security, you might hear: "Please remove your shoes and belt" or "Place your electronics in a separate bin." Follow the instructions and ask if you're unsure: "Is this okay?" or "Do I need to remove this?"
-
-On the plane, flight attendants might ask: "Would you like something to drink?" or "What would you like for dinner?" You can respond with: "I'll have [your choice], please" or "Just water, thank you." If you need assistance, say: "Could you help me, please?"
-
-When you arrive at your destination, you'll need to go through customs. The officer might ask: "What's the purpose of your visit?" or "How long will you be staying?" Answer clearly: "I'm here for vacation" or "I'm on a business trip for [duration]."
-
-At the hotel, you'll check in at the front desk. Say: "I have a reservation under [name]" or "I'd like to check in, please." The clerk might ask: "Do you have a credit card for incidentals?" or "Would you like a room with a view?"
-
-If you need help with your room, call the front desk: "My room key isn't working" or "Could you send someone to fix the air conditioning?" For housekeeping, you might say: "Could you please clean my room?" or "I need fresh towels."
-
-When dining at restaurants, you'll need to make reservations: "I'd like to make a reservation for [number] people at [time]" or "Do you have any tables available for tonight?" The host might ask: "Smoking or non-smoking?" or "Would you like to sit inside or outside?"
-
-Ordering food, you can say: "I'd like to start with [appetizer]" or "What do you recommend?" The server might ask: "How would you like your steak cooked?" or "Would you like fries or a salad with that?" Don't forget to ask: "Could I have the bill, please?"
-
-When shopping, you might ask: "Do you have this in a different size?" or "How much does this cost?" If you're looking for something specific: "Where can I find [item]?" or "Do you sell [product]?" For payment: "Do you accept credit cards?" or "Can I pay with cash?"
-
-At tourist attractions, you might ask: "What time does the museum close?" or "How much is the entrance fee?" For directions: "How do I get to [location]?" or "Is it within walking distance?" If you're lost: "Could you help me find [place]?" or "I'm looking for [landmark]."
-
-Using public transportation, you might ask: "How do I get to [destination]?" or "Which bus goes to [place]?" For tickets: "I'd like a ticket to [destination]" or "How much is a day pass?" On the bus or train: "Is this the right stop for [place]?" or "Could you let me know when we reach [stop]?"
-
-Remember that body language and a friendly smile can help bridge language barriers. Most people appreciate the effort to communicate in their language, even if you make mistakes. Don't be afraid to ask for help or clarification when needed.
-
-The key to successful travel communication is preparation and practice. Learn the essential phrases before your trip, and don't hesitate to use them. Your confidence will grow with each successful interaction, making your travel experience more enjoyable and memorable.''',
-        translation: 'Yurt dışına seyahat planlıyor musun? İşte bazı temel İngilizce ifadeler...',
-        summary: 'Useful English phrases for travelers.',
-        textLevel: '2',
-        textLanguage: 'en',
-        translationLanguage: 'tr',
-        estimatedReadingTimeInMinutes: 16,
-        wordCount: 900,
-        isActive: true,
-        categoryId: 5,
-        categoryName: 'Travel',
-        createdAt: now,
-        updatedAt: now,
-        imageUrl: 'https://picsum.photos/200/300?random=5',
-        iconUrl: 'https://picsum.photos/100/150?random=5',
-        slug: 'travel-english',
-      ),
     ];
   }
 
   BookModel _getTestBook(String id) {
-    final books = _getTestBooks();
-    final book = books.firstWhere(
-      (book) => book.id == id,
-      orElse: () => books.first,
+    final now = DateTime.now();
+    return BookModel(
+      id: id,
+      title: 'Test Book $id',
+      author: 'Test Author',
+      content: 'This is a test book content for book $id.',
+      translation: 'Bu, $id numaralı kitap için test içeriğidir.',
+      summary: 'A test book for development purposes.',
+      textLevel: '1',
+      textLanguage: 'en',
+      translationLanguage: 'tr',
+      estimatedReadingTimeInMinutes: 5,
+      wordCount: 100,
+      isActive: true,
+      categoryId: 1,
+      categoryName: 'Test',
+      createdAt: now,
+      updatedAt: now,
+      imageUrl: 'https://picsum.photos/200/300?random=$id',
+      iconUrl: 'https://picsum.photos/100/150?random=$id',
+      slug: 'test-book-$id',
     );
-    return book;
   }
 }

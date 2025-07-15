@@ -109,7 +109,6 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i474.NetworkManager>(),
           gh<_i558.FlutterSecureStorage>(),
           gh<_i326.CacheManager>(),
-          gh<String>(instanceName: 'baseUrl'),
         ));
     gh.singleton<_i417.SyncManager>(() => _i417.SyncManager(
           gh<_i392.StorageManager>(),

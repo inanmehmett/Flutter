@@ -7,6 +7,7 @@ import '../models/auth_models.dart';
 import '../models/user_profile.dart';
 import '../../../../core/cache/cache_manager.dart';
 import '../../../../core/network/network_manager.dart';
+import '../../../../core/config/app_config.dart';
 
 abstract class AuthServiceProtocol {
   Future<UserProfile> login(
@@ -17,6 +18,7 @@ abstract class AuthServiceProtocol {
   Future<UserProfile> fetchUserProfile();
   Future<void> updateProfileImage(File image);
   Future<void> updateUserProfile(UserProfile profile);
+  Future<bool> resetPassword({required String email});
 }
 
 @singleton
@@ -30,8 +32,7 @@ class AuthService implements AuthServiceProtocol {
     this._networkManager,
     this._secureStorage,
     this._cacheManager,
-    @Named('baseUrl') this._baseUrl,
-  ) {
+  ) : _baseUrl = AppConfig.apiBaseUrl {
     print('🔐 [AuthService] Initialized with baseUrl: $_baseUrl');
     print('🔐 [AuthService] NetworkManager: ${_networkManager.runtimeType}');
   }
@@ -385,6 +386,72 @@ class AuthService implements AuthServiceProtocol {
       }
     } catch (e) {
       print('🔐 [AuthService] ===== UPDATE USER PROFILE ERROR =====');
+      print('🔐 [AuthService] Error: $e');
+      print('🔐 [AuthService] Error Type: ${e.runtimeType}');
+      throw AuthError.unknown;
+    }
+  }
+
+  @override
+  Future<bool> resetPassword({required String email}) async {
+    print('🔐 [AuthService] ===== RESET PASSWORD START =====');
+    print('🔐 [AuthService] Email: $email');
+
+    try {
+      print('🔐 [AuthService] Getting access token...');
+      final token = await _getAccessToken();
+      if (token == null) {
+        print('🔐 [AuthService] ❌ No access token found, cannot reset password.');
+        throw AuthError.invalidCredentials;
+      }
+      print(
+          '🔐 [AuthService] ✅ Access token found: ${token.substring(0, 10)}...');
+
+      final requestData = {'email': email};
+      print('🔐 [AuthService] Request data: ${json.encode(requestData)}');
+
+      print('🔐 [AuthService] Making POST request to /api/auth/reset-password...');
+      final response = await _networkManager.post(
+        '/api/auth/reset-password',
+        data: requestData,
+      );
+
+      print('🔐 [AuthService] ===== RESET PASSWORD RESPONSE =====');
+      print('🔐 [AuthService] Status Code: ${response.statusCode}');
+      print('🔐 [AuthService] Response Data: ${response.data}');
+
+      if (response.statusCode == 200) {
+        print('🔐 [AuthService] ✅ Password reset successful!');
+        print('🔐 [AuthService] ===== RESET PASSWORD END =====');
+        return true;
+      } else {
+        print(
+            '🔐 [AuthService] ❌ Password reset failed - Status code: ${response.statusCode}');
+        throw AuthError.serverError;
+      }
+    } on DioException catch (e) {
+      print('🔐 [AuthService] ===== RESET PASSWORD DIO ERROR =====');
+      print('🔐 [AuthService] Error Type: ${e.type}');
+      print('🔐 [AuthService] Error Message: ${e.message}');
+      print('🔐 [AuthService] Error Response: ${e.response?.data}');
+      print('🔐 [AuthService] Error Status Code: ${e.response?.statusCode}');
+      print('🔐 [AuthService] Request URL: ${e.requestOptions.uri}');
+      print('🔐 [AuthService] Request Method: ${e.requestOptions.method}');
+      print('🔐 [AuthService] Request Data: ${e.requestOptions.data}');
+
+      if (e.response?.statusCode == 401) {
+        print('🔐 [AuthService] ❌ 401 Unauthorized - Invalid token');
+        throw AuthError.invalidCredentials;
+      } else if (e.response?.statusCode == 400) {
+        print('🔐 [AuthService] ❌ 400 Bad Request - Server error');
+        final errorResponse = SimpleResponse.fromJson(e.response?.data);
+        throw AuthError.serverError;
+      } else {
+        print('🔐 [AuthService] ❌ Network error');
+        throw AuthError.networkError;
+      }
+    } catch (e) {
+      print('🔐 [AuthService] ===== RESET PASSWORD GENERAL ERROR =====');
       print('🔐 [AuthService] Error: $e');
       print('🔐 [AuthService] Error Type: ${e.runtimeType}');
       throw AuthError.unknown;

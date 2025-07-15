@@ -126,10 +126,10 @@ Set the following environment variables:
 
 ```bash
 # API Configuration
-API_BASE_URL=http://your-api-url.com
+API_BASE_URL=http://192.168.1.101:5173
 
 # Build Configuration
-flutter run --dart-define=API_BASE_URL=http://your-api-url.com
+flutter run --dart-define=API_BASE_URL=http://192.168.1.101:5173
 ```
 
 ## 📊 Code Quality

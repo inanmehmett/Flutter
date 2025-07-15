@@ -4,6 +4,7 @@ import 'interceptors/auth_interceptor.dart';
 import 'interceptors/logging_interceptor.dart';
 import 'interceptors/cache_interceptor.dart';
 import '../storage/secure_storage_service.dart';
+import '../config/app_config.dart';
 
 @singleton
 class ApiClient {
@@ -12,7 +13,7 @@ class ApiClient {
   ApiClient(SecureStorageService secureStorage) {
     _dio = Dio(
       BaseOptions(
-        baseUrl: 'http://192.168.1.101:5173', // Swift projesindeki API base URL
+        baseUrl: AppConfig.apiBaseUrl,
         connectTimeout: const Duration(seconds: 5),
         receiveTimeout: const Duration(seconds: 3),
       ),

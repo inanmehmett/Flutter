@@ -136,7 +136,35 @@ class _HomePageState extends State<HomePage> {
                     );
                   }
 
-                  final books = bookViewModel.books.take(3).toList();
+                  if (bookViewModel.hasError && !bookViewModel.hasBooks) {
+                    return Container(
+                      height: 200,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Kitaplar yüklenirken hata oluştu',
+                              style: TextStyle(color: Colors.red[700]),
+                            ),
+                            const SizedBox(height: 8),
+                            ElevatedButton(
+                              onPressed: () => bookViewModel.refreshBooks(),
+                              child: const Text('Tekrar Dene'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  final books = bookViewModel.getRecommendedBooks();
 
                   if (books.isEmpty) {
                     return Container(
@@ -216,7 +244,7 @@ class _HomePageState extends State<HomePage> {
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          book.author,
+                                          book.author ?? 'Unknown',
                                           style: TextStyle(
                                             color: Colors.grey[600],
                                             fontSize: 12,
@@ -228,7 +256,7 @@ class _HomePageState extends State<HomePage> {
                                         Row(
                                           children: [
                                             Text(
-                                              '${book.estimatedReadingTimeInMinutes} dk',
+                                              '${book.estimatedReadingTimeInMinutes ?? 10} dk',
                                               style: TextStyle(
                                                 color: Colors.grey[700],
                                                 fontSize: 11,
@@ -275,7 +303,7 @@ class _HomePageState extends State<HomePage> {
                     );
                   }
 
-                  final books = bookViewModel.books.take(3).toList();
+                  final books = bookViewModel.getTrendingBooks();
 
                   if (books.isEmpty) {
                     return Container(
