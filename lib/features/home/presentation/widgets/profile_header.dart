@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../domain/entities/user_profile.dart';
+import '../../../auth/data/models/user_profile.dart';
 
 class ProfileHeader extends StatelessWidget {
   final UserProfile profile;
@@ -23,10 +23,24 @@ class ProfileHeader extends StatelessWidget {
   }
 
   Widget _buildProfileImage() {
-    if (profile.profileImageUrl != null) {
+    if (profile.profileImageUrl != null && profile.profileImageUrl!.isNotEmpty) {
       return CircleAvatar(
         radius: 30,
         backgroundImage: NetworkImage(profile.profileImageUrl!),
+        onBackgroundImageError: (exception, stackTrace) {
+          print('🖼️ [ProfileHeader] Image load error: $exception');
+        },
+        child: profile.profileImageUrl!.contains('placeholder') || 
+               profile.profileImageUrl!.contains('default') 
+            ? Text(
+                _getInitials(profile.userName),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              )
+            : null,
       );
     }
 

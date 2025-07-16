@@ -19,6 +19,7 @@ import '../../features/reader/data/datasources/book_remote_data_source.dart';
 import '../../features/reader/services/page_manager.dart';
 import '../../features/reader/services/page_cache.dart';
 import '../../features/reader/services/pagination_worker.dart';
+import '../../features/auth/data/services/auth_service.dart';
 import 'injection.config.dart';
 
 final getIt = GetIt.instance;
@@ -65,6 +66,11 @@ Future<void> configureDependencies() async {
 
   // Initialize auto-generated dependencies
   await getIt.init();
+
+  // Register AuthServiceProtocol with AuthService implementation
+  getIt.registerLazySingleton<AuthServiceProtocol>(
+    () => getIt<AuthService>(),
+  );
 
   // Register BookService
   getIt.registerLazySingleton<BookService>(

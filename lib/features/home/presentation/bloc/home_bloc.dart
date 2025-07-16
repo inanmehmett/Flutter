@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../domain/entities/user_profile.dart';
+import '../../../auth/data/models/user_profile.dart';
 
 // Events
 abstract class HomeEvent extends Equatable {
@@ -69,9 +69,17 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       await Future.delayed(const Duration(seconds: 1));
       emit(HomeLoaded(
         userProfile: UserProfile(
+          id: '1',
           userName: 'Kullanıcı',
+          email: 'user@example.com',
           profileImageUrl: null,
-          level: 'Başlangıç',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          isActive: true,
+          level: 1,
+          experiencePoints: 0,
+          totalReadBooks: 0,
+          totalQuizScore: 0,
         ),
         isFirstWelcome: true,
         recommendedBooks: [],

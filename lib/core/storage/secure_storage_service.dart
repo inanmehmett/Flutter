@@ -30,6 +30,14 @@ class SecureStorageService {
     return await _storage.read(key: _refreshTokenKey);
   }
 
+  Future<void> saveAccessToken(String token) async {
+    await _storage.write(key: _accessTokenKey, value: token);
+  }
+
+  Future<void> saveRefreshToken(String token) async {
+    await _storage.write(key: _refreshTokenKey, value: token);
+  }
+
   Future<int?> getExpiresIn() async {
     final value = await _storage.read(key: _expiresInKey);
     return value != null ? int.parse(value) : null;

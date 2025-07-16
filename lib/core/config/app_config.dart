@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 class AppConfig {
-  static const String apiBaseUrl = 'http://192.168.1.101:5173';
+  static const String apiBaseUrl = 'http://192.168.1.104:5173';
   static const Duration defaultTimeout = Duration(seconds: 30);
   static const int maxRetries = 3;
   static const Duration retryDelay = Duration(seconds: 1);

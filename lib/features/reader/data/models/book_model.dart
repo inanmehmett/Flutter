@@ -2,6 +2,7 @@ import 'package:hive/hive.dart';
 import 'package:json_annotation/json_annotation.dart';
 import '../../domain/entities/book.dart';
 import '../../../../core/sync/sync_state.dart';
+import '../../../../core/config/app_config.dart';
 
 part 'book_model.g.dart';
 
@@ -133,12 +134,12 @@ class BookModel extends HiveObject implements Book {
         return iconUrl;
       }
       if (iconUrl.startsWith('file://')) {
-        return iconUrl.replaceFirst('file://', 'http://192.168.1.107:5173');
+        return iconUrl.replaceFirst('file://', AppConfig.apiBaseUrl);
       }
       if (iconUrl.startsWith('/')) {
-        return 'http://192.168.1.107:5173$iconUrl';
+        return '${AppConfig.apiBaseUrl}$iconUrl';
       }
-      return 'http://192.168.1.107:5173/$iconUrl';
+      return '${AppConfig.apiBaseUrl}/$iconUrl';
     }
     
     return BookModel(

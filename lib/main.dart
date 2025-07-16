@@ -11,6 +11,7 @@ import 'features/onboarding/presentation/widgets/splash_screen.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/data/services/auth_service.dart' as auth;
 import 'features/auth/presentation/pages/login_page.dart';
+import 'features/auth/presentation/pages/registration_page.dart';
 import 'features/home/presentation/pages/home_page.dart';
 import 'features/reader/presentation/viewmodels/book_list_view_model.dart';
 import 'features/reader/presentation/pages/book_list_page.dart';
@@ -87,8 +88,15 @@ class MyApp extends StatelessWidget {
         ),
         routes: {
           '/login': (context) => const LoginPage(),
+          '/register': (context) => const RegistrationPage(),
           '/home': (context) => const HomePage(),
           '/books': (context) => const BookListPage(),
+          '/profile': (context) => const Scaffold(
+                body: Center(
+                  child: Text('Profile Page - Coming Soon!',
+                      style: TextStyle(fontSize: 24)),
+                ),
+              ),
           '/quiz': (context) => const Scaffold(
                 body: Center(
                   child: Text('Quiz Page - Coming Soon!',

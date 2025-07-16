@@ -73,9 +73,9 @@ class AuthService implements AuthServiceProtocol {
         print('🔐 [AuthService] Username: ${loginResponse.userName}');
         print('🔐 [AuthService] Email: ${loginResponse.email}');
 
-        // Save tokens
-        final accessToken = 'dummy_token_${loginResponse.userId}';
-        final refreshToken = 'dummy_refresh_${loginResponse.userId}';
+        // Save tokens (GERÇEK TOKENLAR)
+        final accessToken = response.data['accessToken'] ?? response.data['token'];
+        final refreshToken = response.data['refreshToken'] ?? response.data['refresh_token'];
         print('🔐 [AuthService] Saving tokens...');
         print('🔐 [AuthService] Access Token: $accessToken');
         print('🔐 [AuthService] Refresh Token: $refreshToken');
@@ -83,7 +83,7 @@ class AuthService implements AuthServiceProtocol {
         await _saveTokens(
           accessToken: accessToken,
           refreshToken: refreshToken,
-          expiresIn: 3600,
+          expiresIn: 3600, // Gerekirse response.data['expiresIn'] kullan
         );
         print('🔐 [AuthService] ✅ Tokens saved successfully');
 

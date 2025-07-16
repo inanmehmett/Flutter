@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import '../../../../core/config/app_config.dart';
 
 part 'user_profile.g.dart';
 
@@ -36,8 +37,40 @@ class UserProfile {
     this.totalQuizScore,
   });
 
-  factory UserProfile.fromJson(Map<String, dynamic> json) =>
-      _$UserProfileFromJson(json);
+  factory UserProfile.fromJson(Map<String, dynamic> json) {
+    // Profile image URL'yi tam URL'ye çevir
+    String? processProfileImageUrl(String? profileImageUrl) {
+      if (profileImageUrl == null || profileImageUrl.isEmpty) return null;
+      if (profileImageUrl.startsWith('http://') || profileImageUrl.startsWith('https://')) {
+        return profileImageUrl;
+      }
+      if (profileImageUrl.startsWith('file://')) {
+        return profileImageUrl.replaceFirst('file://', AppConfig.apiBaseUrl);
+      }
+      if (profileImageUrl.startsWith('/')) {
+        return '${AppConfig.apiBaseUrl}$profileImageUrl';
+      }
+      return '${AppConfig.apiBaseUrl}/$profileImageUrl';
+    }
+
+    return UserProfile(
+      id: json['id'] as String,
+      userName: json['userName'] as String,
+      email: json['email'] as String,
+      firstName: json['firstName'] as String?,
+      lastName: json['lastName'] as String?,
+      profileImageUrl: processProfileImageUrl(json['profileImageUrl'] as String?),
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      updatedAt: DateTime.parse(json['updatedAt'] as String),
+      isActive: json['isActive'] as bool,
+      bio: json['bio'] as String?,
+      level: (json['level'] as num?)?.toInt(),
+      experiencePoints: (json['experiencePoints'] as num?)?.toInt(),
+      totalReadBooks: (json['totalReadBooks'] as num?)?.toInt(),
+      totalQuizScore: (json['totalQuizScore'] as num?)?.toInt(),
+    );
+  }
+  
   Map<String, dynamic> toJson() => _$UserProfileToJson(this);
 
   UserProfile copyWith({
