@@ -23,21 +23,27 @@ class AuthService {
   }) async {
     try {
       final response = await _dio.post(
-        '/auth/login',
+        '/connect/token',
         data: {
-          'email': email,
+          'grant_type': 'password',
+          'username': email,
           'password': password,
         },
+        options: Options(headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        }),
       );
 
       if (response.statusCode == 200) {
         final data = response.data as Map<String, dynamic>;
-        final token = data['token'] as String;
-        await _secureStorage.saveTokens(
-          accessToken: token,
-          refreshToken: data['refresh_token'] ?? '',
-          expiresIn: data['expires_in'] ?? 3600,
-        );
+        final token = data['access_token'] as String?;
+        if (token != null) {
+          await _secureStorage.saveTokens(
+            accessToken: token,
+            refreshToken: data['refresh_token'] ?? '',
+            expiresIn: data['expires_in'] ?? 3600,
+          );
+        }
         return token;
       }
       return null;
@@ -53,23 +59,17 @@ class AuthService {
   }) async {
     try {
       final response = await _dio.post(
-        '/auth/register',
+        '/connect/register',
         data: {
-          'email': email,
-          'password': password,
-          'name': name,
+          'Email': email,
+          'UserName': name,
+          'Password': password,
         },
       );
 
-      if (response.statusCode == 201) {
-        final data = response.data as Map<String, dynamic>;
-        final token = data['token'] as String;
-        await _secureStorage.saveTokens(
-          accessToken: token,
-          refreshToken: data['refresh_token'] ?? '',
-          expiresIn: data['expires_in'] ?? 3600,
-        );
-        return token;
+      if (response.statusCode == 200) {
+        // no token returned; prompt login
+        return null;
       }
       return null;
     } catch (e) {
@@ -79,7 +79,7 @@ class AuthService {
 
   Future<void> logout() async {
     try {
-      await _dio.post('/auth/logout');
+      await _dio.get('/connect/logout');
     } catch (e) {
       // Ignore logout errors
     } finally {
@@ -90,10 +90,21 @@ class AuthService {
 
   Future<User?> getCurrentUser() async {
     try {
-      final response = await _dio.get('/auth/me');
+      final response = await _dio.get('/api/ApiUserProfile');
       if (response.statusCode == 200) {
         final data = response.data as Map<String, dynamic>;
-        return User.fromJson(data);
+        final createdAtRaw = data['createdAt']?.toString();
+        final updatedAtRaw = data['updatedAt']?.toString();
+        final createdAt = createdAtRaw != null ? DateTime.tryParse(createdAtRaw) ?? DateTime.now() : DateTime.now();
+        final updatedAt = updatedAtRaw != null ? DateTime.tryParse(updatedAtRaw) ?? DateTime.now() : DateTime.now();
+        return User(
+          id: data['id']?.toString() ?? '',
+          name: data['userName']?.toString() ?? '',
+          email: data['email']?.toString() ?? '',
+          avatar: data['profileImageUrl']?.toString(),
+          createdAt: createdAt,
+          updatedAt: updatedAt,
+        );
       }
       return null;
     } catch (e) {
@@ -116,20 +127,26 @@ class AuthService {
       if (refreshToken == null) return null;
 
       final response = await _dio.post(
-        '/auth/refresh',
+        '/connect/token',
         data: {
+          'grant_type': 'refresh_token',
           'refresh_token': refreshToken,
         },
+        options: Options(headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        }),
       );
 
       if (response.statusCode == 200) {
         final data = response.data as Map<String, dynamic>;
-        final newToken = data['token'] as String;
-        await _secureStorage.saveTokens(
-          accessToken: newToken,
-          refreshToken: data['refresh_token'] ?? refreshToken,
-          expiresIn: data['expires_in'] ?? 3600,
-        );
+        final newToken = data['access_token'] as String?;
+        if (newToken != null) {
+          await _secureStorage.saveTokens(
+            accessToken: newToken,
+            refreshToken: data['refresh_token'] ?? refreshToken,
+            expiresIn: data['expires_in'] ?? 3600,
+          );
+        }
         return newToken;
       }
       return null;

@@ -20,10 +20,15 @@ class AuthInterceptor extends Interceptor {
     print('🔐 [AuthInterceptor] Method: ${options.method}');
     print('🔐 [AuthInterceptor] Path: ${options.path}');
 
+    // Set correct content type for token endpoint
+    if (options.path.contains('/connect/token')) {
+      options.contentType = Headers.formUrlEncodedContentType;
+    }
+
     // Check if this is an auth-related request that doesn't need a token
-    final isAuthRequest = options.path.contains('/auth/') ||
-        options.path.contains('/register') ||
-        options.path.contains('/login');
+    final isAuthRequest = options.path.contains('/connect/token') ||
+        options.path.contains('/connect/register') ||
+        options.path.contains('/connect/logout');
 
     print('🔐 [AuthInterceptor] Is auth request: $isAuthRequest');
 
@@ -74,41 +79,54 @@ class AuthInterceptor extends Interceptor {
 
     if (err.response?.statusCode == 401) {
       print('🔐 [AuthInterceptor] ❌ 401 Unauthorized - Token may be invalid or expired');
-      
+
       try {
-        // Try to refresh the token
+        // Try to refresh the token via OpenIddict token endpoint
         final refreshToken = await _secureStorage.getRefreshToken();
         if (refreshToken != null) {
           print('🔐 [AuthInterceptor] 🔄 Attempting token refresh...');
-          
-          // Create a new Dio instance for refresh request
-          final refreshDio = Dio();
+
+          // Use a fresh Dio with same base URL
+          final refreshDio = Dio(BaseOptions(baseUrl: err.requestOptions.baseUrl));
           final refreshResponse = await refreshDio.post(
-            '${err.requestOptions.baseUrl}/auth/refresh',
-            data: {'refreshToken': refreshToken},
+            '/connect/token',
+            data: {
+              'grant_type': 'refresh_token',
+              'refresh_token': refreshToken,
+            },
+            options: Options(headers: {
+              'Content-Type': Headers.formUrlEncodedContentType,
+            }),
           );
-          
+
           if (refreshResponse.statusCode == 200) {
-            final newAccessToken = refreshResponse.data['accessToken'];
-            final newRefreshToken = refreshResponse.data['refreshToken'];
-            
-            // Save new tokens
-            await _secureStorage.saveAccessToken(newAccessToken);
-            await _secureStorage.saveRefreshToken(newRefreshToken);
-            
-            print('🔐 [AuthInterceptor] ✅ Token refreshed successfully');
-            
-            // Retry the original request with new token
-            err.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
-            final retryResponse = await refreshDio.fetch(err.requestOptions);
-            handler.resolve(retryResponse);
-            return;
+            final data = refreshResponse.data is Map<String, dynamic>
+                ? refreshResponse.data as Map<String, dynamic>
+                : {};
+            final newAccessToken = data['access_token'] ?? data['accessToken'];
+            final newRefreshToken = data['refresh_token'] ?? data['refreshToken'];
+            final expiresIn = data['expires_in'] ?? 3600;
+
+            if (newAccessToken != null && newRefreshToken != null) {
+              await _secureStorage.saveTokens(
+                accessToken: newAccessToken,
+                refreshToken: newRefreshToken,
+                expiresIn: expiresIn is int ? expiresIn : int.tryParse('$expiresIn') ?? 3600,
+              );
+              print('🔐 [AuthInterceptor] ✅ Token refreshed successfully');
+
+              // Retry the original request with new token
+              err.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
+              final retryResponse = await refreshDio.fetch(err.requestOptions);
+              handler.resolve(retryResponse);
+              return;
+            }
           }
         }
       } catch (refreshError) {
         print('🔐 [AuthInterceptor] ❌ Token refresh failed: $refreshError');
       }
-      
+
       // If refresh fails, clear tokens and let the error propagate
       print('🔐 [AuthInterceptor] 🗑️ Clearing tokens due to refresh failure');
       await _secureStorage.clearTokens();

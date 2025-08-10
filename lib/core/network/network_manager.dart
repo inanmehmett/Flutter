@@ -23,22 +23,19 @@ class NetworkManager {
     _dio.options.receiveTimeout = AppConfig.receiveTimeout;
     _dio.options.sendTimeout = AppConfig.sendTimeout;
     
-    // CORS headers ekle
+    // İstemci tarafında CORS header'ları gereksizdir, kaldırıldı
     _dio.options.headers.addAll({
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Origin, Content-Type, Accept, Authorization, X-Requested-With',
     });
     
-    // CORS preflight request'leri için status validation
+    // 4xx hataları error olarak işlensin ki 401 durumunda refresh tetiklensin
     _dio.options.validateStatus = (status) {
-      return status != null && status < 500;
+      return status != null && status < 400;
     };
 
     _dio.interceptors.addAll([
-      CorsInterceptor(), // CORS interceptor'ı en başa ekle
+      CorsInterceptor(), // Opsiyonel; istersen kaldırılabilir
       AuthInterceptor(_secureStorageService),
       LoggingInterceptor(),
       CacheInterceptor(),

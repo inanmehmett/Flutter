@@ -47,18 +47,19 @@ class AuthService implements AuthServiceProtocol {
     print('🔐 [AuthService] Base URL: $_baseUrl');
 
     try {
-      final requestData = {
-        'usernameOrEmail': userNameOrEmail.toLowerCase().trim(),
+      // OpenIddict password grant ile login
+      final formData = {
+        'grant_type': 'password',
+        'username': userNameOrEmail.toLowerCase().trim(),
         'password': password,
-        'rememberMe': rememberMe,
+        // 'scope': 'offline_access roles profile email', // gerekirse
       };
 
-      print('🔐 [AuthService] Request data: ${json.encode(requestData)}');
-      print('🔐 [AuthService] Making POST request to /api/auth/login...');
+      print('🔐 [AuthService] Making POST request to /connect/token (password grant)...');
 
       final response = await _networkManager.post(
-        '/api/auth/login',
-        data: requestData,
+        '/connect/token',
+        data: formData,
       );
 
       print('🔐 [AuthService] ===== LOGIN RESPONSE =====');
@@ -68,42 +69,25 @@ class AuthService implements AuthServiceProtocol {
 
       if (response.statusCode == 200) {
         print('🔐 [AuthService] ✅ Login successful!');
-        final loginResponse = LoginResponse.fromJson(response.data);
-        print('🔐 [AuthService] User ID: ${loginResponse.userId}');
-        print('🔐 [AuthService] Username: ${loginResponse.userName}');
-        print('🔐 [AuthService] Email: ${loginResponse.email}');
 
-        // Save tokens (GERÇEK TOKENLAR)
-        final accessToken = response.data['accessToken'] ?? response.data['token'];
-        final refreshToken = response.data['refreshToken'] ?? response.data['refresh_token'];
+        final accessToken = response.data['access_token'] ?? response.data['accessToken'];
+        final refreshToken = response.data['refresh_token'] ?? response.data['refreshToken'];
+        final expiresIn = response.data['expires_in'] ?? 3600;
+
         print('🔐 [AuthService] Saving tokens...');
-        print('🔐 [AuthService] Access Token: $accessToken');
-        print('🔐 [AuthService] Refresh Token: $refreshToken');
-
         await _saveTokens(
-          accessToken: accessToken,
-          refreshToken: refreshToken,
-          expiresIn: 3600, // Gerekirse response.data['expiresIn'] kullan
+          accessToken: '$accessToken',
+          refreshToken: '$refreshToken',
+          expiresIn: expiresIn is int ? expiresIn : int.tryParse('$expiresIn') ?? 3600,
         );
         print('🔐 [AuthService] ✅ Tokens saved successfully');
 
-        // Return user profile
-        final userProfile = UserProfile(
-          id: loginResponse.userId,
-          userName: loginResponse.userName,
-          email: loginResponse.email,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-          isActive: true,
-        );
-
-        print(
-            '🔐 [AuthService] ✅ Returning user profile: ${userProfile.userName}');
+        // Profile çek
+        final userProfile = await fetchUserProfile();
         print('🔐 [AuthService] ===== LOGIN END =====');
         return userProfile;
       } else {
-        print(
-            '🔐 [AuthService] ❌ Login failed - Status code: ${response.statusCode}');
+        print('🔐 [AuthService] ❌ Login failed - Status code: ${response.statusCode}');
         throw AuthError.invalidCredentials;
       }
     } on DioException catch (e) {
@@ -121,7 +105,6 @@ class AuthService implements AuthServiceProtocol {
         throw AuthError.invalidCredentials;
       } else if (e.response?.statusCode == 400) {
         print('🔐 [AuthService] ❌ 400 Bad Request - Server error');
-        final errorResponse = SimpleResponse.fromJson(e.response?.data);
         throw AuthError.serverError;
       } else {
         print('🔐 [AuthService] ❌ Network error');
@@ -152,14 +135,12 @@ class AuthService implements AuthServiceProtocol {
         'Email': email.trim(),
         'UserName': userName.trim(),
         'Password': password,
-        'ConfirmPassword': confirmPassword,
       };
 
-      print('🔐 [AuthService] Request data: ${json.encode(requestData)}');
-      print('🔐 [AuthService] Making POST request to /api/auth/register...');
+      print('🔐 [AuthService] Making POST request to /connect/register...');
 
       final response = await _networkManager.post(
-        '/api/auth/register',
+        '/connect/register',
         data: requestData,
       );
 
@@ -171,9 +152,9 @@ class AuthService implements AuthServiceProtocol {
       if (response.statusCode == 200) {
         print('🔐 [AuthService] ✅ Registration successful!');
 
-        // Return a basic user profile
+        // Opsiyonel: otomatik login yapılabilir, şimdilik profil dummy dönüyoruz
         final userProfile = UserProfile(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          id: response.data['userId']?.toString() ?? '',
           userName: userName,
           email: email,
           createdAt: DateTime.now(),
@@ -181,13 +162,10 @@ class AuthService implements AuthServiceProtocol {
           isActive: true,
         );
 
-        print(
-            '🔐 [AuthService] ✅ Returning user profile: ${userProfile.userName}');
         print('🔐 [AuthService] ===== REGISTER END =====');
         return userProfile;
       } else {
-        print(
-            '🔐 [AuthService] ❌ Registration failed - Status code: ${response.statusCode}');
+        print('🔐 [AuthService] ❌ Registration failed - Status code: ${response.statusCode}');
         throw AuthError.serverError;
       }
     } on DioException catch (e) {
@@ -213,8 +191,8 @@ class AuthService implements AuthServiceProtocol {
     print('🔐 [AuthService] ===== LOGOUT START =====');
 
     try {
-      print('🔐 [AuthService] Making POST request to /api/auth/logout...');
-      await _networkManager.post('/api/auth/logout');
+      print('🔐 [AuthService] Making GET request to /connect/logout...');
+      await _networkManager.get('/connect/logout');
       print('🔐 [AuthService] ✅ Logout API call successful');
     } catch (e) {
       print('🔐 [AuthService] ⚠️ Logout API call failed: $e');
@@ -249,13 +227,8 @@ class AuthService implements AuthServiceProtocol {
       print(
           '🔐 [AuthService] ✅ Access token found: ${token.substring(0, 10)}...');
 
-      print('🔐 [AuthService] Making GET request to /api/UserProfile...');
-      print('🔐 [AuthService] NetworkManager: ${_networkManager.runtimeType}');
-      print('🔐 [AuthService] Base URL: $_baseUrl');
-
-      // Note: NetworkManager doesn't support custom headers directly
-      // We'll need to use the auth interceptor for token management
-      final response = await _networkManager.get('/api/UserProfile');
+      print('🔐 [AuthService] Making GET request to /api/ApiUserProfile...');
+      final response = await _networkManager.get('/api/ApiUserProfile');
 
       print('🔐 [AuthService] ===== FETCH PROFILE RESPONSE =====');
       print('🔐 [AuthService] Status Code: ${response.statusCode}');
@@ -264,14 +237,19 @@ class AuthService implements AuthServiceProtocol {
 
       if (response.statusCode == 200) {
         print('🔐 [AuthService] ✅ Profile fetch successful!');
-        final userProfile = UserProfile.fromJson(response.data);
-        print(
-            '🔐 [AuthService] Decoded profile: ${userProfile.userName} (${userProfile.email})');
+        final data = response.data as Map<String, dynamic>;
+        final userProfile = UserProfile(
+          id: data['id']?.toString() ?? '',
+          userName: data['userName']?.toString() ?? '',
+          email: data['email']?.toString() ?? '',
+          createdAt: DateTime.tryParse('${data['createdAt']}') ?? DateTime.now(),
+          updatedAt: DateTime.tryParse('${data['updatedAt']}') ?? DateTime.now(),
+          isActive: true,
+        );
         print('🔐 [AuthService] ===== FETCH USER PROFILE END =====');
         return userProfile;
       } else {
-        print(
-            '🔐 [AuthService] ❌ Profile fetch failed - Status code: ${response.statusCode}');
+        print('🔐 [AuthService] ❌ Profile fetch failed - Status code: ${response.statusCode}');
         throw AuthError.serverError;
       }
     } on DioException catch (e) {
@@ -299,91 +277,23 @@ class AuthService implements AuthServiceProtocol {
   }
 
   @override
-  Future<void> updateProfileImage(File image) async {
-    print('🔐 [AuthService] ===== UPDATE PROFILE IMAGE START =====');
-    print('🔐 [AuthService] Image path: ${image.path}');
-    print('🔐 [AuthService] Image size: ${await image.length()} bytes');
-
-    try {
-      print('🔐 [AuthService] Getting access token...');
-      final token = await _getAccessToken();
-      if (token == null) {
-        print('🔐 [AuthService] ❌ No access token found');
-        throw AuthError.invalidCredentials;
-      }
-      print(
-          '🔐 [AuthService] ✅ Access token found: ${token.substring(0, 10)}...');
-
-      print('🔐 [AuthService] Creating form data...');
-      final formData = FormData.fromMap({
-        'image': await MultipartFile.fromFile(image.path),
-      });
-      print('🔐 [AuthService] Form data created successfully');
-
-      print(
-          '🔐 [AuthService] Making POST request to /api/auth/profile/image...');
-      final response = await _networkManager.post(
-        '/api/auth/profile/image',
-        data: formData,
-      );
-
-      print('🔐 [AuthService] ===== UPDATE PROFILE IMAGE RESPONSE =====');
-      print('🔐 [AuthService] Status Code: ${response.statusCode}');
-      print('🔐 [AuthService] Response Data: ${response.data}');
-
-      if (response.statusCode == 200) {
-        print('🔐 [AuthService] ✅ Profile image updated successfully');
-        print('🔐 [AuthService] ===== UPDATE PROFILE IMAGE END =====');
-      } else {
-        print(
-            '🔐 [AuthService] ❌ Profile image update failed - Status code: ${response.statusCode}');
-        throw AuthError.serverError;
-      }
-    } catch (e) {
-      print('🔐 [AuthService] ===== UPDATE PROFILE IMAGE ERROR =====');
-      print('🔐 [AuthService] Error: $e');
-      print('🔐 [AuthService] Error Type: ${e.runtimeType}');
-      throw AuthError.unknown;
-    }
-  }
-
-  @override
   Future<void> updateUserProfile(UserProfile profile) async {
     print('🔐 [AuthService] ===== UPDATE USER PROFILE START =====');
-    print(
-        '🔐 [AuthService] Profile to update: ${profile.userName} (${profile.email})');
 
     try {
-      print('🔐 [AuthService] Getting access token...');
       final token = await _getAccessToken();
       if (token == null) {
         print('🔐 [AuthService] ❌ No access token found');
         throw AuthError.invalidCredentials;
       }
-      print(
-          '🔐 [AuthService] ✅ Access token found: ${token.substring(0, 10)}...');
 
       final profileData = profile.toJson();
-      print('🔐 [AuthService] Profile data: ${json.encode(profileData)}');
 
-      print('🔐 [AuthService] Making PUT request to /api/user/profile...');
-      final response = await _networkManager.put(
-        '/api/user/profile',
+      print('🔐 [AuthService] Making PUT request to /api/ApiUserProfile...');
+      await _networkManager.put(
+        '/api/ApiUserProfile',
         data: profileData,
       );
-
-      print('🔐 [AuthService] ===== UPDATE USER PROFILE RESPONSE =====');
-      print('🔐 [AuthService] Status Code: ${response.statusCode}');
-      print('🔐 [AuthService] Response Data: ${response.data}');
-
-      if (response.statusCode == 200) {
-        print('🔐 [AuthService] ✅ User profile updated successfully');
-        print('🔐 [AuthService] ===== UPDATE USER PROFILE END =====');
-      } else {
-        print(
-            '🔐 [AuthService] ❌ User profile update failed - Status code: ${response.statusCode}');
-        throw AuthError.serverError;
-      }
     } catch (e) {
       print('🔐 [AuthService] ===== UPDATE USER PROFILE ERROR =====');
       print('🔐 [AuthService] Error: $e');
@@ -393,69 +303,40 @@ class AuthService implements AuthServiceProtocol {
   }
 
   @override
-  Future<bool> resetPassword({required String email}) async {
-    print('🔐 [AuthService] ===== RESET PASSWORD START =====');
-    print('🔐 [AuthService] Email: $email');
+  Future<void> updateProfileImage(File image) async {
+    // No change for now; backend path not finalized in API
+    print('🔐 [AuthService] ===== UPDATE PROFILE IMAGE START =====');
+    print('🔐 [AuthService] Image path: ${image.path}');
+    print('🔐 [AuthService] Image size: ${await image.length()} bytes');
 
     try {
-      print('🔐 [AuthService] Getting access token...');
       final token = await _getAccessToken();
       if (token == null) {
-        print('🔐 [AuthService] ❌ No access token found, cannot reset password.');
         throw AuthError.invalidCredentials;
       }
-      print(
-          '🔐 [AuthService] ✅ Access token found: ${token.substring(0, 10)}...');
 
-      final requestData = {'email': email};
-      print('🔐 [AuthService] Request data: ${json.encode(requestData)}');
+      final formData = FormData.fromMap({
+        'image': await MultipartFile.fromFile(image.path),
+      });
 
-      print('🔐 [AuthService] Making POST request to /api/auth/reset-password...');
-      final response = await _networkManager.post(
-        '/api/auth/reset-password',
-        data: requestData,
+      print('🔐 [AuthService] Making POST request to /api/auth/profile/image...');
+      await _networkManager.post(
+        '/api/auth/profile/image',
+        data: formData,
       );
-
-      print('🔐 [AuthService] ===== RESET PASSWORD RESPONSE =====');
-      print('🔐 [AuthService] Status Code: ${response.statusCode}');
-      print('🔐 [AuthService] Response Data: ${response.data}');
-
-      if (response.statusCode == 200) {
-        print('🔐 [AuthService] ✅ Password reset successful!');
-        print('🔐 [AuthService] ===== RESET PASSWORD END =====');
-        return true;
-      } else {
-        print(
-            '🔐 [AuthService] ❌ Password reset failed - Status code: ${response.statusCode}');
-        throw AuthError.serverError;
-      }
-    } on DioException catch (e) {
-      print('🔐 [AuthService] ===== RESET PASSWORD DIO ERROR =====');
-      print('🔐 [AuthService] Error Type: ${e.type}');
-      print('🔐 [AuthService] Error Message: ${e.message}');
-      print('🔐 [AuthService] Error Response: ${e.response?.data}');
-      print('🔐 [AuthService] Error Status Code: ${e.response?.statusCode}');
-      print('🔐 [AuthService] Request URL: ${e.requestOptions.uri}');
-      print('🔐 [AuthService] Request Method: ${e.requestOptions.method}');
-      print('🔐 [AuthService] Request Data: ${e.requestOptions.data}');
-
-      if (e.response?.statusCode == 401) {
-        print('🔐 [AuthService] ❌ 401 Unauthorized - Invalid token');
-        throw AuthError.invalidCredentials;
-      } else if (e.response?.statusCode == 400) {
-        print('🔐 [AuthService] ❌ 400 Bad Request - Server error');
-        final errorResponse = SimpleResponse.fromJson(e.response?.data);
-        throw AuthError.serverError;
-      } else {
-        print('🔐 [AuthService] ❌ Network error');
-        throw AuthError.networkError;
-      }
     } catch (e) {
-      print('🔐 [AuthService] ===== RESET PASSWORD GENERAL ERROR =====');
+      print('🔐 [AuthService] ===== UPDATE PROFILE IMAGE ERROR =====');
       print('🔐 [AuthService] Error: $e');
       print('🔐 [AuthService] Error Type: ${e.runtimeType}');
       throw AuthError.unknown;
     }
+  }
+
+  @override
+  Future<bool> resetPassword({required String email}) async {
+    // Not implemented on backend; keep as stub
+    print('🔐 [AuthService] ===== RESET PASSWORD START =====');
+    return false;
   }
 
   // Helper methods
@@ -465,103 +346,43 @@ class AuthService implements AuthServiceProtocol {
     required int expiresIn,
   }) async {
     print('🔐 [AuthService] ===== SAVE TOKENS START =====');
-    print('🔐 [AuthService] Access Token: ${accessToken.substring(0, 10)}...');
-    print(
-        '🔐 [AuthService] Refresh Token: ${refreshToken.substring(0, 10)}...');
-    print('🔐 [AuthService] Expires In: $expiresIn seconds');
-
     final expiresAt = DateTime.now().add(Duration(seconds: expiresIn));
-    print('🔐 [AuthService] Token expires at: $expiresAt');
-
     try {
-      print('🔐 [AuthService] Saving access token...');
       await _secureStorage.write(key: 'access_token', value: accessToken);
-      print('🔐 [AuthService] ✅ Access token saved');
-
-      print('🔐 [AuthService] Saving refresh token...');
       await _secureStorage.write(key: 'refresh_token', value: refreshToken);
-      print('🔐 [AuthService] ✅ Refresh token saved');
-
-      print('🔐 [AuthService] Saving token expiration...');
       await _secureStorage.write(
         key: 'token_expires_at',
         value: expiresAt.toIso8601String(),
       );
-      print('🔐 [AuthService] ✅ Token expiration saved');
-
-      print('🔐 [AuthService] ✅ All tokens saved successfully');
-      print('🔐 [AuthService] ===== SAVE TOKENS END =====');
     } catch (e) {
-      print('🔐 [AuthService] ❌ Error saving tokens: $e');
       throw e;
     }
   }
 
   Future<void> _clearTokens() async {
-    print('🔐 [AuthService] ===== CLEAR TOKENS START =====');
-
     try {
-      print('🔐 [AuthService] Deleting access token...');
       await _secureStorage.delete(key: 'access_token');
-      print('🔐 [AuthService] ✅ Access token deleted');
-
-      print('🔐 [AuthService] Deleting refresh token...');
       await _secureStorage.delete(key: 'refresh_token');
-      print('🔐 [AuthService] ✅ Refresh token deleted');
-
-      print('🔐 [AuthService] Deleting token expiration...');
       await _secureStorage.delete(key: 'token_expires_at');
-      print('🔐 [AuthService] ✅ Token expiration deleted');
-
-      print('🔐 [AuthService] ✅ All tokens cleared successfully');
-      print('🔐 [AuthService] ===== CLEAR TOKENS END =====');
     } catch (e) {
-      print('🔐 [AuthService] ❌ Error clearing tokens: $e');
       throw e;
     }
   }
 
   Future<String?> _getAccessToken() async {
-    print('🔐 [AuthService] ===== GET ACCESS TOKEN START =====');
-
     try {
-      print('🔐 [AuthService] Reading access token from secure storage...');
       final token = await _secureStorage.read(key: 'access_token');
-
       if (token != null) {
-        print(
-            '🔐 [AuthService] ✅ Access token found: ${token.substring(0, 10)}...');
-
-        // Check if token is expired
-        print('🔐 [AuthService] Checking token expiration...');
-        final expiresAtString =
-            await _secureStorage.read(key: 'token_expires_at');
+        final expiresAtString = await _secureStorage.read(key: 'token_expires_at');
         if (expiresAtString != null) {
           final expiresAt = DateTime.parse(expiresAtString);
-          final now = DateTime.now();
-          print('🔐 [AuthService] Token expires at: $expiresAt');
-          print('🔐 [AuthService] Current time: $now');
-
-          if (now.isAfter(expiresAt)) {
-            print('🔐 [AuthService] ❌ Token is expired');
-            print('🔐 [AuthService] ===== GET ACCESS TOKEN END =====');
+          if (DateTime.now().isAfter(expiresAt)) {
             return null;
-          } else {
-            print('🔐 [AuthService] ✅ Token is still valid');
           }
-        } else {
-          print(
-              '🔐 [AuthService] ⚠️ No expiration date found, assuming token is valid');
         }
-      } else {
-        print('🔐 [AuthService] ❌ No access token found');
       }
-
-      print('🔐 [AuthService] ===== GET ACCESS TOKEN END =====');
       return token;
     } catch (e) {
-      print('🔐 [AuthService] ❌ Error getting access token: $e');
-      print('🔐 [AuthService] ===== GET ACCESS TOKEN END =====');
       return null;
     }
   }

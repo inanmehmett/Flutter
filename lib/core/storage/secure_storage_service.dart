@@ -6,7 +6,7 @@ class SecureStorageService {
   final FlutterSecureStorage _storage;
   static const String _accessTokenKey = 'access_token';
   static const String _refreshTokenKey = 'refresh_token';
-  static const String _expiresInKey = 'expires_in';
+  static const String _expiresAtKey = 'token_expires_at';
 
   SecureStorageService(this._storage);
 
@@ -15,10 +15,11 @@ class SecureStorageService {
     required String refreshToken,
     required int expiresIn,
   }) async {
+    final expiresAt = DateTime.now().add(Duration(seconds: expiresIn));
     await Future.wait([
       _storage.write(key: _accessTokenKey, value: accessToken),
       _storage.write(key: _refreshTokenKey, value: refreshToken),
-      _storage.write(key: _expiresInKey, value: expiresIn.toString()),
+      _storage.write(key: _expiresAtKey, value: expiresAt.toIso8601String()),
     ]);
   }
 
@@ -38,31 +39,28 @@ class SecureStorageService {
     await _storage.write(key: _refreshTokenKey, value: token);
   }
 
-  Future<int?> getExpiresIn() async {
-    final value = await _storage.read(key: _expiresInKey);
-    return value != null ? int.parse(value) : null;
+  Future<DateTime?> getExpiresAt() async {
+    final value = await _storage.read(key: _expiresAtKey);
+    return value != null ? DateTime.tryParse(value) : null;
   }
 
   Future<void> clearTokens() async {
     await Future.wait([
       _storage.delete(key: _accessTokenKey),
       _storage.delete(key: _refreshTokenKey),
-      _storage.delete(key: _expiresInKey),
+      _storage.delete(key: _expiresAtKey),
     ]);
   }
 
   Future<bool> isTokenValid() async {
-    final expirationString = await _storage.read(key: _expiresInKey);
-    if (expirationString == null) return false;
+    final expiresAtString = await _storage.read(key: _expiresAtKey);
+    if (expiresAtString == null) return false;
 
-    final expirationDate =
-        DateTime.now().add(Duration(seconds: int.parse(expirationString)));
-    final currentDate = DateTime.now();
+    final expiresAt = DateTime.tryParse(expiresAtString);
+    if (expiresAt == null) return false;
 
-    // Add a 5-minute buffer to account for network latency
+    // 5 dakikalık tampon
     final bufferTime = const Duration(minutes: 5);
-    final adjustedExpirationDate = expirationDate.subtract(bufferTime);
-
-    return currentDate.isBefore(adjustedExpirationDate);
+    return DateTime.now().isBefore(expiresAt.subtract(bufferTime));
   }
 }

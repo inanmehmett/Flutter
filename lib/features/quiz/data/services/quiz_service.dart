@@ -1,14 +1,14 @@
 import 'package:dio/dio.dart';
-import '../../../../core/constants/app_constants.dart';
+import '../../../../core/config/app_config.dart';
 import '../../domain/entities/quiz_models.dart';
 
 class QuizService {
   final Dio _dio;
 
   QuizService(this._dio) {
-    _dio.options.baseUrl = AppConstants.baseUrl;
-    _dio.options.connectTimeout =
-        Duration(milliseconds: AppConstants.apiTimeout);
+    // Base URL'i global konfigürasyondan al
+    _dio.options.baseUrl = AppConfig.apiBaseUrl;
+    _dio.options.connectTimeout = AppConfig.connectionTimeout;
   }
 
   Future<List<QuizQuestion>> getQuestions({
