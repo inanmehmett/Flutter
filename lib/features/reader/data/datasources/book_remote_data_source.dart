@@ -23,8 +23,8 @@ class BookRemoteDataSourceImpl implements BookRemoteDataSource {
   Future<List<BookModel>> fetchBooks() async {
     print('📚 [BookRemoteDataSource] Fetching books from API...');
     try {
-      // API endpoint'ini düzelt - backend'in beklediği endpoint
-      final response = await _dio.get('/api/ReadingTexts');
+      // Correct backend endpoint
+      final response = await _dio.get('/api/ApiReadingTexts');
       print('📚 [BookRemoteDataSource] ✅ API Response received');
       print('📚 [BookRemoteDataSource] Response status: ${response.statusCode}');
       print('📚 [BookRemoteDataSource] Response data type: ${response.data.runtimeType}');
@@ -39,38 +39,26 @@ class BookRemoteDataSourceImpl implements BookRemoteDataSource {
         for (int i = 0; i < data.length; i++) {
           try {
             final json = data[i] as Map<String, dynamic>;
-            print('📚 [BookRemoteDataSource] Parsing book $i: ${json['title'] ?? 'Unknown'}');
             final book = BookModel.fromJson(json);
             books.add(book);
-            print('📚 [BookRemoteDataSource] ✅ Successfully parsed book $i');
           } catch (e) {
-            print('📚 [BookRemoteDataSource] ❌ Error parsing book $i: $e');
-            print('📚 [BookRemoteDataSource] Book $i data: ${data[i]}');
-            // Continue with next book instead of failing completely
+            // skip invalid item
           }
         }
         
-        print('📚 [BookRemoteDataSource] ✅ Successfully parsed ${books.length}/${data.length} books');
         return books;
       } else {
-        print('📚 [BookRemoteDataSource] ❌ API data is not a list! data type: ${data.runtimeType}');
-        print('📚 [BookRemoteDataSource] Data content: $data');
         return _getTestBooks();
       }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        print('📚 [BookRemoteDataSource] 404 on /api/ApiReadingTexts, returning test data');
+        return _getTestBooks();
+      }
+      print('📚 [BookRemoteDataSource] DioException: ${e.type} ${e.message}');
+      return _getTestBooks();
     } catch (e) {
       print('📚 [BookRemoteDataSource] ❌ Error fetching books: $e');
-      print('📚 [BookRemoteDataSource] Error type: ${e.runtimeType}');
-      
-      // CORS veya network hatası durumunda test data döndür
-      if (e is DioException) {
-        print('📚 [BookRemoteDataSource] DioException details:');
-        print('📚 [BookRemoteDataSource] - Type: ${e.type}');
-        print('📚 [BookRemoteDataSource] - Message: ${e.message}');
-        print('📚 [BookRemoteDataSource] - Status code: ${e.response?.statusCode}');
-        print('📚 [BookRemoteDataSource] - Response data: ${e.response?.data}');
-      }
-      
-      print('📚 [BookRemoteDataSource] 🔄 Returning test data instead...');
       return _getTestBooks();
     }
   }
@@ -79,16 +67,13 @@ class BookRemoteDataSourceImpl implements BookRemoteDataSource {
   Future<BookModel> fetchBookDetails(int id) async {
     print('📚 [BookRemoteDataSource] Fetching book details: $id');
     try {
-      // API endpoint'ini düzelt
-      final response = await _dio.get('/api/ReadingTexts/$id');
-      final book = BookModel.fromJson(response.data as Map<String, dynamic>);
+      final response = await _dio.get('/api/ApiReadingTexts/$id');
+      final data = response.data['data'] as Map<String, dynamic>;
+      final book = BookModel.fromJson(data);
       print('📚 [BookRemoteDataSource] ✅ Fetched book details: ${book.title}');
       return book;
     } catch (e) {
       print('📚 [BookRemoteDataSource] ❌ Error fetching book details: $e');
-      print('📚 [BookRemoteDataSource] 🔄 Returning test book instead...');
-
-      // Return test book when API is not available
       return _getTestBook(id.toString());
     }
   }
@@ -97,13 +82,10 @@ class BookRemoteDataSourceImpl implements BookRemoteDataSource {
   Future<void> updateBook(BookModel book) async {
     print('📚 [BookRemoteDataSource] Updating book: ${book.title}');
     try {
-      // API endpoint'ini düzelt
-      await _dio.put('/api/ReadingTexts/${book.id}', data: book.toJson());
+      await _dio.put('/api/ApiReadingTexts/${book.id}', data: book.toJson());
       print('📚 [BookRemoteDataSource] ✅ Book updated: ${book.title}');
     } catch (e) {
       print('📚 [BookRemoteDataSource] ❌ Error updating book: $e');
-      print('📚 [BookRemoteDataSource] 🔄 Simulating successful update...');
-      // Simulate successful update for test data
     }
   }
 
@@ -111,13 +93,10 @@ class BookRemoteDataSourceImpl implements BookRemoteDataSource {
   Future<void> deleteBook(String id) async {
     print('📚 [BookRemoteDataSource] Deleting book: $id');
     try {
-      // API endpoint'ini düzelt
-      await _dio.delete('/api/ReadingTexts/$id');
+      await _dio.delete('/api/ApiReadingTexts/$id');
       print('📚 [BookRemoteDataSource] ✅ Book deleted: $id');
     } catch (e) {
       print('📚 [BookRemoteDataSource] ❌ Error deleting book: $e');
-      print('📚 [BookRemoteDataSource] 🔄 Simulating successful deletion...');
-      // Simulate successful deletion for test data
     }
   }
 

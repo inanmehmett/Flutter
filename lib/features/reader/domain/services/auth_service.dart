@@ -28,6 +28,7 @@ class AuthService {
           'grant_type': 'password',
           'username': email,
           'password': password,
+          'scope': 'offline_access roles profile email',
         },
         options: Options(headers: {
           'Content-Type': 'application/x-www-form-urlencoded',

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../bloc/auth_bloc.dart';
 import '../widgets/loading_overlay.dart';
 
@@ -38,6 +39,32 @@ class _RegistrationPageState extends State<RegistrationPage> {
               confirmPassword: _confirmPasswordController.text,
             ),
           );
+    }
+  }
+
+  Future<void> _googleRegister() async {
+    try {
+      final googleSignIn = GoogleSignIn(
+        scopes: ['email', 'profile', 'openid'],
+      );
+      final account = await googleSignIn.signIn();
+      if (account == null) return; // cancelled
+      final auth = await account.authentication;
+      final idToken = auth.idToken;
+      if (idToken == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google sign-in failed: no idToken')),
+        );
+        return;
+      }
+      final bloc = context.read<AuthBloc>();
+      final user = await bloc.authService.googleLogin(idToken: idToken);
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed('/home');
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Google sign-in error: $e')),
+      );
     }
   }
 
@@ -190,29 +217,48 @@ class _RegistrationPageState extends State<RegistrationPage> {
                         SizedBox(height: 18),
                         BlocBuilder<AuthBloc, AuthState>(
                           builder: (context, state) {
-                            return SizedBox(
-                              width: double.infinity,
-                              height: 54,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.orange,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(30),
+                            return Column(
+                              children: [
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 54,
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.orange,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(30),
+                                      ),
+                                      elevation: 0,
+                                    ),
+                                    onPressed: state is AuthLoading ? null : _register,
+                                    child: state is AuthLoading
+                                        ? SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                            ),
+                                          )
+                                        : Text('CONTINUE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
                                   ),
-                                  elevation: 0,
                                 ),
-                                onPressed: state is AuthLoading ? null : _register,
-                                child: state is AuthLoading
-                                    ? SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                        ),
-                                      )
-                                    : Text('CONTINUE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                              ),
+                                SizedBox(height: 12),
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 50,
+                                  child: OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(30),
+                                      ),
+                                    ),
+                                    onPressed: state is AuthLoading ? null : _googleRegister,
+                                    icon: Image.asset('assets/images/google.png', width: 20, height: 20, errorBuilder: (_, __, ___) => Icon(Icons.g_mobiledata)),
+                                    label: Text('Continue with Google'),
+                                  ),
+                                ),
+                              ],
                             );
                           },
                         ),

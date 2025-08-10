@@ -74,9 +74,10 @@ class _HomePageState extends State<HomePage> {
             }
 
             return SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.fromLTRB(16,16,16,80),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   // Profil Header (Tıklanabilir)
                   GestureDetector(
@@ -221,6 +222,7 @@ class _HomePageState extends State<HomePage> {
                                   },
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                       ClipRRect(
                                         borderRadius: const BorderRadius.only(
@@ -228,7 +230,7 @@ class _HomePageState extends State<HomePage> {
                                           topRight: Radius.circular(12),
                                         ),
                                         child: Container(
-                                          height: 100,
+                                          height: 90,
                                           width: double.infinity,
                                           color: Theme.of(context)
                                               .colorScheme
@@ -243,54 +245,57 @@ class _HomePageState extends State<HomePage> {
                                           ),
                                         ),
                                       ),
-                                      Padding(
-                                        padding: const EdgeInsets.all(12.0),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              book.title,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 14,
-                                              ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              book.author ?? 'Unknown',
-                                              style: TextStyle(
-                                                color: Colors.grey[600],
-                                                fontSize: 12,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Row(
-                                              children: [
-                                                Text(
-                                                  '${book.estimatedReadingTimeInMinutes ?? 10} dk',
-                                                  style: TextStyle(
-                                                    color: Colors.grey[700],
-                                                    fontSize: 11,
-                                                  ),
+                                      Expanded(
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(12.0),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                book.title,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14,
                                                 ),
-                                                const Text(' • ',
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                book.author ?? 'Unknown',
+                                                style: TextStyle(
+                                                  color: Colors.grey[600],
+                                                  fontSize: 12,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Row(
+                                                children: [
+                                                  Text(
+                                                    '${book.estimatedReadingTimeInMinutes ?? 10} dk',
                                                     style: TextStyle(
-                                                        color: Colors.grey)),
-                                                Text(
-                                                  'Sev. ${book.textLevel ?? "1"}',
-                                                  style: TextStyle(
-                                                    color: Colors.grey[700],
-                                                    fontSize: 11,
+                                                      color: Colors.grey[700],
+                                                      fontSize: 11,
+                                                    ),
                                                   ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
+                                                  const Text(' • ',
+                                                      style: TextStyle(
+                                                          color: Colors.grey)),
+                                                  Text(
+                                                    'Sev. ${book.textLevel ?? "1"}',
+                                                    style: TextStyle(
+                                                      color: Colors.grey[700],
+                                                      fontSize: 11,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -360,6 +365,7 @@ class _HomePageState extends State<HomePage> {
                                   },
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                       ClipRRect(
                                         borderRadius: const BorderRadius.only(
@@ -367,7 +373,7 @@ class _HomePageState extends State<HomePage> {
                                           topRight: Radius.circular(16),
                                         ),
                                         child: Container(
-                                          height: 110,
+                                          height: 95,
                                           width: 140,
                                           color: Theme.of(context)
                                               .colorScheme
@@ -382,16 +388,18 @@ class _HomePageState extends State<HomePage> {
                                           ),
                                         ),
                                       ),
-                                      Padding(
-                                        padding: const EdgeInsets.all(12.0),
-                                        child: Text(
-                                          book.title,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
+                                      Expanded(
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(12.0),
+                                          child: Text(
+                                            book.title,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
                                     ],

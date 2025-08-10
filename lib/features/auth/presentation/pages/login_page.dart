@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'dart:io' show Platform;
+import '../../../../core/config/app_config.dart';
 import '../bloc/auth_bloc.dart';
-import '../widgets/sign_in_form.dart';
 import '../widgets/loading_overlay.dart';
 import 'registration_page.dart';
 
@@ -17,6 +19,7 @@ class _LoginPageState extends State<LoginPage> {
   final _userNameOrEmailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _navigated = false;
 
   @override
   void dispose() {
@@ -37,12 +40,46 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> _googleLogin() async {
+    try {
+      final googleSignIn = GoogleSignIn(
+        clientId: Platform.isIOS ? AppConfig.googleClientId : null, // iOS: iOS Client ID, Android: null
+        serverClientId: AppConfig.googleWebClientId,                // Android/iOS: Web Client ID for idToken
+        scopes: const ['email','profile','openid'],
+      );
+      final account = await googleSignIn.signIn();
+      if (account == null) return; // cancelled
+      final auth = await account.authentication;
+      final idToken = auth.idToken;
+      if (idToken == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google sign-in failed: no idToken')),
+        );
+        return;
+      }
+      // Google login sonrası sadece state'i güncelle, navigasyonu listener yönetsin
+      final bloc = context.read<AuthBloc>();
+      await bloc.authService.googleLogin(idToken: idToken);
+      if (!mounted) return;
+      // Profil çekip state'i AuthAuthenticated'e taşımak için
+      bloc.add(CheckAuthStatus());
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Google sign-in error: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
-        if (state is AuthAuthenticated) {
-          Navigator.of(context).pushReplacementNamed('/home');
+        if (state is AuthAuthenticated && !_navigated) {
+          _navigated = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            Navigator.of(context).pushReplacementNamed('/home');
+          });
         } else if (state is AuthErrorState) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -141,29 +178,48 @@ class _LoginPageState extends State<LoginPage> {
                       SizedBox(height: 32),
                       BlocBuilder<AuthBloc, AuthState>(
                         builder: (context, state) {
-                          return SizedBox(
-                            width: double.infinity,
-                            height: 54,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orange,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
+                          return Column(
+                            children: [
+                              SizedBox(
+                                width: double.infinity,
+                                height: 54,
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.orange,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                  onPressed: state is AuthLoading ? null : _login,
+                                  child: state is AuthLoading
+                                      ? SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                          ),
+                                        )
+                                      : Text('CONTINUE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
                                 ),
-                                elevation: 0,
                               ),
-                              onPressed: state is AuthLoading ? null : _login,
-                              child: state is AuthLoading
-                                  ? SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                      ),
-                                    )
-                                  : Text('CONTINUE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                            ),
+                              SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 50,
+                                child: OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                  ),
+                                  onPressed: state is AuthLoading ? null : _googleLogin,
+                                  icon: Image.asset('assets/images/google.png', width: 20, height: 20, errorBuilder: (_, __, ___) => Icon(Icons.g_mobiledata)),
+                                  label: Text('Continue with Google'),
+                                ),
+                              ),
+                            ],
                           );
                         },
                       ),

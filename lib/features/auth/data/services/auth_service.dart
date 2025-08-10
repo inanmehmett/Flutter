@@ -19,6 +19,7 @@ abstract class AuthServiceProtocol {
   Future<void> updateProfileImage(File image);
   Future<void> updateUserProfile(UserProfile profile);
   Future<bool> resetPassword({required String email});
+  Future<UserProfile> googleLogin({required String idToken});
 }
 
 @singleton
@@ -52,7 +53,7 @@ class AuthService implements AuthServiceProtocol {
         'grant_type': 'password',
         'username': userNameOrEmail.toLowerCase().trim(),
         'password': password,
-        // 'scope': 'offline_access roles profile email', // gerekirse
+        'scope': 'offline_access roles profile email',
       };
 
       print('🔐 [AuthService] Making POST request to /connect/token (password grant)...');
@@ -337,6 +338,35 @@ class AuthService implements AuthServiceProtocol {
     // Not implemented on backend; keep as stub
     print('🔐 [AuthService] ===== RESET PASSWORD START =====');
     return false;
+  }
+
+  @override
+  Future<UserProfile> googleLogin({required String idToken}) async {
+    try {
+      final response = await _networkManager.post(
+        '/connect/token',
+        data: {
+          'grant_type': 'google_oauth',
+          'id_token': idToken,
+          'scope': 'roles profile email',
+        },
+      );
+      if (response.statusCode == 200) {
+        final accessToken = response.data['access_token'] ?? response.data['accessToken'];
+        final refreshToken = response.data['refresh_token'] ?? response.data['refreshToken'];
+        final expiresIn = response.data['expires_in'] ?? 3600;
+        await _saveTokens(
+          accessToken: '$accessToken',
+          refreshToken: '$refreshToken',
+          expiresIn: expiresIn is int ? expiresIn : int.tryParse('$expiresIn') ?? 3600,
+        );
+        return await fetchUserProfile();
+      }
+      throw AuthError.invalidCredentials;
+    } catch (e) {
+      print('🔐 [AuthService] Google login error: $e');
+      throw AuthError.networkError;
+    }
   }
 
   // Helper methods

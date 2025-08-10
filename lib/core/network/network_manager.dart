@@ -48,6 +48,20 @@ class NetworkManager {
   }
 
   Future<Response> post(String path, {dynamic data}) async {
+    // Token endpoint'i x-www-form-urlencoded bekler
+    if (path == '/connect/token') {
+      return await _dio.post(
+        path,
+        data: data,
+        options: Options(
+          headers: {
+            ..._dio.options.headers,
+            'Content-Type': Headers.formUrlEncodedContentType,
+          },
+          contentType: Headers.formUrlEncodedContentType,
+        ),
+      );
+    }
     return await _dio.post(path, data: data);
   }
 
