@@ -48,7 +48,7 @@
 
 ## 🏗️ PROJEDEKİ MİMARİ KARARLARI
 
-### **State Management:** Riverpod
+### **State Management:** flutter_bloc (+ get_it/injectable DI)
 
 ```dart
 // ✅ Doğru kullanım
@@ -80,31 +80,27 @@ lib/
 └── main.dart
 ```
 
-### **Zorunlu Package'ler:**
+### **Zorunlu Package'ler (güncel kullanım):**
 
 ```yaml
 dependencies:
   flutter:
     sdk: flutter
   # State Management
-  flutter_riverpod: ^2.4.9
-  # HTTP
-  dio: ^5.4.0
-  # Navigation
-  go_router: ^12.1.3
-  # Local Storage
-  shared_preferences: ^2.2.2
-  hive: ^2.2.3
-  hive_flutter: ^1.1.0
-  # JSON
-  json_annotation: ^4.8.1
-  # Security
-  flutter_secure_storage: ^9.0.0
-  flutter_dotenv: ^5.1.0
-  # UI
-  cached_network_image: ^3.3.0
-  # Utils
-  intl: ^0.19.0
+  flutter_bloc: ^8.x
+  equatable: ^2.x
+  get_it: ^7.x
+  injectable: ^2.x
+  dartz: ^0.10.x
+  dio: ^5.x
+  hive: ^2.x
+  hive_flutter: ^1.x
+  path_provider: ^2.x
+  shared_preferences: ^2.x
+  flutter_secure_storage: ^9.x
+  json_annotation: ^4.x
+  google_sign_in: ^6.x
+  flutter_tts: ^3.x
 
 dev_dependencies:
   flutter_test:
@@ -156,16 +152,16 @@ dev_dependencies:
 
 ### **Faz 1: Proje Setup**
 
-- [ ] Flutter project init
-- [ ] Package configuration
-- [ ] Folder structure
-- [ ] Base classes ve interfaces
+- [x] Flutter project init
+- [x] Package configuration
+- [x] Folder structure
+- [x] Base classes ve interfaces
 
 ### **Faz 2: Core Infrastructure**
 
-- [ ] HTTP client setup (Dio)
-- [ ] Error handling system
-- [ ] Local storage setup
+- [x] HTTP client setup (Dio)
+- [x] Error handling system (NetworkError, interceptors)
+- [x] Local storage setup (Hive + SecureStorage)
 - [ ] Router configuration
 
 ### **Faz 3: Data Layer**
@@ -177,14 +173,14 @@ dev_dependencies:
 
 ### **Faz 4: Business Logic**
 
-- [ ] Providers/State management
+- [x] State management (flutter_bloc)
 - [ ] Use cases implementation
 - [ ] Validation logic
 
 ### **Faz 5: UI Layer**
 
 - [ ] Base widget'lar
-- [ ] Screen'ler (Swift'ten conversion)
+- [ ] Screen'ler
 - [ ] Custom widget'lar
 - [ ] Theming
 
