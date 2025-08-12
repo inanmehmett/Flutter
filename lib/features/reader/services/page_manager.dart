@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
-import 'pagination_worker.dart' hide Range;
+import 'pagination_worker.dart';
 import 'page_cache.dart';
 import 'attributed_string_data.dart';
 
