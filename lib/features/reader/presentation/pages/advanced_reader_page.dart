@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/advanced_reader_bloc.dart';
@@ -26,6 +27,10 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
   );
   Size? _pageSize;
   bool _showSwipeHint = true;
+  int? _highlightStart;
+  int? _highlightEnd;
+  int? _highlightPageIndex;
+  Timer? _highlightTimer;
 
   @override
   void initState() {
@@ -275,7 +280,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                           ),
                           const SizedBox(height: 16),
                           // Sayfa içeriği (dokunulan cümleyi bul)
-                          GestureDetector(
+                           GestureDetector(
                             behavior: HitTestBehavior.translucent,
                             onTapDown: (details) async {
                               final textStyle = TextStyle(
@@ -288,7 +293,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                               // AdvancedReaderPage padding = 20; metin alanı genişliği
                               final maxTextWidth = (constraints.maxWidth - 40).clamp(0, double.infinity);
                               final localPos = details.localPosition;
-                              final sentence = _extractSentenceAtOffset(
+                               final sentence = _extractSentenceAtOffset(
                                 pageContent,
                                 textStyle,
                                 maxTextWidth.toDouble(),
@@ -296,6 +301,9 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                               );
 
                               if (sentence.isEmpty) return;
+
+                               // Highlight sentence briefly
+                               _setTemporaryHighlight(index, pageContent, sentence);
 
                               // Speak immediately and fetch translation
                               final bloc = context.read<AdvancedReaderBloc>();
@@ -311,14 +319,15 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                                 );
                               }
                             },
-                            child: Text(
+                            child: _buildRichTextWithHighlight(
                               pageContent,
-                              style: TextStyle(
+                              TextStyle(
                                 fontSize: state.fontSize,
                                 color: Theme.of(context).colorScheme.onSurface,
                                 height: 1.6,
                                 letterSpacing: 0.1,
                               ),
+                              index,
                             ),
                           ),
                         ],
@@ -421,6 +430,47 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
       return pageManager.attributedPages[pageIndex].string;
     }
     return '';
+  }
+
+  // Highlight helpers
+  void _setTemporaryHighlight(int pageIndex, String fullText, String sentence) {
+    final start = fullText.indexOf(sentence);
+    if (start < 0) return;
+    setState(() {
+      _highlightPageIndex = pageIndex;
+      _highlightStart = start;
+      _highlightEnd = start + sentence.length;
+    });
+    _highlightTimer?.cancel();
+    _highlightTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      setState(() {
+        _highlightPageIndex = null;
+        _highlightStart = null;
+        _highlightEnd = null;
+      });
+    });
+  }
+
+  Widget _buildRichTextWithHighlight(String text, TextStyle style, int pageIndex) {
+    if (_highlightPageIndex != pageIndex || _highlightStart == null || _highlightEnd == null) {
+      return Text(text, style: style);
+    }
+    final start = _highlightStart!;
+    final end = _highlightEnd!;
+    final before = text.substring(0, start);
+    final mid = text.substring(start, end);
+    final after = text.substring(end);
+    return RichText(
+      text: TextSpan(
+        style: style,
+        children: [
+          TextSpan(text: before),
+          TextSpan(text: mid, style: style.copyWith(backgroundColor: Colors.yellow.withOpacity(0.4))),
+          TextSpan(text: after),
+        ],
+      ),
+    );
   }
 
   void _updatePaginationWithNewSize() {
@@ -677,6 +727,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
 
   @override
   void dispose() {
+    _highlightTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
