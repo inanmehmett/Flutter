@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:flutter/services.dart';
+import '../../../../core/utils/logger.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/advanced_reader_bloc.dart';
 import '../bloc/reader_event.dart';
@@ -283,6 +284,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                            GestureDetector(
                             behavior: HitTestBehavior.translucent,
                             onTapDown: (details) async {
+                               HapticFeedback.selectionClick();
                               final textStyle = TextStyle(
                                 fontSize: state.fontSize,
                                 color: Theme.of(context).colorScheme.onSurface,
@@ -307,6 +309,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
 
                               // Speak immediately and fetch translation
                               final bloc = context.read<AdvancedReaderBloc>();
+                               Logger.debug('Tapped sentence: "$sentence"');
                               await bloc.speakSentence(sentence);
                               final translation = await bloc.translateSentence(sentence);
                               if (!mounted) return;
