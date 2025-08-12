@@ -1,16 +1,20 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../../core/utils/logger.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../../domain/entities/book.dart';
 import '../../domain/repositories/book_repository.dart';
 import '../../services/page_manager.dart';
+import '../../data/services/translation_service.dart';
+import '../../../../core/di/injection.dart';
 import 'reader_event.dart';
 import 'reader_state.dart';
 
 class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   final BookRepository _bookRepository;
   final FlutterTts _flutterTts;
+  final TranslationService _translationService = getIt<TranslationService>();
   final PageManager _pageManager;
   
   Book? _currentBook;
@@ -41,9 +45,20 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     _setupPageManager();
   }
 
+  // Simple helper exposed to UI for sentence translation; will be wired to DI
+  Future<String> translateSentence(String sentence) async {
+    try {
+      // In a full setup, TranslationService is injected; to avoid crash if not, return empty
+      if ((_translationService as dynamic) == null) return '';
+      return await _translationService.translateSentence(sentence);
+    } catch (_) {
+      return '';
+    }
+  }
+
   void _setupPageManager() {
     _pageManager.onPageChanged = (pageIndex) {
-      print('📖 [AdvancedReaderBloc] Page changed to: $pageIndex');
+      Logger.book('Page changed to: $pageIndex');
     };
   }
 
@@ -53,7 +68,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
       await _flutterTts.setSpeechRate(_speechRate);
       await _flutterTts.setVolume(1.0);
     } catch (e) {
-      print('❌ [AdvancedReaderBloc] TTS initialization error: $e');
+      Logger.error('TTS initialization error', e);
     }
   }
 
@@ -99,7 +114,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   }
 
   Future<void> _initializePagination(String content) async {
-    print('📖 [AdvancedReaderBloc] Initializing pagination for ${content.length} characters');
+    Logger.book('Initializing pagination for ${content.length} characters');
     
     final textStyle = TextStyle(
       fontSize: _fontSize,
@@ -116,7 +131,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
       size: pageSize,
     );
     
-    print('📖 [AdvancedReaderBloc] Pagination initialized: ${_pageManager.totalPages} pages');
+    Logger.book('Pagination initialized: ${_pageManager.totalPages} pages');
   }
 
   String _getCurrentPageContent() {
@@ -129,7 +144,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   void _onNextPage(NextPage event, Emitter<ReaderState> emit) {
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
-      print('📖 [AdvancedReaderBloc] NextPage event - Current page: ${_pageManager.currentPageIndex}, Total pages: ${_pageManager.totalPages}');
+      Logger.book('NextPage - Current: ${_pageManager.currentPageIndex} / ${_pageManager.totalPages}');
       
       _pageManager.nextPage().then((_) {
         if (state is ReaderLoaded) {
@@ -146,7 +161,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   void _onPreviousPage(PreviousPage event, Emitter<ReaderState> emit) {
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
-      print('📖 [AdvancedReaderBloc] PreviousPage event - Current page: ${_pageManager.currentPageIndex}, Total pages: ${_pageManager.totalPages}');
+      Logger.book('PreviousPage - Current: ${_pageManager.currentPageIndex} / ${_pageManager.totalPages}');
       
       _pageManager.previousPage().then((_) {
         if (state is ReaderLoaded) {
@@ -163,7 +178,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   void _onGoToPage(GoToPage event, Emitter<ReaderState> emit) {
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
-      print('📖 [AdvancedReaderBloc] GoToPage event - Target page: ${event.page}');
+      Logger.book('GoToPage - Target: ${event.page}');
       
       _pageManager.goToPage(event.page).then((_) {
         if (state is ReaderLoaded) {

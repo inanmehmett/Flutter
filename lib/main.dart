@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
+import 'core/utils/logger.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'core/di/injection.dart';
@@ -20,41 +21,40 @@ import 'features/reader/presentation/pages/advanced_reader_page.dart';
 import 'features/reader/presentation/bloc/advanced_reader_bloc.dart';
 
 void main() async {
-  print('🚀 App starting...');
+  Logger.info('App starting...');
   WidgetsFlutterBinding.ensureInitialized();
-  print('✅ Flutter binding initialized');
+  Logger.debug('Flutter binding initialized');
 
   try {
     // Initialize Hive
-    print('📦 Initializing Hive...');
+    Logger.debug('Initializing Hive...');
     await Hive.initFlutter();
-    print('✅ Hive initialized');
+    Logger.debug('Hive initialized');
 
     // Register Adapters
-    print('🔧 Registering Hive adapters...');
+    Logger.debug('Registering Hive adapters...');
     Hive.registerAdapter(BookModelAdapter());
     Hive.registerAdapter(SyncStateAdapter());
-    print('✅ Hive adapters registered');
+    Logger.debug('Hive adapters registered');
 
     // Open Boxes in correct order
-    print('📁 Opening Hive boxes...');
+    Logger.debug('Opening Hive boxes...');
     await Hive.openBox<String>('app_cache');
     await Hive.openBox<BookModel>('books');
     await Hive.openBox<String>('favorites');
     await Hive.openBox<int>('progress');
     await Hive.openBox<DateTime>('last_read');
-    print('✅ All Hive boxes opened');
+    Logger.debug('All Hive boxes opened');
 
     // Initialize DI
-    print('🔌 Initializing dependency injection...');
+    Logger.debug('Initializing dependency injection...');
     await configureDependencies();
-    print('✅ Dependency injection configured');
+    Logger.debug('Dependency injection configured');
 
-    print('🎯 Running app...');
+    Logger.info('Running app...');
     runApp(const MyApp());
   } catch (e, stackTrace) {
-    print('❌ Error during initialization: $e');
-    print('Stack trace: $stackTrace');
+    Logger.error('Error during initialization', e, stackTrace);
     rethrow;
   }
 }
@@ -64,7 +64,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print('🏗️ Building MyApp...');
+    Logger.debug('Building MyApp...');
     return MultiProvider(
       providers: [
         BlocProvider<AuthBloc>(

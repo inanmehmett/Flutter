@@ -274,14 +274,50 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          // Sayfa içeriği
-                          Text(
-                            pageContent,
-                            style: TextStyle(
-                              fontSize: state.fontSize,
-                              color: Theme.of(context).colorScheme.onSurface,
-                              height: 1.6,
-                              letterSpacing: 0.1,
+                          // Sayfa içeriği (dokunulan cümleyi bul)
+                          GestureDetector(
+                            behavior: HitTestBehavior.translucent,
+                            onTapDown: (details) async {
+                              final textStyle = TextStyle(
+                                fontSize: state.fontSize,
+                                color: Theme.of(context).colorScheme.onSurface,
+                                height: 1.6,
+                                letterSpacing: 0.1,
+                              );
+
+                              // AdvancedReaderPage padding = 20; metin alanı genişliği
+                              final maxTextWidth = (constraints.maxWidth - 40).clamp(0, double.infinity);
+                              final localPos = details.localPosition;
+                              final sentence = _extractSentenceAtOffset(
+                                pageContent,
+                                textStyle,
+                                maxTextWidth.toDouble(),
+                                localPos,
+                              );
+
+                              if (sentence.isEmpty) return;
+
+                              final translation = await context
+                                  .read<AdvancedReaderBloc>()
+                                  .translateSentence(sentence);
+                              if (!mounted) return;
+                              if (translation.isNotEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(translation),
+                                    duration: const Duration(seconds: 3),
+                                  ),
+                                );
+                              }
+                            },
+                            child: Text(
+                              pageContent,
+                              style: TextStyle(
+                                fontSize: state.fontSize,
+                                color: Theme.of(context).colorScheme.onSurface,
+                                height: 1.6,
+                                letterSpacing: 0.1,
+                              ),
                             ),
                           ),
                         ],
@@ -588,6 +624,54 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
         _readerBloc.add(PreviousPage());
       }
     }
+  }
+
+  // Dokunulan pozisyona göre cümleyi çıkar
+  String _extractSentenceAtOffset(
+    String fullText,
+    TextStyle style,
+    double maxWidth,
+    Offset localPos,
+  ) {
+    if (fullText.isEmpty || maxWidth <= 0) return '';
+
+    final textSpan = TextSpan(text: fullText, style: style);
+    final tp = TextPainter(
+      text: textSpan,
+      textDirection: TextDirection.ltr,
+      maxLines: null,
+    );
+    tp.layout(maxWidth: maxWidth);
+
+    // Paragraph offset: içerik container'ında üstte başlıyor; padding 0 kabul ediyoruz
+    final pos = tp.getPositionForOffset(localPos);
+    final idx = pos.offset.clamp(0, fullText.length);
+
+    // Basit cümle sınırları: . ! ? ve yeni satır
+    final separators = RegExp(r'[.!?]\s|\n');
+
+    // Solda cümle başlangıcını bul
+    int start = 0;
+    for (int i = idx - 1; i >= 0; i--) {
+      final ch = fullText[i];
+      if (ch == '.' || ch == '!' || ch == '?' || ch == '\n') {
+        start = i + 1;
+        break;
+      }
+    }
+
+    // Sağda cümle sonunu bul
+    int end = fullText.length;
+    for (int i = idx; i < fullText.length; i++) {
+      final ch = fullText[i];
+      if (ch == '.' || ch == '!' || ch == '?' || ch == '\n') {
+        end = i + 1;
+        break;
+      }
+    }
+
+    final sentence = fullText.substring(start, end).trim();
+    return sentence;
   }
 
   @override

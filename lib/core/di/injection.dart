@@ -20,6 +20,7 @@ import '../../features/reader/services/page_manager.dart';
 import '../../features/reader/services/page_cache.dart';
 import '../../features/reader/services/pagination_worker.dart';
 import '../../features/auth/data/services/auth_service.dart';
+import '../../features/reader/data/services/translation_service.dart';
 import 'injection.config.dart';
 
 final getIt = GetIt.instance;
@@ -83,6 +84,9 @@ Future<void> configureDependencies() async {
 
   // Register FlutterTts
   getIt.registerLazySingleton<FlutterTts>(() => FlutterTts());
+
+  // Register TranslationService
+  getIt.registerLazySingleton<TranslationService>(() => TranslationService(getIt<NetworkManager>()));
   
   // Register Pagination Services
   getIt.registerLazySingleton<SimplePageCache>(
