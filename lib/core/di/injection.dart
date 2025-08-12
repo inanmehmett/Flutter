@@ -85,8 +85,10 @@ Future<void> configureDependencies() async {
   // Register FlutterTts
   getIt.registerLazySingleton<FlutterTts>(() => FlutterTts());
 
-  // Register TranslationService
-  getIt.registerLazySingleton<TranslationService>(() => TranslationService(getIt<NetworkManager>()));
+  // Register TranslationService (only if not already registered by injectable)
+  if (!getIt.isRegistered<TranslationService>()) {
+    getIt.registerLazySingleton<TranslationService>(() => TranslationService(getIt<NetworkManager>()));
+  }
   
   // Register Pagination Services
   getIt.registerLazySingleton<SimplePageCache>(
