@@ -297,9 +297,10 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
 
                               if (sentence.isEmpty) return;
 
-                              final translation = await context
-                                  .read<AdvancedReaderBloc>()
-                                  .translateSentence(sentence);
+                              // Speak immediately and fetch translation
+                              final bloc = context.read<AdvancedReaderBloc>();
+                              await bloc.speakSentence(sentence);
+                              final translation = await bloc.translateSentence(sentence);
                               if (!mounted) return;
                               if (translation.isNotEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(

@@ -56,6 +56,26 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     }
   }
 
+  // Speak a single sentence immediately (used by tap-to-speak)
+  Future<void> speakSentence(String sentence, {String languageCode = 'en-US'}) async {
+    try {
+      await _flutterTts.stop();
+      await _flutterTts.setLanguage(languageCode);
+      await _flutterTts.setSpeechRate(_speechRate);
+      await _flutterTts.setVolume(1.0);
+      await _flutterTts.speak(sentence);
+
+      _isSpeaking = true;
+      _isPaused = false;
+      if (state is ReaderLoaded) {
+        final currentState = state as ReaderLoaded;
+        emit(currentState.copyWith(isSpeaking: true, isPaused: false));
+      }
+    } catch (e) {
+      Logger.error('speakSentence error', e);
+    }
+  }
+
   void _setupPageManager() {
     _pageManager.onPageChanged = (pageIndex) {
       Logger.book('Page changed to: $pageIndex');
