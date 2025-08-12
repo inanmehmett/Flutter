@@ -311,10 +311,22 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                                // Highlight sentence briefly
                                _setTemporaryHighlight(index, pageContent, sentence);
 
-                              // Speak immediately and fetch translation
+                              // Speak via server audio when available; fallback to local TTS
                               final bloc = context.read<AdvancedReaderBloc>();
-                               Logger.debug('Tapped sentence: "$sentence"');
-                              await bloc.speakSentence(sentence);
+                              Logger.debug('Tapped sentence: "$sentence"');
+                              final readingTextId = _readerBloc.pageManager.bookId ?? 0;
+                              final sentenceIndex = context.read<AdvancedReaderBloc>()
+                                  .computeSentenceIndex(sentence, pageContent);
+                              String? audioUrl;
+                              if (readingTextId > 0) {
+                                audioUrl = await bloc.findSentenceAudioUrl(readingTextId, sentenceIndex);
+                              }
+                              if (audioUrl != null) {
+                                Logger.debug('Playing from URL: $audioUrl');
+                                await bloc.playSentenceFromUrl(audioUrl);
+                              } else {
+                                await bloc.speakSentence(sentence);
+                              }
                               final translation = await bloc.translateSentence(sentence);
                               if (!mounted) return;
                               if (translation.isNotEmpty) {

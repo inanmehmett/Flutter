@@ -19,6 +19,7 @@ class PageManager extends ChangeNotifier {
   bool get isInitialized => _isInitialized;
   int get totalPages => _totalPages;
   int get currentPageIndex => _currentPageIndex;
+  int? get bookId => _currentBookId;
   
   set currentPageIndex(int value) {
     if (value >= 0 && value < _totalPages && value != _currentPageIndex) {

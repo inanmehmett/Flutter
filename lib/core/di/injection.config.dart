@@ -22,6 +22,7 @@ import '../../features/reader/data/datasources/book_remote_data_source.dart'
 import '../../features/reader/data/models/book_model.dart' as _i525;
 import '../../features/reader/data/repositories/book_repository_impl.dart'
     as _i707;
+import '../../features/reader/data/services/translation_service.dart' as _i696;
 import '../../features/reader/domain/repositories/book_repository.dart'
     as _i413;
 import '../../features/reader/domain/services/achievement_manager.dart'
@@ -100,6 +101,8 @@ extension GetItInjectableX on _i174.GetIt {
           remoteDataSource: gh<_i435.BookRemoteDataSource>(),
           localDataSource: gh<_i386.BookLocalDataSource>(),
         ));
+    gh.lazySingleton<_i696.TranslationService>(
+        () => _i696.TranslationService(gh<_i474.NetworkManager>()));
     gh.singleton<_i689.AchievementManager>(() => _i689.AchievementManager(
           gh<_i361.Dio>(),
           gh<_i474.NetworkManager>(),

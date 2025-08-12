@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../core/utils/logger.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:audioplayers/audioplayers.dart';
+import '../../../../core/config/app_config.dart';
 import '../../domain/entities/book.dart';
 import '../../domain/repositories/book_repository.dart';
 import '../../services/page_manager.dart';
@@ -16,6 +18,8 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   final FlutterTts _flutterTts;
   final TranslationService _translationService = getIt<TranslationService>();
   final PageManager _pageManager;
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  final Map<int, List<Map<String, dynamic>>> _manifestCache = {};
   
   Book? _currentBook;
   bool _isSpeaking = false;
@@ -56,9 +60,63 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     }
   }
 
+  Future<String?> findSentenceAudioUrl(int readingTextId, int sentenceIndex, {String voiceId = 'default'}) async {
+    try {
+      final manifest = _manifestCache[readingTextId] ??
+          await _translationService.getAudioManifest(readingTextId, voiceId: voiceId);
+      _manifestCache[readingTextId] = manifest;
+      // naive: server-side order matches sentence order
+      if (sentenceIndex >= 0 && sentenceIndex < manifest.length) {
+        final item = manifest[sentenceIndex];
+        final url = (item['audioUrl'] ?? item['AudioUrl']) as String?;
+        if (url != null && url.isNotEmpty) {
+          return url.startsWith('http') ? url : '${AppConfig.apiBaseUrl}$url';
+        }
+      }
+      // Try by matching Index field if provided
+      for (final item in manifest) {
+        final idx = item['index'] ?? item['Index'];
+        if (idx is int && idx == sentenceIndex) {
+          final url = (item['audioUrl'] ?? item['AudioUrl']) as String?;
+          if (url != null && url.isNotEmpty) {
+            return url.startsWith('http') ? url : '${AppConfig.apiBaseUrl}$url';
+          }
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  int computeSentenceIndex(String tappedSentence, String pageContent) {
+    try {
+      final full = _currentBook?.content ?? '';
+      if (full.isEmpty || tappedSentence.isEmpty) return 0;
+      int pageStart = full.indexOf(pageContent);
+      if (pageStart < 0) {
+        pageStart = 0;
+      }
+      int sentStartInPage = pageContent.indexOf(tappedSentence);
+      if (sentStartInPage < 0) sentStartInPage = 0;
+      final globalPos = pageStart + sentStartInPage;
+      final splitter = RegExp(r'(?<=[.!?])\s+');
+      int count = 0;
+      int cursor = 0;
+      for (final match in splitter.allMatches(full)) {
+        final end = match.start + 1; // position just after punctuation
+        if (end > globalPos) break;
+        count++;
+        cursor = match.end;
+      }
+      return count;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   // Speak a single sentence immediately (used by tap-to-speak)
   Future<void> speakSentence(String sentence, {String languageCode = 'en-US'}) async {
     try {
+      // TODO: replaced by server-side audio when available from manifest
       await _flutterTts.stop();
       await _flutterTts.setLanguage(languageCode);
       await _flutterTts.setSpeechRate(_speechRate);
@@ -73,6 +131,22 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
       }
     } catch (e) {
       Logger.error('speakSentence error', e);
+    }
+  }
+
+  // Future enhancement: stream sentence audio from backend manifest instead of local TTS
+  Future<void> playSentenceFromUrl(String url) async {
+    try {
+      await _audioPlayer.stop();
+      await _audioPlayer.play(UrlSource(url));
+      _isSpeaking = true;
+      _isPaused = false;
+      if (state is ReaderLoaded) {
+        final currentState = state as ReaderLoaded;
+        emit(currentState.copyWith(isSpeaking: true, isPaused: false));
+      }
+    } catch (e) {
+      Logger.error('playSentenceFromUrl error', e);
     }
   }
 
@@ -291,6 +365,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   @override
   Future<void> close() async {
     await _flutterTts.stop();
+    try { await _audioPlayer.dispose(); } catch (_) {}
     _pageManager.dispose();
     return super.close();
   }
