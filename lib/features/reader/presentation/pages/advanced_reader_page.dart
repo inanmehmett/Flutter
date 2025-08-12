@@ -32,6 +32,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
   int? _highlightEnd;
   int? _highlightPageIndex;
   Timer? _highlightTimer;
+  final Map<int, GlobalKey> _textKeys = {};
 
   @override
   void initState() {
@@ -250,6 +251,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
               itemBuilder: (context, index) {
                 // Get content for this specific page from PageManager
                 final pageContent = _getPageContent(index);
+                final textKey = _textKeys[index] ??= GlobalKey();
                 
                 return Hero(
                   tag: 'page_$index',
@@ -291,10 +293,12 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                                 height: 1.6,
                                 letterSpacing: 0.1,
                               );
-
-                              // AdvancedReaderPage padding = 20; metin alanı genişliği
-                              final maxTextWidth = (constraints.maxWidth - 40).clamp(0, double.infinity);
-                              final localPos = details.localPosition;
+                              // Metin widget'ının gerçek boyutu ve lokal pozisyonu
+                              final box = textKey.currentContext?.findRenderObject() as RenderBox?;
+                              final maxTextWidth = (box?.size.width ?? (constraints.maxWidth - 40)).clamp(0, double.infinity);
+                              final localPos = box != null
+                                  ? box.globalToLocal(details.globalPosition)
+                                  : details.localPosition;
                                final sentence = _extractSentenceAtOffset(
                                 pageContent,
                                 textStyle,
