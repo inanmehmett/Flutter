@@ -282,8 +282,8 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                           const SizedBox(height: 16),
                           // Sayfa içeriği (dokunulan cümleyi bul)
                            GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onTapDown: (details) async {
+                            behavior: HitTestBehavior.opaque,
+                            onTapUp: (details) async {
                                HapticFeedback.selectionClick();
                               final textStyle = TextStyle(
                                 fontSize: state.fontSize,
