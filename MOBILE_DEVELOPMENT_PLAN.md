@@ -30,9 +30,9 @@
   - Logout: `GET /connect/logout`
   - UserInfo: `GET /connect/userinfo`
 - Kod düzeltmeleri
-  - `validateStatus`: 401’in error’a düşmesi için `< 400` veya 401’i `onResponse` içerisinde ele al. [DURUM: TODO]
-  - `AuthInterceptor`: 401 → refresh akışı → token güncelle → orijinal isteği retry. [DURUM: TODO]
-  - `SecureStorageService`: `token_expires_at` (mutlak zaman) sakla; `expires_in` yerine bunu doğrula. [DURUM: TODO]
+  - `validateStatus`: 401’in error’a düşmesi için `< 400` veya 401’i `onResponse` içerisinde ele al. [DURUM: TAMAMLANDI]
+  - `AuthInterceptor`: 401 → refresh akışı → token güncelle → orijinal isteği retry. [DURUM: TAMAMLANDI]
+  - `SecureStorageService`: `token_expires_at` (mutlak zaman) sakla; `expires_in` yerine bunu doğrula. [DURUM: TAMAMLANDI]
   - Tek bir `AuthServiceProtocol` kullan; duplike auth servislerini kaldır. [DURUM: TODO]
 - Kabul ölçütü
   - Token süresi bittiğinde otomatik refresh+retry, yanlış kimlikte tutarlı 401
@@ -81,7 +81,7 @@
 ### Düzeltilecek noktalar (uygulanacak değişiklikler)
 
 - Network
-  - `validateStatus` mantığı düzeltilecek
+  - `validateStatus` mantığı düzeltilecek [DURUM: TAMAMLANDI]
   - Client CORS header’ları kaldırılacak
 - Auth
   - Tek `AuthService` üzerinden `/connect/*` + `/api/ApiUserProfile`
@@ -92,7 +92,7 @@
   - Kalan servislerde endpoint hizalaması
 - Platform
 
-  - iOS ATS debug izinleri (ekli); Android debug cleartext izni (eklencek)
+  - iOS ATS debug izinleri (ekli); Android debug cleartext izni (eklendi)
 
 - UI/UX ve Kod Kalitesi
   - `withOpacity` kullanımını `.withValues()` ile değiştir. [DURUM: TODO]
@@ -113,6 +113,28 @@
 - Altyapı:
   - `API_BASE_URL` `--dart-define` ile yönetim; iOS Debug ATS istisnası aktif.
   - `NetworkManager` + Interceptor’lar entegre; `TranslationService` ve manifest entegrasyonu tamam.
+
+## English Learning (Reading/Words/Quiz)
+
+- Reading
+  - Tap-to-translate + DB audio first; TTS fallback; sentence highlight; sequential play; auto-advance; auto-scroll. [TAMAMLANDI]
+- Words (Plan)
+  - SRS tabanlı tekrar; favori sözlük; telaffuz ve örnek cümle.
+- Quiz (Plan)
+  - Okuma metinlerine bağlı soru setleri ve XP ödülü.
+
+## Gamification
+
+- XP & Levels
+  - Etkinlik tabanlı XP (okuma/quiz/kelime); seviye barı ve CEFR hizalaması. [PLAN]
+- Achievements & Badges
+  - Dönüm noktası rozetleri ve claim akışı. [PLAN]
+- Streak & Goals
+  - Günlük/haftalık hedefler ve streak takibi. [PLAN]
+- Leaderboards (Opsiyonel)
+  - Haftalık/toplam XP sıralaması. [PLAN]
+- Teknik
+  - Event logging ve offline sync; mevcut backend Gamification servisleri ile hizalama. [DEVAM]
 
 ---
 
