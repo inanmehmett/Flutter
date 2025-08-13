@@ -34,6 +34,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
   Timer? _highlightTimer;
   final Map<int, GlobalKey> _textKeys = {};
   bool _suppressOnPageChanged = false;
+  final Map<int, ScrollController> _scrollControllers = {};
 
   @override
   void initState() {
@@ -143,6 +144,45 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
           _animateToPage(state.currentPage);
         }
       }
+    });
+    // Auto-scroll within the current page to keep the playing sentence visible
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (state is! ReaderLoaded) return;
+      if (state.playingSentenceIndex == null) return;
+      final pageIndex = state.currentPage;
+      final pageContent = _getPageContent(pageIndex);
+      if (pageContent.isEmpty) return;
+      final range = context.read<AdvancedReaderBloc>()
+          .computeLocalRangeForSentence(pageContent, state.playingSentenceIndex!);
+      if (range == null) return;
+      final start = range[0];
+      final textKey = _textKeys[pageIndex];
+      final renderBox = textKey?.currentContext?.findRenderObject() as RenderBox?;
+      final availableWidth = renderBox?.size.width;
+      final controller = _scrollControllers[pageIndex];
+      if (availableWidth == null || controller == null || !controller.hasClients) return;
+
+      final style = TextStyle(
+        fontSize: state.fontSize,
+        height: 1.6,
+        letterSpacing: 0.1,
+        color: Theme.of(context).colorScheme.onSurface,
+      );
+      final textSpan = TextSpan(text: pageContent, style: style);
+      final tp = TextPainter(
+        text: textSpan,
+        textDirection: TextDirection.ltr,
+        maxLines: null,
+      );
+      tp.layout(maxWidth: availableWidth);
+      final caretOffset = tp.getOffsetForCaret(TextPosition(offset: start), Rect.zero);
+      final target = (caretOffset.dy - 80).clamp(0.0, controller.position.maxScrollExtent);
+      controller.animateTo(
+        target,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+      );
     });
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -277,6 +317,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                     color: Theme.of(context).colorScheme.surface,
                     padding: const EdgeInsets.all(20),
                     child: SingleChildScrollView(
+                      controller: _scrollControllers.putIfAbsent(index, () => ScrollController()),
                       physics: const BouncingScrollPhysics(),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -358,17 +399,21 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                                   );
                               }
                             },
-                            child: _buildRichTextWithHighlight(
-                              pageContent,
-                              TextStyle(
-                                fontSize: state.fontSize,
-                                color: Theme.of(context).colorScheme.onSurface,
-                                height: 1.6,
-                                letterSpacing: 0.1,
-                              ),
-                              index,
-                              state,
-                            ),
+                             child: Container(
+                               key: textKey,
+                               alignment: Alignment.topLeft,
+                               child: _buildRichTextWithHighlight(
+                                 pageContent,
+                                 TextStyle(
+                                   fontSize: state.fontSize,
+                                   color: Theme.of(context).colorScheme.onSurface,
+                                   height: 1.6,
+                                   letterSpacing: 0.1,
+                                 ),
+                                 index,
+                                 state,
+                               ),
+                             ),
                           ),
                         ],
                       ),
