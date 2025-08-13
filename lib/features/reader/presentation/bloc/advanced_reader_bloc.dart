@@ -175,6 +175,42 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     return indices;
   }
 
+  // Compute local start/end within the provided pageContent for a global sentence index.
+  // Returns [start, end] or null if the sentence is not on this page.
+  List<int>? computeLocalRangeForSentence(String pageContent, int globalSentenceIndex) {
+    try {
+      final full = _currentBook?.content ?? '';
+      if (full.isEmpty || pageContent.isEmpty) return null;
+      final pageStart = full.indexOf(pageContent);
+      if (pageStart < 0) return null;
+      final pageEnd = pageStart + pageContent.length;
+
+      final splitter = RegExp(r'(?<=[.!?])\s+');
+      final sentences = full.split(splitter);
+      if (globalSentenceIndex < 0 || globalSentenceIndex >= sentences.length) return null;
+
+      int offset = 0;
+      for (int i = 0; i < sentences.length; i++) {
+        final s = sentences[i];
+        final start = full.indexOf(s, offset);
+        if (start < 0) return null;
+        final end = start + s.length;
+        offset = end;
+        if (i == globalSentenceIndex) {
+          if (start >= pageStart && end <= pageEnd) {
+            final localStart = start - pageStart;
+            final localEnd = localStart + s.length;
+            return [localStart, localEnd];
+          }
+          return null;
+        }
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _playPageSequentially() async {
     if (state is! ReaderLoaded) return;
     final currentState = state as ReaderLoaded;
@@ -182,6 +218,8 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     final indices = _computeSentenceIndicesForPage(pageText);
     final readingTextId = int.tryParse(_currentBook?.id ?? '0') ?? 0;
     for (final idx in indices) {
+      // Emit currently playing sentence index for UI highlighting
+      emit(currentState.copyWith(playingSentenceIndex: idx));
       final url = await findSentenceAudioUrl(readingTextId, idx);
       if (url != null) {
         await playSentenceFromUrl(url);
@@ -190,7 +228,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     }
     _isSpeaking = false;
     _isPaused = false;
-    emit(currentState.copyWith(isSpeaking: false, isPaused: false));
+    emit(currentState.copyWith(isSpeaking: false, isPaused: false, playingSentenceIndex: null));
   }
 
   void _setupPageManager() {

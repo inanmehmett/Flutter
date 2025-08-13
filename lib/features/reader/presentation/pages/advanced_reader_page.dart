@@ -351,6 +351,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                                 letterSpacing: 0.1,
                               ),
                               index,
+                              state,
                             ),
                           ),
                         ],
@@ -475,7 +476,28 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     });
   }
 
-  Widget _buildRichTextWithHighlight(String text, TextStyle style, int pageIndex) {
+  Widget _buildRichTextWithHighlight(String text, TextStyle style, int pageIndex, ReaderLoaded state) {
+    // If autoplay is running and we have a playing sentence index belonging to this page, compute its local range via bloc
+    if (state.playingSentenceIndex != null) {
+      final range = context.read<AdvancedReaderBloc>().computeLocalRangeForSentence(text, state.playingSentenceIndex!);
+      if (range != null) {
+        final start = range[0];
+        final end = range[1];
+        final before = text.substring(0, start);
+        final mid = text.substring(start, end);
+        final after = text.substring(end);
+        return RichText(
+          text: TextSpan(
+            style: style,
+            children: [
+              TextSpan(text: before),
+              TextSpan(text: mid, style: style.copyWith(backgroundColor: Colors.yellow.withOpacity(0.35))),
+              TextSpan(text: after),
+            ],
+          ),
+        );
+      }
+    }
     if (_highlightPageIndex != pageIndex || _highlightStart == null || _highlightEnd == null) {
       return Text(text, style: style);
     }
