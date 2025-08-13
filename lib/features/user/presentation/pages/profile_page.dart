@@ -30,23 +30,21 @@ class _ProfilePageState extends State<ProfilePage> {
       body: SafeArea(
         child: BlocBuilder<AuthBloc, AuthState>(
           builder: (context, state) {
-            UserProfile? profile;
-            if (state is AuthAuthenticated) {
-              profile = state.user;
-            }
-            profile ??= UserProfile(
-              id: 'guest',
-              userName: 'Misafir',
-              email: '',
-              profileImageUrl: null,
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
-              isActive: false,
-              level: 0,
-              experiencePoints: 0,
-              totalReadBooks: 0,
-              totalQuizScore: 0,
-            );
+            final UserProfile profile = (state is AuthAuthenticated)
+                ? state.user
+                : UserProfile(
+                    id: 'guest',
+                    userName: 'Misafir',
+                    email: '',
+                    profileImageUrl: null,
+                    createdAt: DateTime.now(),
+                    updatedAt: DateTime.now(),
+                    isActive: false,
+                    level: 0,
+                    experiencePoints: 0,
+                    totalReadBooks: 0,
+                    totalQuizScore: 0,
+                  );
 
             return FutureBuilder<_LevelGoalData>(
               future: _levelGoalFuture,
@@ -255,5 +253,17 @@ class _ProfilePageState extends State<ProfilePage> {
       },
     );
   }
+}
+
+class _LevelGoalData {
+  final int? level;
+  final double xpProgress;
+  final int? streakDays;
+
+  _LevelGoalData({
+    required this.level,
+    required this.xpProgress,
+    required this.streakDays,
+  });
 }
 
