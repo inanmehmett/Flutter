@@ -33,6 +33,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
   int? _highlightPageIndex;
   Timer? _highlightTimer;
   final Map<int, GlobalKey> _textKeys = {};
+  bool _suppressOnPageChanged = false;
 
   @override
   void initState() {
@@ -132,6 +133,17 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
   }
 
   Widget _buildReaderView(ReaderLoaded state) {
+    // Sync PageView position with bloc-driven page changes (e.g., auto-advance)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_pageController.hasClients) {
+        final current = _pageController.page?.round() ?? _pageController.initialPage;
+        if (current != state.currentPage) {
+          _suppressOnPageChanged = true;
+          _animateToPage(state.currentPage);
+        }
+      }
+    });
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
@@ -240,8 +252,12 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
               // Sayfa geçiş animasyon süresi
               padEnds: false,
               // Kaydırma fizikleri
-              physics: const PageScrollPhysics(),
+              physics: const BouncingScrollPhysics(parent: PageScrollPhysics()),
               onPageChanged: (index) {
+                if (_suppressOnPageChanged) {
+                  _suppressOnPageChanged = false;
+                  return;
+                }
                 if (index != state.currentPage) {
                   // Haptic feedback
                   HapticFeedback.lightImpact();

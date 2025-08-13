@@ -213,22 +213,45 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
 
   Future<void> _playPageSequentially() async {
     if (state is! ReaderLoaded) return;
-    final currentState = state as ReaderLoaded;
-    final pageText = _getCurrentPageContent();
-    final indices = _computeSentenceIndicesForPage(pageText);
+    var currentState = state as ReaderLoaded;
     final readingTextId = int.tryParse(_currentBook?.id ?? '0') ?? 0;
-    for (final idx in indices) {
-      // Emit currently playing sentence index for UI highlighting
-      emit(currentState.copyWith(playingSentenceIndex: idx));
-      final url = await findSentenceAudioUrl(readingTextId, idx);
-      if (url != null) {
-        await playSentenceFromUrl(url);
-        try { await _audioPlayer.onPlayerComplete.first; } catch (_) {}
+    var pageIndex = _pageManager.currentPageIndex;
+
+    while (_isSpeaking && pageIndex < _pageManager.totalPages) {
+      final pageText = _getCurrentPageContent();
+      final indices = _computeSentenceIndicesForPage(pageText);
+
+      for (final idx in indices) {
+        if (!_isSpeaking) break;
+        emit(currentState.copyWith(playingSentenceIndex: idx));
+        final url = await findSentenceAudioUrl(readingTextId, idx);
+        if (url != null) {
+          await playSentenceFromUrl(url);
+          try { await _audioPlayer.onPlayerComplete.first; } catch (_) {}
+        }
+      }
+
+      if (!_isSpeaking) break;
+      if (pageIndex >= _pageManager.totalPages - 1) break;
+
+      // Advance to next page and update state
+      await _pageManager.nextPage();
+      pageIndex = _pageManager.currentPageIndex;
+      if (state is ReaderLoaded) {
+        currentState = (state as ReaderLoaded).copyWith(
+          currentPage: _pageManager.currentPageIndex,
+          currentPageContent: _getCurrentPageContent(),
+        );
+        emit(currentState);
       }
     }
+
     _isSpeaking = false;
     _isPaused = false;
-    emit(currentState.copyWith(isSpeaking: false, isPaused: false, playingSentenceIndex: null));
+    if (state is ReaderLoaded) {
+      final endState = state as ReaderLoaded;
+      emit(endState.copyWith(isSpeaking: false, isPaused: false, playingSentenceIndex: null));
+    }
   }
 
   void _setupPageManager() {
@@ -354,7 +377,9 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
       Logger.book('GoToPage - Target: ${event.page}');
-      
+      if (event.page == _pageManager.currentPageIndex) {
+        return;
+      }
       _pageManager.goToPage(event.page).then((_) {
         if (state is ReaderLoaded) {
           final updatedState = state as ReaderLoaded;
