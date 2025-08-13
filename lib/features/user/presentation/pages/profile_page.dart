@@ -14,11 +14,15 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   late Future<_LevelGoalData> _levelGoalFuture;
+  late Future<_ProgressData> _progressFuture;
+  late Future<List<_BadgeItem>> _badgesFuture;
 
   @override
   void initState() {
     super.initState();
     _levelGoalFuture = _fetchLevelAndGoals();
+    _progressFuture = _fetchProgress();
+    _badgesFuture = _fetchBadges();
   }
 
   @override
@@ -166,11 +170,73 @@ class _ProfilePageState extends State<ProfilePage> {
                           books: (profile.totalReadBooks ?? 0).toString(),
                         ),
                         const SizedBox(height: 20),
-                        _LearningProgressCard(reading: xpProgress, listening: 0, speaking: 0),
+                        FutureBuilder<_ProgressData>(
+                          future: _progressFuture,
+                          builder: (context, progSnap) {
+                            final p = progSnap.data;
+                            return _LearningProgressCard(
+                              reading: p?.reading ?? 0,
+                              listening: p?.listening ?? 0,
+                              speaking: p?.speaking ?? 0,
+                            );
+                          },
+                        ),
                         const SizedBox(height: 24),
                         const Text('Rozetler', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 12),
-                        _buildBadgesPlaceholder(context),
+                        FutureBuilder<List<_BadgeItem>>(
+                          future: _badgesFuture,
+                          builder: (context, badgeSnap) {
+                            final items = badgeSnap.data;
+                            if (items == null || items.isEmpty) {
+                              return _buildBadgesPlaceholder(context);
+                            }
+                            return GridView.builder(
+                              physics: const NeverScrollableScrollPhysics(),
+                              shrinkWrap: true,
+                              itemCount: items.length,
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                                childAspectRatio: 1,
+                              ),
+                              itemBuilder: (context, index) {
+                                final b = items[index];
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.surface,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.05),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (b.imageUrl != null && b.imageUrl!.isNotEmpty)
+                                          SizedBox(
+                                            width: 36,
+                                            height: 36,
+                                            child: Image.network(b.imageUrl!, fit: BoxFit.contain),
+                                          )
+                                        else
+                                          Icon(Icons.emoji_events, color: Theme.of(context).colorScheme.primary),
+                                        const SizedBox(height: 6),
+                                        Text(b.name, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
                         const SizedBox(height: 24),
                         const Text('Settings', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 12),
@@ -218,6 +284,52 @@ class _ProfilePageState extends State<ProfilePage> {
       return _LevelGoalData(level: level, xpProgress: xpProgress, streakDays: streakDays);
     } catch (_) {
       return _LevelGoalData(level: null, xpProgress: 0, streakDays: null);
+    }
+  }
+
+  Future<_ProgressData> _fetchProgress() async {
+    try {
+      final client = getIt<NetworkManager>();
+      final resp = await client.get('/api/ApiProgressStats/detailed');
+      final root = resp.data is Map<String, dynamic> ? resp.data as Map<String, dynamic> : {};
+      final data = root['data'] is Map<String, dynamic> ? root['data'] as Map<String, dynamic> : {};
+      final map = (data['activityTypeDistribution'] ?? data['ActivityTypeDistribution']) as Map<String, dynamic>?;
+      if (map == null || map.isEmpty) {
+        return const _ProgressData(reading: 0, listening: 0, speaking: 0);
+      }
+      double read = 0, listen = 0, speak = 0;
+      map.forEach((k, v) {
+        final key = k.toString().toLowerCase();
+        final val = (v as num?)?.toDouble() ?? 0;
+        if (key.contains('read')) read = val; else if (key.contains('listen')) listen = val; else if (key.contains('speak')) speak = val;
+      });
+      final total = (read + listen + speak);
+      if (total <= 0) {
+        return const _ProgressData(reading: 0, listening: 0, speaking: 0);
+      }
+      return _ProgressData(reading: read / total, listening: listen / total, speaking: speak / total);
+    } catch (_) {
+      return const _ProgressData(reading: 0, listening: 0, speaking: 0);
+    }
+  }
+
+  Future<List<_BadgeItem>> _fetchBadges() async {
+    try {
+      final client = getIt<NetworkManager>();
+      final resp = await client.get('/api/ApiGamification/api/badges');
+      final root = resp.data is Map<String, dynamic> ? resp.data as Map<String, dynamic> : {};
+      final list = root['data'] as List<dynamic>?;
+      if (list == null) return [];
+      return list.map((e) {
+        final m = e as Map<String, dynamic>;
+        return _BadgeItem(
+          name: (m['name'] ?? '') as String,
+          imageUrl: m['imageUrl'] as String?,
+          isEarned: (m['isEarned'] as bool?) ?? false,
+        );
+      }).toList();
+    } catch (_) {
+      return [];
     }
   }
 
@@ -351,6 +463,20 @@ class _LevelGoalData {
     required this.xpProgress,
     required this.streakDays,
   });
+}
+
+class _ProgressData {
+  final double reading;
+  final double listening;
+  final double speaking;
+  const _ProgressData({required this.reading, required this.listening, required this.speaking});
+}
+
+class _BadgeItem {
+  final String name;
+  final String? imageUrl;
+  final bool isEarned;
+  _BadgeItem({required this.name, required this.imageUrl, required this.isEarned});
 }
 
 class _StatsStrip extends StatelessWidget {
