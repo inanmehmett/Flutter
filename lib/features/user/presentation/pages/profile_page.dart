@@ -26,6 +26,15 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profil'),
+        actions: [
+          IconButton(
+            tooltip: 'Çıkış Yap',
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              context.read<AuthBloc>().add(LogoutRequested());
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: BlocBuilder<AuthBloc, AuthState>(
