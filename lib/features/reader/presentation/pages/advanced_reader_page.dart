@@ -325,8 +325,8 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                           // Sayfa numarası göstergesi
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
@@ -430,13 +430,13 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                 top: 0,
                 bottom: 0,
                 child: Center(
-                  child: AnimatedOpacity(
+                      child: AnimatedOpacity(
                     opacity: _showSwipeHint ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 500),
                     child: Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Icon(
@@ -455,13 +455,13 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                 top: 0,
                 bottom: 0,
                 child: Center(
-                  child: AnimatedOpacity(
+                      child: AnimatedOpacity(
                     opacity: _showSwipeHint ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 500),
                     child: Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Icon(
@@ -484,10 +484,10 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                   child: AnimatedOpacity(
                     opacity: _showSwipeHint ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 500),
-                    child: Container(
+                      child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.9),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
