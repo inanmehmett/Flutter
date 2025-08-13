@@ -11,14 +11,14 @@
 ### Faz 1 — Konfigürasyon ve altyapı (temizlik)
 
 - Config standartlaştırma
-  - `AppConfig.apiBaseUrl`: yalnızca `--dart-define API_BASE_URL=...` ile yönetilir.
-  - iOS (Debug): ATS istisnası ile HTTP localhost (ekli)
-  - Prod: HTTPS zorunlu
-  - Android (Debug): cleartext izin (network_security_config) — eklenecek
+  - `AppConfig.apiBaseUrl`: yalnızca `--dart-define API_BASE_URL=...` ile yönetilir. [DURUM: TAMAMLANDI]
+  - iOS (Debug): ATS istisnası ile HTTP (127.0.0.1) erişimi aktif. [DURUM: TAMAMLANDI]
+  - Prod: HTTPS zorunlu. [DURUM: TODO]
+  - Android (Debug): cleartext izin (network_security_config). [DURUM: TODO]
 - Network katmanı tekilleştirme
-  - Tek bir `Dio` örneği: `NetworkManager`
-  - Interceptor’lar: Auth, Logging, Cache burada toplanır
-  - Client tarafında CORS header’ları kaldırılır (CORS sunucu sorumluluğudur)
+  - Tek bir `Dio` örneği: `NetworkManager`. [DURUM: TAMAMLANDI]
+  - Interceptor’lar: Auth, Logging, Cache burada toplanır. [DURUM: TAMAMLANDI]
+  - Client tarafında CORS header’ları kaldırılır (CORS sunucu sorumluluğudur). [DURUM: TAMAMLANDI]
 - Kabul ölçütü
   - Tüm istekler tek `Dio` üzerinden, Debug’da HTTP çalışır, Prod’da HTTPS gerekir
 
@@ -30,10 +30,10 @@
   - Logout: `GET /connect/logout`
   - UserInfo: `GET /connect/userinfo`
 - Kod düzeltmeleri
-  - `validateStatus`: 401’in error’a düşmesi için `< 400` veya 401’i `onResponse` içerisinde ele al
-  - `AuthInterceptor`: 401 → refresh akışı → token güncelle → orijinal isteği retry
-  - `SecureStorageService`: `token_expires_at` (mutlak zaman) sakla; `expires_in` yerine bunu doğrula
-  - Tek bir `AuthServiceProtocol` kullan; duplike auth servislerini kaldır
+  - `validateStatus`: 401’in error’a düşmesi için `< 400` veya 401’i `onResponse` içerisinde ele al. [DURUM: TODO]
+  - `AuthInterceptor`: 401 → refresh akışı → token güncelle → orijinal isteği retry. [DURUM: TODO]
+  - `SecureStorageService`: `token_expires_at` (mutlak zaman) sakla; `expires_in` yerine bunu doğrula. [DURUM: TODO]
+  - Tek bir `AuthServiceProtocol` kullan; duplike auth servislerini kaldır. [DURUM: TODO]
 - Kabul ölçütü
   - Token süresi bittiğinde otomatik refresh+retry, yanlış kimlikte tutarlı 401
 
@@ -46,6 +46,7 @@
   - `GET /api/ReadingTexts`
   - `GET /api/ReadingTexts/{id}`
   - `GET /api/ApiReadingTexts/{id}/manifest?voiceId=default&sourceLang=EN&targetLang=TR`
+  - Gelişmiş Okuyucu: cümleye dokun → çeviri + veritabanı ses dosyasıyla oynat; sayfa içi cümle highlight; Play ile sırayla çalma; sayfalar arası auto-advance. [DURUM: TAMAMLANDI]
 - Mobil optimize endpoint’ler (opsiyonel)
   - `GET /api/mobile/dashboard`
   - `GET /api/mobile/reading-texts?page=1&pageSize=10`
@@ -54,9 +55,9 @@
 
 ### Faz 4 — Ekran/State düzeni
 
-- State standardizasyonu: tek yaklaşım belirle (örn. UI state=Provider, iş akışları=Bloc)
+- State standardizasyonu: tek yaklaşım belirle (örn. UI state=Provider, iş akışları=Bloc) [DURUM: DEVAM EDİYOR]
 - Logging: `kDebugMode` koşullu log, token asla loglanmaz
-- Kabul ölçütü: Tek tip state, gereksiz log yok
+  - Kabul ölçütü: Tek tip state, gereksiz log yok
 
 ### Faz 5 — Test ve kalite
 
@@ -64,11 +65,16 @@
   - Register → Login → UserInfo → Profile GET/PUT → 401 simülasyonu → Refresh → Retry → Logout
 - Entegrasyon testleri: Auth ve profil için minimal testler
 - CI (ileride): Lint + format + smoke
+  - flutter analyze uyarılarını kademeli temizleme (özellikle withOpacity deprecation, print→Logger dönüşümleri). [DURUM: DEVAM EDİYOR]
 - Kabul ölçütü: Smoke akışı yeşil, lint hatası yok
 
 ### Faz 6 — Özellik genişletme (opsiyonel)
 
 - Gamification, Quiz, Sentence TTS/Translate, offline cache/sync iyileştirmeleri
+  - Ses manifest prefetch ve sayfa geçişinden önce önbellekleme. [DURUM: PLAN]
+  - Çevrimdışı çalma: ses dosyalarını local cache’te saklama. [DURUM: PLAN]
+  - Otomatik oynatma sırasında isteğe bağlı sayfa kaydırmayı kilitleme. [DURUM: PLAN]
+  - Cümle highlight’ını kullanıcı ayarına bağlama (aç/kapat). [DURUM: PLAN]
 
 ---
 
@@ -85,7 +91,28 @@
   - `QuizService` ve diğerleri: `AppConfig.apiBaseUrl` kullanımı
   - Kalan servislerde endpoint hizalaması
 - Platform
+
   - iOS ATS debug izinleri (ekli); Android debug cleartext izni (eklencek)
+
+- UI/UX ve Kod Kalitesi
+  - `withOpacity` kullanımını `.withValues()` ile değiştir. [DURUM: TODO]
+  - `print` → `Logger` dönüşümleri ve gereksiz logların temizlenmesi. [DURUM: DEVAM EDİYOR]
+  - Home sayfası dikey overflow durumlarının giderilmesi (giderildi, tekrar gözlemle). [DURUM: TAMAMLANDI]
+
+---
+
+## Şu ana kadar tamamlananlar (özet)
+
+- Okuyucu deneyimi:
+  - Cümleye dokun → çeviri + veritabanı ses dosyası öncelikli çalma, yoksa TTS fallback.
+  - Cümle highlight (tap ve autoplay sırasında) ve haptik geri bildirim.
+  - Play ile sayfadaki cümlelerin ardışık çalınması ve sayfalar arası otomatik ilerleme.
+  - Oynatma hızı ayarı (TTS ve audioplayers için) ve varsayılan hız 0.8.
+  - Varsayılan yazı boyutu 27.0; ayarlardan değiştirilebilir.
+  - SnackBar iyileştirmeleri (floating, süre artırımı).
+- Altyapı:
+  - `API_BASE_URL` `--dart-define` ile yönetim; iOS Debug ATS istisnası aktif.
+  - `NetworkManager` + Interceptor’lar entegre; `TranslationService` ve manifest entegrasyonu tamam.
 
 ---
 
