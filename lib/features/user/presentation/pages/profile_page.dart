@@ -63,81 +63,124 @@ class _ProfilePageState extends State<ProfilePage> {
                 final xpProgress = levelInfo?.xpProgress ?? _fallbackProgress(profile.experiencePoints ?? 0);
                 final streakLabel = levelInfo?.streakDays != null ? '${levelInfo!.streakDays} gün' : '—';
 
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SizedBox(height: 8),
-                      Center(
-                        child: CircleAvatar(
-                          radius: 56,
-                          backgroundColor: Theme.of(context).colorScheme.surface,
-                          backgroundImage: profile.profileImageUrl != null
-                              ? NetworkImage(profile.profileImageUrl!)
-                              : null,
-                          child: profile.profileImageUrl == null
-                              ? Text(
-                                  profile.userName.isNotEmpty ? profile.userName[0] : 'U',
-                                  style: TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.bold,
-                                    color: Theme.of(context).colorScheme.primary,
-                                  ),
-                                )
-                              : null,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Center(
-                        child: Text(
-                          profile.displayName,
-                          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Center(
-                        child: Text(
-                          profile.email.isNotEmpty ? profile.email : '—',
-                          style: TextStyle(color: Colors.grey[700]),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Center(
-                        child: Text(
-                          profile.userName,
-                          style: TextStyle(color: Colors.grey[700]),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Center(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.calendar_today, size: 16),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Joined: ${_formatJoined(profile.createdAt)}',
-                              style: TextStyle(color: Colors.grey[700]),
+                return Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
+                        Theme.of(context).colorScheme.background,
+                      ],
+                    ),
+                  ),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 8),
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.15),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
+                                  Colors.transparent,
+                                ],
+                              ),
                             ),
-                          ],
+                            child: CircleAvatar(
+                              radius: 56,
+                              backgroundColor: Colors.white,
+                              child: CircleAvatar(
+                                radius: 52,
+                                backgroundColor: Theme.of(context).colorScheme.surface,
+                                backgroundImage: profile.profileImageUrl != null
+                                    ? NetworkImage(profile.profileImageUrl!)
+                                    : null,
+                                child: profile.profileImageUrl == null
+                                    ? Text(
+                                        profile.userName.isNotEmpty ? profile.userName[0] : 'U',
+                                        style: TextStyle(
+                                          fontSize: 28,
+                                          fontWeight: FontWeight.bold,
+                                          color: Theme.of(context).colorScheme.primary,
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      _StatsStrip(
-                        levelLabel: 'Level $level',
-                        xp: (profile.experiencePoints ?? 0).toString(),
-                        books: (profile.totalReadBooks ?? 0).toString(),
-                      ),
-                      const SizedBox(height: 20),
-                      _LearningProgressCard(reading: xpProgress, listening: 0, speaking: 0),
-                      const SizedBox(height: 24),
-                      const Text('Rozetler', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 12),
-                      _buildBadgesPlaceholder(context),
-                      const SizedBox(height: 12),
-                      _buildStatRow(context, profile, streakLabel),
-                    ],
+                        const SizedBox(height: 16),
+                        Center(
+                          child: Text(
+                            profile.displayName,
+                            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Center(
+                          child: Text(
+                            profile.email.isNotEmpty ? profile.email : '—',
+                            style: TextStyle(color: Colors.grey[700]),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Center(
+                          child: Text(
+                            profile.userName,
+                            style: TextStyle(color: Colors.grey[700]),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Center(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.calendar_today, size: 16),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Joined: ${_formatJoined(profile.createdAt)}',
+                                style: TextStyle(color: Colors.grey[700]),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        _StatsStrip(
+                          levelLabel: 'Level $level',
+                          xp: (profile.experiencePoints ?? 0).toString(),
+                          books: (profile.totalReadBooks ?? 0).toString(),
+                        ),
+                        const SizedBox(height: 20),
+                        _LearningProgressCard(reading: xpProgress, listening: 0, speaking: 0),
+                        const SizedBox(height: 24),
+                        const Text('Rozetler', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 12),
+                        _buildBadgesPlaceholder(context),
+                        const SizedBox(height: 24),
+                        const Text('Settings', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 12),
+                        _settingsTile(context, Icons.person_outline, 'Profile Details'),
+                        _settingsTile(context, Icons.notifications_outlined, 'Notifications'),
+                        _settingsTile(context, Icons.privacy_tip_outlined, 'Privacy'),
+                        const SizedBox(height: 12),
+                        _buildStatRow(context, profile, streakLabel),
+                      ],
+                    ),
                   ),
                 );
               },
@@ -268,6 +311,32 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _settingsTile(BuildContext context, IconData icon, String title) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 12),
+          Expanded(child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500))),
+          const Icon(Icons.chevron_right),
+        ],
+      ),
     );
   }
 }
