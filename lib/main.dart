@@ -80,7 +80,20 @@ class MyApp extends StatelessWidget {
         title: 'Daily English',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Color(0xFFFF9800)),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: Color(0xFF3B82F6),
+            brightness: Brightness.light,
+          ),
+          scaffoldBackgroundColor: Colors.white,
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black,
+            elevation: 0,
+            centerTitle: true,
+          ),
+          snackBarTheme: const SnackBarThemeData(
+            behavior: SnackBarBehavior.floating,
+          ),
           useMaterial3: true,
         ),
         home: Builder(
