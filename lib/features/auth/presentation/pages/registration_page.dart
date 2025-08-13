@@ -254,7 +254,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                                       ),
                                     ),
                                     onPressed: state is AuthLoading ? null : _googleRegister,
-                                    icon: Image.asset('assets/images/google.png', width: 20, height: 20, errorBuilder: (_, __, ___) => Icon(Icons.g_mobiledata)),
+                                    icon: Icon(Icons.g_mobiledata, color: Colors.redAccent),
                                     label: Text('Continue with Google'),
                                   ),
                                 ),

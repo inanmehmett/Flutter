@@ -6,6 +6,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'features/user/presentation/pages/profile_page.dart';
 import 'features/user/presentation/pages/profile_page_sample.dart';
+import 'features/user/presentation/pages/profile_details_page.dart';
 import 'core/di/injection.dart';
 import 'features/reader/data/models/book_model.dart';
 import 'features/reader/domain/repositories/book_repository.dart';
@@ -107,6 +108,7 @@ class MyApp extends StatelessWidget {
           '/home': (context) => const HomePage(),
           '/books': (context) => const BookListPage(),
           '/profile': (context) => const ProfilePage(),
+          '/profile-details': (context) => const ProfileDetailsPage(),
           '/profile-sample': (context) => const ProfileSamplePage(),
           '/quiz': (context) => const Scaffold(
                 body: Center(

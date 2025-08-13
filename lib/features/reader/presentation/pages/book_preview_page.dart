@@ -17,16 +17,20 @@ class BookPreviewPage extends StatelessWidget {
     final readingTime = displayBook.estimatedReadingTimeInMinutes;
     final rating = displayBook.rating ?? 4.5;
 
+    final size = MediaQuery.of(context).size;
+    final double coverHeight = (size.height * 0.35).clamp(220.0, 360.0);
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
-            // Kapak görseli ve overlay
-            _buildCoverImageSection(context, imageUrl),
+            // Kapak görseli ve overlay (yüksekliği ekrana göre ayarlı)
+            _buildCoverImageSection(context, imageUrl, coverHeight),
             // İçerik
             Expanded(
               child: SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -40,25 +44,24 @@ class BookPreviewPage extends StatelessWidget {
                     _buildMetadataSection(level, readingTime),
                     SizedBox(height: 32),
                     _buildStartReadingButton(context, displayBook),
-                    SizedBox(height: 20), // Alt boşluk ekle
+                    SizedBox(height: 20), // Alt boşluk
                   ],
                 ),
               ),
             ),
-            // Alt navigation bar
-            _buildBottomNavigationBar(context),
           ],
         ),
       ),
+      bottomNavigationBar: _buildBottomNavigationBar(context),
     );
   }
 
-  Widget _buildCoverImageSection(BuildContext context, String? imageUrl) {
+  Widget _buildCoverImageSection(BuildContext context, String? imageUrl, double coverHeight) {
     return Stack(
       children: [
         Container(
           width: double.infinity,
-          height: 320,
+          height: coverHeight,
           child: imageUrl != null && imageUrl.isNotEmpty
               ? Image.network(
                   imageUrl,
@@ -76,7 +79,7 @@ class BookPreviewPage extends StatelessWidget {
         // Gradient overlay
         Container(
           width: double.infinity,
-          height: 320,
+          height: coverHeight,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
@@ -179,11 +182,16 @@ class BookPreviewPage extends StatelessWidget {
           children: [
             Icon(Icons.timer, size: 18, color: Colors.grey[700]),
             SizedBox(width: 6),
-            Text(
-              'Estimated reading time: $readingTime minutes',
-              style: TextStyle(
-                fontSize: 15,
-                color: Colors.grey[700],
+            Flexible(
+              child: Text(
+                'Estimated reading time: $readingTime minutes',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Colors.grey[700],
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                softWrap: false,
               ),
             ),
           ],
@@ -234,35 +242,35 @@ class BookPreviewPage extends StatelessWidget {
   }
 
   Widget _buildBottomNavigationBar(BuildContext context) {
-    return Container(
-      height: 60,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 8,
-            offset: Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          IconButton(
-            icon: Icon(Icons.home, color: Colors.grey[700]),
-            onPressed: () => Navigator.pushNamed(context, '/home'),
-          ),
-          IconButton(
-            icon: Icon(Icons.menu_book, color: Colors.orange),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: Icon(Icons.person, color: Colors.grey[700]),
-            onPressed: () {},
-          ),
-        ],
-      ),
+    return BottomNavigationBar(
+      currentIndex: 1, // BookPreview, Books sekmesi altında
+      onTap: (index) {
+        switch (index) {
+          case 0:
+            Navigator.pushReplacementNamed(context, '/home');
+            break;
+          case 1:
+            Navigator.pushReplacementNamed(context, '/books');
+            break;
+          case 2:
+            Navigator.pushReplacementNamed(context, '/quiz');
+            break;
+        }
+      },
+      items: const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home),
+          label: 'Home',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.menu_book),
+          label: 'Books',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.quiz),
+          label: 'Quiz',
+        ),
+      ],
     );
   }
 

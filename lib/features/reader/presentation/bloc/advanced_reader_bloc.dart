@@ -10,6 +10,7 @@ import '../../domain/repositories/book_repository.dart';
 import '../../services/page_manager.dart';
 import '../../data/services/translation_service.dart';
 import '../../../../core/di/injection.dart';
+import '../../../../core/storage/last_read_manager.dart';
 import 'reader_event.dart';
 import 'reader_state.dart';
 
@@ -26,6 +27,8 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   bool _isPaused = false;
   double _speechRate = 0.8;
   double _fontSize = 27.0;
+  int? _currentPlayingSentenceIndex;
+  int? _currentSentenceBaseInPage;
 
   AdvancedReaderBloc({
     required BookRepository bookRepository,
@@ -113,22 +116,43 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     }
   }
 
-  // Speak a single sentence immediately (used by tap-to-speak)
-  Future<void> speakSentence(String sentence, {String languageCode = 'en-US'}) async {
+  // Speak a single sentence with known global sentence index for segment highlighting
+  Future<void> speakSentenceWithIndex(String sentence, int sentenceIndex, {String languageCode = 'en-US'}) async {
     try {
       // TODO: replaced by server-side audio when available from manifest
       await _flutterTts.stop();
       await _flutterTts.setLanguage(languageCode);
       await _flutterTts.setSpeechRate(_speechRate);
       await _flutterTts.setVolume(1.0);
+      _currentPlayingSentenceIndex = sentenceIndex;
+      _currentSentenceBaseInPage = null;
+      if (state is ReaderLoaded) {
+        final s = state as ReaderLoaded;
+        final localRange = computeLocalRangeForSentence(s.currentPageContent, sentenceIndex);
+        if (localRange != null && localRange.length == 2) {
+          _currentSentenceBaseInPage = localRange[0];
+          emit(s.copyWith(
+            isSpeaking: true,
+            isPaused: false,
+            playingSentenceIndex: sentenceIndex,
+            playingRangeStart: localRange[0],
+            playingRangeEnd: localRange[1],
+          ));
+        } else {
+          emit(s.copyWith(
+            isSpeaking: true,
+            isPaused: false,
+            playingSentenceIndex: sentenceIndex,
+            playingRangeStart: null,
+            playingRangeEnd: null,
+          ));
+        }
+      }
+
       await _flutterTts.speak(sentence);
 
       _isSpeaking = true;
       _isPaused = false;
-      if (state is ReaderLoaded) {
-        final currentState = state as ReaderLoaded;
-        emit(currentState.copyWith(isSpeaking: true, isPaused: false));
-      }
     } catch (e) {
       Logger.error('speakSentence error', e);
     }
@@ -255,8 +279,14 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   }
 
   void _setupPageManager() {
-    _pageManager.onPageChanged = (pageIndex) {
+    _pageManager.onPageChanged = (pageIndex) async {
       Logger.book('Page changed to: $pageIndex');
+      try {
+        if (_currentBook != null) {
+          await getIt<LastReadManager>()
+              .saveLastRead(bookId: _currentBook!.id, pageIndex: pageIndex);
+        }
+      } catch (_) {}
     };
   }
 
@@ -265,6 +295,20 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
       await _flutterTts.setLanguage('en-US');
       await _flutterTts.setSpeechRate(_speechRate);
       await _flutterTts.setVolume(1.0);
+      try {
+        _flutterTts.setProgressHandler((String text, int start, int end, String word) async {
+          if (state is! ReaderLoaded) return;
+          final s = state as ReaderLoaded;
+          if (_currentSentenceBaseInPage == null) return;
+          final base = _currentSentenceBaseInPage!;
+          final localStart = base + start;
+          final localEnd = base + end;
+          emit(s.copyWith(
+            playingRangeStart: localStart,
+            playingRangeEnd: localEnd,
+          ));
+        });
+      } catch (_) {}
     } catch (e) {
       Logger.error('TTS initialization error', e);
     }

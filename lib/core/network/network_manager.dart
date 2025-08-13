@@ -11,6 +11,7 @@ import 'interceptors/cors_interceptor.dart';
 class NetworkManager {
   final Dio _dio;
   final SecureStorageService _secureStorageService;
+  final CacheInterceptor _cacheInterceptor = CacheInterceptor();
 
   NetworkManager(this._dio, this._secureStorageService) {
     final baseUrl = AppConfig.apiVersion.isNotEmpty
@@ -38,7 +39,7 @@ class NetworkManager {
       CorsInterceptor(), // Opsiyonel; istersen kaldırılabilir
       AuthInterceptor(_secureStorageService),
       LoggingInterceptor(),
-      CacheInterceptor(),
+      _cacheInterceptor,
     ]);
   }
 
@@ -92,6 +93,11 @@ class NetworkManager {
       default:
         throw Exception('Unsupported HTTP method: $method');
     }
+  }
+
+  // Expose a way to clear in-memory HTTP cache (e.g., on logout or user switch)
+  void clearHttpCache() {
+    _cacheInterceptor.clearCache();
   }
 }
 

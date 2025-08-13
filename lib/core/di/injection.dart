@@ -22,6 +22,8 @@ import '../../features/reader/services/pagination_worker.dart';
 import '../../features/auth/data/services/auth_service.dart';
 import '../../features/reader/data/services/translation_service.dart';
 import 'injection.config.dart';
+import '../storage/last_read_manager.dart';
+import '../storage/storage_manager.dart';
 
 final getIt = GetIt.instance;
 
@@ -81,6 +83,16 @@ Future<void> configureDependencies() async {
       bookRepository: getIt<BookRepository>(),
     ),
   );
+
+  // Register LastReadManager (manual to avoid codegen dependency)
+  if (!getIt.isRegistered<LastReadManager>()) {
+    getIt.registerLazySingleton<LastReadManager>(
+      () => LastReadManager(
+        getIt<StorageManager>(),
+        getIt<BookRepository>(),
+      ),
+    );
+  }
 
   // Register FlutterTts
   getIt.registerLazySingleton<FlutterTts>(() => FlutterTts());

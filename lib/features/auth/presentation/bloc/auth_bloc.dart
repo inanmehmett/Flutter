@@ -223,6 +223,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       if (e is AuthError) {
         print('🔐 [AuthBloc] AuthError type: $e');
         errorMessage = e.localizedDescription;
+      } else if (e is Exception) {
+        // Surface service-provided messages (e.g., "Username already exists")
+        final msg = e.toString();
+        final idx = msg.indexOf(':');
+        errorMessage = idx != -1 ? msg.substring(idx + 1).trim() : msg;
       }
 
       print('🔐 [AuthBloc] Error message: $errorMessage');

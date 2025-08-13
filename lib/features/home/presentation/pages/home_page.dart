@@ -8,6 +8,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/data/models/user_profile.dart';
 import '../../../../core/di/injection.dart';
 import '../../../home/presentation/widgets/profile_header.dart';
+import '../../../../core/storage/last_read_manager.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -29,8 +30,22 @@ class _HomePageState extends State<HomePage> {
         context.read<AuthBloc>().add(CheckAuthStatus()));
   }
 
+  String _greetingByTime() {
+    final hour = DateTime.now().hour;
+    if (hour < 5) return 'İyi geceler';
+    if (hour < 12) return 'Günaydın';
+    if (hour < 18) return 'İyi günler';
+    return 'İyi akşamlar';
+  }
+
+  String _personalizeGreeting(String greeting, String userName) {
+    final name = userName.trim();
+    return name.isNotEmpty ? '$greeting $name' : greeting;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final greeting = _greetingByTime();
     return Scaffold(
       backgroundColor: Colors.grey[50],
       body: SafeArea(
@@ -79,7 +94,7 @@ class _HomePageState extends State<HomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Profil Header (Tıklanabilir)
+                  // Profil Header (Tıklanabilir) - önce
                   GestureDetector(
                     onTap: () {
                       if (authState is AuthAuthenticated) {
@@ -90,59 +105,25 @@ class _HomePageState extends State<HomePage> {
                     },
                     child: ProfileHeader(profile: userProfile),
                   ),
+                  const SizedBox(height: 16),
+                  // Time-based greeting personalized
+                  Text(
+                    _personalizeGreeting(greeting, userProfile.userName),
+                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 4),
+                  Text('Bugün ne okumak istersiniz?', style: TextStyle(color: Colors.grey[600])),
                   const SizedBox(height: 24),
 
-                  // Quick Actions
-                  const Text(
-                    'Hızlı Erişim',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
+                  // Hızlı erişim kaldırıldı
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildQuickActionCard(
-                          icon: Icons.menu_book,
-                          title: 'Kitaplar',
-                          subtitle: 'Okuma',
-                          color: Theme.of(context).colorScheme.primary,
-                          onTap: () {
-                            Navigator.pushNamed(context, '/books');
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildQuickActionCard(
-                          icon: Icons.quiz,
-                          title: 'Quiz',
-                          subtitle: 'Test',
-                          color: Colors.green,
-                          onTap: () {
-                            Navigator.pushNamed(context, '/quiz');
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildQuickActionCard(
-                          icon: Icons.games,
-                          title: 'Oyunlar',
-                          subtitle: 'Eğlence',
-                          color: Colors.purple,
-                          onTap: () {
-                            Navigator.pushNamed(context, '/games');
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
 
                   // Recommended Books
-                  const Text(
-                    'Önerilen Kitaplar',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: const [
+                      Text('Önerilen Kitaplar', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   Consumer<BookListViewModel>(
@@ -195,17 +176,16 @@ class _HomePageState extends State<HomePage> {
                           ),
                         );
                       }
-
                       return SizedBox(
-                        height: 200,
-                        child: ListView.builder(
+                        height: 210,
+                        child: ListView.separated(
                           scrollDirection: Axis.horizontal,
-                          itemCount: books.length,
+                          itemCount: books.length.clamp(0, 8),
+                          separatorBuilder: (_, __) => const SizedBox(width: 12),
                           itemBuilder: (context, index) {
                             final book = books[index];
-                            return Container(
-                              width: 160,
-                              margin: const EdgeInsets.only(right: 16),
+                            return SizedBox(
+                              width: 140,
                               child: Card(
                                 elevation: 4,
                                 shape: RoundedRectangleBorder(
@@ -222,81 +202,53 @@ class _HomePageState extends State<HomePage> {
                                   },
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                       ClipRRect(
                                         borderRadius: const BorderRadius.only(
                                           topLeft: Radius.circular(12),
                                           topRight: Radius.circular(12),
                                         ),
-                                        child: Container(
-                                          height: 80,
+                                        child: SizedBox(
+                                          height: 120,
                                           width: double.infinity,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary
-                                              .withOpacity(0.1),
-                                          child: Icon(
-                                            Icons.book,
-                                            size: 40,
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .primary,
-                                          ),
+                                          child: book.iconUrl != null && book.iconUrl!.isNotEmpty
+                                              ? Image.network(
+                                                  book.imageUrl?.isNotEmpty == true ? book.imageUrl! : book.iconUrl!,
+                                                  fit: BoxFit.cover,
+                                                )
+                                              : Container(
+                                                  color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                                                  child: Icon(
+                                                    Icons.menu_book,
+                                                    size: 40,
+                                                    color: Theme.of(context).colorScheme.primary,
+                                                  ),
+                                                ),
                                         ),
                                       ),
-                                      Expanded(
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(12.0),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text(
-                                                book.title,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 14,
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(10,10,10,10),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              book.title,
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  'Sev. ${book.textLevel ?? "1"} • ${book.estimatedReadingTimeInMinutes} dk',
+                                                  style: TextStyle(color: Colors.grey[700], fontSize: 10),
                                                 ),
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                book.author ?? 'Unknown',
-                                                style: TextStyle(
-                                                  color: Colors.grey[600],
-                                                  fontSize: 12,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              const SizedBox(height: 6),
-                                               Row(
-                                                 crossAxisAlignment: CrossAxisAlignment.start,
-                                                 children: [
-                                                  Text(
-                                                    '${book.estimatedReadingTimeInMinutes ?? 10} dk',
-                                                    style: TextStyle(
-                                                      color: Colors.grey[700],
-                                                      fontSize: 11,
-                                                    ),
-                                                  ),
-                                                  const Text(' • ',
-                                                      style: TextStyle(
-                                                          color: Colors.grey)),
-                                                  Text(
-                                                    'Sev. ${book.textLevel ?? "1"}',
-                                                    style: TextStyle(
-                                                      color: Colors.grey[700],
-                                                      fontSize: 11,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
+                                                const SizedBox(width: 6),
+                                                const Icon(Icons.headset, size: 14, color: Colors.grey),
+                                              ],
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ],
@@ -311,11 +263,12 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 32),
 
-                  // Trending Books
-                  const Text(
-                    'Trend Kitaplar',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
+                  // Continue Reading
+                  const SizedBox(height: 24),
+                  _buildContinueReading(context),
+                  const SizedBox(height: 24),
+                  // Trending Books - horizontal list
+                  const Text('Trend Kitaplar', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   Consumer<BookListViewModel>(
                     builder: (context, bookViewModel, child) {
@@ -342,14 +295,14 @@ class _HomePageState extends State<HomePage> {
 
                       return SizedBox(
                         height: 200,
-                        child: ListView.builder(
+                        child: ListView.separated(
                           scrollDirection: Axis.horizontal,
-                          itemCount: books.length,
+                          itemCount: books.length.clamp(0, 8),
+                          separatorBuilder: (_, __) => const SizedBox(width: 12),
                           itemBuilder: (context, index) {
                             final book = books[index];
-                            return Container(
-                              width: 140,
-                              margin: const EdgeInsets.only(right: 16),
+                            return SizedBox(
+                              width: 130,
                               child: Card(
                                 elevation: 4,
                                 shape: RoundedRectangleBorder(
@@ -373,34 +326,38 @@ class _HomePageState extends State<HomePage> {
                                           topLeft: Radius.circular(16),
                                           topRight: Radius.circular(16),
                                         ),
-                                        child: Container(
-                                          height: 95,
-                                          width: 140,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary
-                                              .withOpacity(0.1),
-                                          child: Icon(
-                                            Icons.book,
-                                            size: 40,
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .primary,
-                                          ),
+                                        child: SizedBox(
+                                          height: 110,
+                                          width: 130,
+                                          child: book.iconUrl != null && book.iconUrl!.isNotEmpty
+                                              ? Image.network(
+                                                  book.imageUrl?.isNotEmpty == true ? book.imageUrl! : book.iconUrl!,
+                                                  fit: BoxFit.cover,
+                                                )
+                                              : Container(
+                                                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                                  child: Icon(
+                                                    Icons.book,
+                                                    size: 40,
+                                                    color: Theme.of(context).colorScheme.primary,
+                                                  ),
+                                                ),
                                         ),
                                       ),
-                                      Expanded(
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(12.0),
-                                          child: Text(
-                                            book.title,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 13,
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(10,10,10,10),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              book.title,
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
+                                            const SizedBox(height: 2),
+                                            const Icon(Icons.headset, size: 13, color: Colors.grey),
+                                          ],
                                         ),
                                       ),
                                     ],
@@ -425,10 +382,10 @@ class _HomePageState extends State<HomePage> {
         onTap: (index) {
           switch (index) {
             case 1:
-              Navigator.pushNamed(context, '/books');
+              Navigator.pushReplacementNamed(context, '/books');
               break;
             case 2:
-              Navigator.pushNamed(context, '/quiz');
+              Navigator.pushReplacementNamed(context, '/quiz');
               break;
           }
         },
@@ -447,6 +404,58 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildContinueReading(BuildContext context) {
+    final lastReadManager = getIt<LastReadManager>();
+    return FutureBuilder<LastReadInfo?>(
+      future: lastReadManager.getLastRead(),
+      builder: (context, snapshot) {
+        final info = snapshot.data;
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.play_circle_fill, size: 32),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Okumaya devam et', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(height: 2),
+                    Text(
+                      snapshot.connectionState == ConnectionState.waiting
+                          ? 'Yükleniyor...'
+                          : (info == null
+                              ? 'Son okunan: bulunamadı'
+                              : '${info.book.title} • Sayfa ${info.pageIndex + 1}'),
+                      style: const TextStyle(fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              OutlinedButton(
+                onPressed: () {
+                  if (info == null) return;
+                  Navigator.pushNamed(
+                    context,
+                    '/reader',
+                    arguments: info.book,
+                  );
+                },
+                child: const Text('Devam'),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

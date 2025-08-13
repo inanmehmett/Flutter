@@ -178,6 +178,15 @@ class AuthService implements AuthServiceProtocol {
       print('🔐 [AuthService] Request URL: ${e.requestOptions.uri}');
       print('🔐 [AuthService] Request Method: ${e.requestOptions.method}');
       print('🔐 [AuthService] Request Data: ${e.requestOptions.data}');
+      // Backend 400: { error: "Username already exists" } gibi net mesaj döndürüyor.
+      if (e.response?.statusCode == 400) {
+        final data = e.response?.data;
+        final message = (data is Map && data['error'] is String)
+            ? (data['error'] as String)
+            : 'Registration failed';
+        // İşlenebilir mesajı bloc'ta göstermek için Exception at
+        throw Exception(message);
+      }
       throw AuthError.serverError;
     } catch (e) {
       print('🔐 [AuthService] ===== REGISTER GENERAL ERROR =====');
@@ -208,6 +217,10 @@ class AuthService implements AuthServiceProtocol {
     // Clear cache
     print('🔐 [AuthService] Clearing cache...');
     await _cacheManager.clearAll();
+    // Clear in-memory HTTP cache
+    try {
+      _networkManager.clearHttpCache();
+    } catch (_) {}
     print('🔐 [AuthService] ✅ Cache cleared');
 
     print('🔐 [AuthService] ✅ Logout completed successfully');

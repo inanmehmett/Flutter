@@ -241,7 +241,10 @@ class _ProfilePageState extends State<ProfilePage> {
                         const SizedBox(height: 24),
                         const Text('Settings', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 12),
-                        _settingsTile(context, Icons.person_outline, 'Profile Details'),
+                        GestureDetector(
+                          onTap: () => Navigator.pushNamed(context, '/profile-details'),
+                          child: _settingsTile(context, Icons.person_outline, 'Profile Details'),
+                        ),
                         _settingsTile(context, Icons.notifications_outlined, 'Notifications'),
                         _settingsTile(context, Icons.privacy_tip_outlined, 'Privacy'),
                         const SizedBox(height: 12),
@@ -263,9 +266,16 @@ class _ProfilePageState extends State<ProfilePage> {
       final client = getIt<NetworkManager>();
       final levelResp = await client.get('/api/ApiGamification/level');
       final goalsResp = await client.get('/api/ApiProgressStats/goals');
+      // Streak ayrı endpointten gelir; goals yanıtını şimdilik kullanmıyoruz
+      int? streakDays;
+      try {
+        final streakResp = await client.get('/api/ApiProgressStats/streak');
+        final sroot = streakResp.data is Map<String, dynamic> ? streakResp.data as Map<String, dynamic> : {};
+        final sdat = sroot['data'] is Map<String, dynamic> ? sroot['data'] as Map<String, dynamic> : {};
+        streakDays = (sdat['currentStreak'] ?? sdat['CurrentStreak'] ?? sdat['streak']) as int?;
+      } catch (_) {}
 
       double xpProgress = 0;
-      int? streakDays;
       String? levelLabel;
       int? currentXP;
 
@@ -277,9 +287,12 @@ class _ProfilePageState extends State<ProfilePage> {
       currentXP = currentXPd.toInt();
       levelLabel = (ldat['currentLevelEnglish'] ?? ldat['currentLevel'] ?? 'Level').toString();
 
-      final groot = goalsResp.data is Map<String, dynamic> ? goalsResp.data as Map<String, dynamic> : {};
-      final gdat = groot['data'] is Map<String, dynamic> ? groot['data'] as Map<String, dynamic> : {};
-      streakDays = (gdat['streakDays'] ?? gdat['currentStreak'] ?? gdat['streak']) as int?;
+      // goals yanıtında streak olmayabilir; varsa fallback olarak yine dene
+      if (streakDays == null) {
+        final groot = goalsResp.data is Map<String, dynamic> ? goalsResp.data as Map<String, dynamic> : {};
+        final gdat = groot['data'] is Map<String, dynamic> ? groot['data'] as Map<String, dynamic> : {};
+        streakDays = (gdat['streakDays'] ?? gdat['currentStreak'] ?? gdat['streak']) as int?;
+      }
 
       return _LevelGoalData(levelLabel: levelLabel, currentXP: currentXP, xpProgress: xpProgress, streakDays: streakDays);
     } catch (_) {
@@ -316,7 +329,9 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<List<_BadgeItem>> _fetchBadges() async {
     try {
       final client = getIt<NetworkManager>();
-      final resp = await client.get('/api/ApiGamification/api/badges');
+      // Backend'de doğrudan badges endpointi yok; önerilen yol: /api/ApiGamification/badges
+      // Geçici: varsa kullan; yoksa boş liste dön
+      final resp = await client.get('/api/ApiGamification/badges');
       final root = resp.data is Map<String, dynamic> ? resp.data as Map<String, dynamic> : {};
       final list = root['data'] as List<dynamic>?;
       if (list == null) return [];

@@ -213,3 +213,93 @@
 
 - iOS ATS istisnası eklendi (Debug için). Prod’da HTTPS zorunlu tutulmalıdır.
 - Backend `http://localhost:5001` dinlemede; mobil için iOS’ta `127.0.0.1`, Android emülatörde `10.0.2.2` kullanılır.
+
+---
+
+## Backend API Notları (Mobile için XP/Level/Stats/Badges)
+
+- ApiUserProfile
+
+  - GET `api/ApiUserProfile`
+    - Döner: `cefrLevel`, `subLevel`, `levelName`, `levelDisplay`, `experiencePoints`, `preferredLanguage` vb.
+
+- ApiGamification
+
+  - GET `api/ApiGamification/level`
+    - Döner: `currentLevel`, `currentXP`, `xpForNextLevel`, `progressPercentage`, `nextLevel`, `levelColor`
+  - POST `api/ApiGamification/xp/earn` (Body: `xpAmount`, `activityType`)
+  - GET `api/ApiGamification/leaderboard`
+  - GET `api/ApiGamification/level/history`
+  - (Eksik) Badges: Önerilen endpoint `GET api/ApiGamification/badges` (uygulamada bu yola bağlanıldı; backend eklenmeli)
+
+- ApiProgressStats
+  - GET `api/ApiProgressStats/detailed`
+  - GET `api/ApiProgressStats/analytics?startDate&endDate`
+  - GET `api/ApiProgressStats/goals`
+  - GET `api/ApiProgressStats/performance`
+  - GET `api/ApiProgressStats/comparison?compareWith=average`
+  - GET `api/ApiProgressStats/export?startDate&endDate`
+  - GET `api/ApiProgressStats/charts/xp-trend?period=weekly|monthly`
+  - GET `api/ApiProgressStats/charts/activity-distribution`
+  - GET `api/ApiProgressStats/charts/hourly-pattern`
+  - GET `api/ApiProgressStats/summary` (özet: xp, performance, goals, ranking)
+
+Kullanım (Flutter Profile sayfası)
+
+- Level/XP: `GET api/ApiGamification/level`
+- Streak/Goals: `GET api/ApiProgressStats/goals`
+- Progress dağılımı: `GET api/ApiProgressStats/detailed`
+- Badges: `GET api/ApiGamification/badges` (backend eklenmeli; yoksa uygulama boş liste gösterir)
+
+---
+
+## UI/UX ve Özellik İyileştirmeleri (Backlog)
+
+1. Okuyucu: eşzamanlı cümle içi highlight (sentence-level yerine segment-level)
+
+- Problem: Şu an cümle seslendirildiğinde tüm cümle blok olarak aydınlatılıyor.
+- Aksiyon: Ses çalma sırasında, oynatılan segmenti (kelime/ifade) gerçek zamanlı vurgulamak. Manifest/tts zaman damgaları varsa bunları kullan; yoksa cümleyi hece/kelime bazlı tahmini aralıklara böl.
+- Kabul ölçütü:
+  - Oynatma devam ederken highlight, segment ile senkron akmalı; durdur/geri sar ileri sar durumlarında highlight doğru güncellenmeli.
+  - Kullanıcı bir kelimeye dokunduğunda mevcut davranış korunur: tam cümle seçimi ve çeviri görünür.
+
+2. Oynat/Duraklat ikon titremesi (transition jitter) azaltma
+
+- Problem: Cümleler arası geçişte Play/Pause görünümü anlık değişip dikkat dağıtıyor.
+- Aksiyon: Transport state’i stabilize et; cümle geçişlerinde ikon değişimini 150–250 ms debounce ile yumuşat veya tekil yükleme göstergesi kullan.
+- Kabul ölçütü:
+  - Cümle geçişinde ikon titremesi/flash hissi olmamalı; erişilebilirlik için durum değişimleri hâlâ net olmalı.
+
+3. Books sayfası yerleşimi
+
+- Problem: Kitap kartları sayfaya dağınık yerleşiyor.
+- Aksiyon: Duyarlı grid (ör. iPhone: 2 sütun, iPad: 3–4), sabit aspect ratio, tutarlı padding/gap; tek satır başlık + çok satır özet kırpma.
+- Kabul ölçütü:
+  - Farklı ekran boyutlarında simetrik grid, taşma/overflow olmadan kaydırma.
+
+4. Anasayfada kitap kapaklarının görünmemesi
+
+- Problem: Kapak/ikon görselleri render olmuyor.
+- Aksiyon: `iconUrl`/kapak alanı için görüntü yükleme; hata/fallback placeholder (ör. kitap simgesi). Cache ve düşük çözünürlük önizleme ekle.
+- Kabul ölçütü:
+  - Geçerli URL’lerde kapaklar görünür; hatalı URL’de anlaşılır placeholder.
+
+5. Kitap kartında "sesli" (audio available) göstergesi
+
+- Problem: Kitabın ses desteği olup olmadığı anlaşılmıyor.
+- Aksiyon: Seviye/metadata alanının yanına kulaklık/önizleme dalgası ikonu; Voice-over açıklamasıyla erişilebilirlik desteği.
+- Kabul ölçütü:
+  - Sesli kitaplar tutarlı biçimde işaretlenmiş; ikon, koyu/açık temada net görünüyor.
+
+6. Profil: "Profile Details" bölümü (e‑posta, kullanıcı adı, şifre güncelleme)
+
+- Aksiyon: Profil detay ekranı ekle; e‑posta ve kullanıcı adı güncelleme için `GET/PUT /api/ApiUserProfile` bağla; şifre güncelleme için uygun endpoint mevcutsa bağla (yoksa backend çalışma maddesi oluştur).
+- Kabul ölçütü:
+  - Form doğrulama, başarı/başarısızlık geri bildirimi; kaydetmeden çıkarken uyarı; erişilebilir etiketler.
+
+7. Learning progress, user stats ve XP streak
+
+- Problem: Bölümler boş gösteriliyor.
+- Aksiyon: İlgili servisleri bağla (ör. Gamification/ProgressStats). Uygun endpoint yoksa backend’de mobil dostu endpoint’ler tanımla.
+- Kabul ölçütü:
+  - Veriler gerçek zamanlı/yenilemeyle güncellenir; boş/başarısız durumlar için boş durum ekranı ve hata geri bildirimi vardır.

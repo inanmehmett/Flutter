@@ -31,6 +31,8 @@ class ReaderLoaded extends ReaderState {
   final bool isPaused;
   final double speechRate;
   final int? playingSentenceIndex;
+  final int? playingRangeStart; // local to current page
+  final int? playingRangeEnd;   // local to current page
 
   const ReaderLoaded({
     required this.book,
@@ -42,6 +44,8 @@ class ReaderLoaded extends ReaderState {
     required this.isPaused,
     required this.speechRate,
     this.playingSentenceIndex,
+    this.playingRangeStart,
+    this.playingRangeEnd,
   });
 
   ReaderLoaded copyWith({
@@ -54,6 +58,8 @@ class ReaderLoaded extends ReaderState {
     bool? isPaused,
     double? speechRate,
     int? playingSentenceIndex,
+    int? playingRangeStart,
+    int? playingRangeEnd,
   }) {
     return ReaderLoaded(
       book: book ?? this.book,
@@ -65,6 +71,8 @@ class ReaderLoaded extends ReaderState {
       isPaused: isPaused ?? this.isPaused,
       speechRate: speechRate ?? this.speechRate,
       playingSentenceIndex: playingSentenceIndex ?? this.playingSentenceIndex,
+      playingRangeStart: playingRangeStart ?? this.playingRangeStart,
+      playingRangeEnd: playingRangeEnd ?? this.playingRangeEnd,
     );
   }
 
@@ -79,5 +87,7 @@ class ReaderLoaded extends ReaderState {
         isPaused,
         speechRate,
         playingSentenceIndex,
+        playingRangeStart,
+        playingRangeEnd,
       ];
 }

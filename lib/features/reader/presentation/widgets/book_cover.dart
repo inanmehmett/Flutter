@@ -13,19 +13,22 @@ class BookCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (book.iconUrl != null && book.iconUrl!.isNotEmpty) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(6),
-        child: Image.network(
-          book.iconUrl!,
-          width: size.width,
-          height: size.height,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _buildFallbackCover(),
-        ),
-      );
-    }
-    return _buildFallbackCover();
+    final coverUrl = (book.imageUrl?.isNotEmpty == true) ? book.imageUrl : book.iconUrl;
+    final image = (coverUrl != null && coverUrl.isNotEmpty)
+        ? ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Image.network(
+              coverUrl,
+              width: size.width,
+              height: size.height,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => _buildFallbackCover(),
+            ),
+          )
+        : _buildFallbackCover();
+
+    // Only the image; audio indicator moved to description area.
+    return image;
   }
 
   Widget _buildFallbackCover() {

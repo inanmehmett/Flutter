@@ -97,13 +97,22 @@ class BookListViewModel extends ChangeNotifier {
     }).toList();
   }
 
-  List<Book> getRecommendedBooks({int limit = 3}) {
-    return _books.take(limit).toList();
+  List<Book> getRecommendedBooks({int limit = 8, String? userLevel}) {
+    final normalizedLevel = (userLevel ?? '').trim().toLowerCase();
+    final levelFiltered = normalizedLevel.isEmpty
+        ? _books
+        : _books.where((b) => (b.textLevel ?? '').toLowerCase() == normalizedLevel).toList();
+    final pool = levelFiltered.isNotEmpty ? levelFiltered : _books;
+    return pool.take(limit).toList();
   }
 
-  List<Book> getTrendingBooks({int limit = 3}) {
-    // Basit bir trending algoritması - son eklenen kitaplar
-    return _books.take(limit).toList();
+  List<Book> getTrendingBooks({int limit = 8, String? userLevel}) {
+    final normalizedLevel = (userLevel ?? '').trim().toLowerCase();
+    final levelFiltered = normalizedLevel.isEmpty
+        ? _books
+        : _books.where((b) => (b.textLevel ?? '').toLowerCase() == normalizedLevel).toList();
+    final pool = levelFiltered.isNotEmpty ? levelFiltered : _books;
+    return pool.take(limit).toList();
   }
 
   // Error handling

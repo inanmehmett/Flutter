@@ -382,7 +382,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                                 Logger.debug('Playing from URL: $audioUrl');
                                 await bloc.playSentenceFromUrl(audioUrl);
                               } else {
-                                await bloc.speakSentence(sentence);
+                                await bloc.speakSentenceWithIndex(sentence, sentenceIndex);
                               }
                               final translation = await bloc.translateSentence(sentence);
                               if (!mounted) return;
@@ -542,8 +542,9 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     if (state.playingSentenceIndex != null) {
       final range = context.read<AdvancedReaderBloc>().computeLocalRangeForSentence(text, state.playingSentenceIndex!);
       if (range != null) {
-        final start = range[0];
-        final end = range[1];
+        // If segment-level range is provided by state, prefer it
+        final start = state.playingRangeStart ?? range[0];
+        final end = state.playingRangeEnd ?? range[1];
         final before = text.substring(0, start);
         final mid = text.substring(start, end);
         final after = text.substring(end);
@@ -668,15 +669,24 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                   shape: BoxShape.circle,
                   color: Theme.of(context).colorScheme.primary,
                 ),
-                child: IconButton(
-                  icon: Icon(
-                    state.isSpeaking
-                        ? (state.isPaused ? Icons.play_arrow : Icons.pause)
-                        : Icons.play_arrow,
-                    color: Colors.white,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+                  child: IconButton(
+                    key: ValueKey(
+                      state.isSpeaking ? (state.isPaused ? 'play' : 'pause') : 'play',
+                    ),
+                    icon: Icon(
+                      state.isSpeaking
+                          ? (state.isPaused ? Icons.play_arrow : Icons.pause)
+                          : Icons.play_arrow,
+                      color: Colors.white,
+                    ),
+                    onPressed: () => _readerBloc.add(TogglePlayPause()),
+                    iconSize: 32,
                   ),
-                  onPressed: () => _readerBloc.add(TogglePlayPause()),
-                  iconSize: 32,
                 ),
               ),
               
