@@ -230,7 +230,7 @@ class _HomePageState extends State<HomePage> {
                                           topRight: Radius.circular(12),
                                         ),
                                         child: Container(
-                                          height: 90,
+                                          height: 80,
                                           width: double.infinity,
                                           color: Theme.of(context)
                                               .colorScheme
@@ -273,8 +273,9 @@ class _HomePageState extends State<HomePage> {
                                                 overflow: TextOverflow.ellipsis,
                                               ),
                                               const SizedBox(height: 6),
-                                              Row(
-                                                children: [
+                                               Row(
+                                                 crossAxisAlignment: CrossAxisAlignment.start,
+                                                 children: [
                                                   Text(
                                                     '${book.estimatedReadingTimeInMinutes ?? 10} dk',
                                                     style: TextStyle(
