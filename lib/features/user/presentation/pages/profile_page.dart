@@ -63,9 +63,10 @@ class _ProfilePageState extends State<ProfilePage> {
               future: _levelGoalFuture,
               builder: (context, snapshot) {
                 final levelInfo = snapshot.data;
-                final level = levelInfo?.level ?? (profile.level ?? 0);
                 final xpProgress = levelInfo?.xpProgress ?? _fallbackProgress(profile.experiencePoints ?? 0);
                 final streakLabel = levelInfo?.streakDays != null ? '${levelInfo!.streakDays} gün' : '—';
+                final levelLabel = levelInfo?.levelLabel ?? 'Level';
+                final xpValue = levelInfo?.currentXP?.toString() ?? (profile.experiencePoints ?? 0).toString();
 
                 return Container(
                   decoration: BoxDecoration(
@@ -165,8 +166,8 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                         const SizedBox(height: 20),
                         _StatsStrip(
-                          levelLabel: 'Level $level',
-                          xp: (profile.experiencePoints ?? 0).toString(),
+                          levelLabel: levelLabel,
+                          xp: xpValue,
                           books: (profile.totalReadBooks ?? 0).toString(),
                         ),
                         const SizedBox(height: 20),
@@ -264,26 +265,25 @@ class _ProfilePageState extends State<ProfilePage> {
       final goalsResp = await client.get('/api/ApiProgressStats/goals');
 
       double xpProgress = 0;
-      int? level;
       int? streakDays;
+      String? levelLabel;
+      int? currentXP;
 
-      // Parse level response
-      final ldata = levelResp.data is Map<String, dynamic> ? levelResp.data as Map<String, dynamic> : {};
-      final ldat = ldata['data'] is Map<String, dynamic> ? ldata['data'] as Map<String, dynamic> : {};
-      final currentXP = (ldat['currentXP'] as num?)?.toDouble() ?? 0;
+      final lroot = levelResp.data is Map<String, dynamic> ? levelResp.data as Map<String, dynamic> : {};
+      final ldat = lroot['data'] is Map<String, dynamic> ? lroot['data'] as Map<String, dynamic> : {};
+      final currentXPd = (ldat['currentXP'] as num?)?.toDouble() ?? 0;
       final xpForNext = (ldat['xpForNextLevel'] as num?)?.toDouble() ?? 1000;
-      xpProgress = xpForNext > 0 ? (currentXP / xpForNext).clamp(0, 1).toDouble() : 0;
-      // Level name exists, numeric level may be separate; fall back to profile later
-      level = null;
+      xpProgress = xpForNext > 0 ? (currentXPd / xpForNext).clamp(0, 1).toDouble() : 0;
+      currentXP = currentXPd.toInt();
+      levelLabel = (ldat['currentLevelEnglish'] ?? ldat['currentLevel'] ?? 'Level').toString();
 
-      // Parse goals for streak
-      final gdata = goalsResp.data is Map<String, dynamic> ? goalsResp.data as Map<String, dynamic> : {};
-      final gdat = gdata['data'] is Map<String, dynamic> ? gdata['data'] as Map<String, dynamic> : {};
+      final groot = goalsResp.data is Map<String, dynamic> ? goalsResp.data as Map<String, dynamic> : {};
+      final gdat = groot['data'] is Map<String, dynamic> ? groot['data'] as Map<String, dynamic> : {};
       streakDays = (gdat['streakDays'] ?? gdat['currentStreak'] ?? gdat['streak']) as int?;
 
-      return _LevelGoalData(level: level, xpProgress: xpProgress, streakDays: streakDays);
+      return _LevelGoalData(levelLabel: levelLabel, currentXP: currentXP, xpProgress: xpProgress, streakDays: streakDays);
     } catch (_) {
-      return _LevelGoalData(level: null, xpProgress: 0, streakDays: null);
+      return _LevelGoalData(levelLabel: 'Level', currentXP: 0, xpProgress: 0, streakDays: null);
     }
   }
 
@@ -454,12 +454,14 @@ class _ProfilePageState extends State<ProfilePage> {
 }
 
 class _LevelGoalData {
-  final int? level;
+  final String? levelLabel;
+  final int? currentXP;
   final double xpProgress;
   final int? streakDays;
 
   _LevelGoalData({
-    required this.level,
+    required this.levelLabel,
+    required this.currentXP,
     required this.xpProgress,
     required this.streakDays,
   });
