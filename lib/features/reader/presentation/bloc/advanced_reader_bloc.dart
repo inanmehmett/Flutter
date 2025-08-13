@@ -155,7 +155,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     final full = _currentBook?.content ?? '';
     if (full.isEmpty || pageContent.isEmpty) return [];
     final splitter = RegExp(r'(?<=[.!?])\s+');
-    final sentences = splitter.split(full);
+    final sentences = full.split(splitter);
     final pageStart = full.indexOf(pageContent);
     if (pageStart < 0) return [];
     final pageEnd = pageStart + pageContent.length;
@@ -165,7 +165,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
       final s = sentences[i];
       final start = full.indexOf(s, offset);
       if (start < 0) continue;
-      final end = start + s.length;
+      final int end = start + s.length;
       offset = end;
       if (start >= pageStart && end <= pageEnd) {
         indices.add(i);
