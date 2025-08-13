@@ -25,7 +25,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   bool _isSpeaking = false;
   bool _isPaused = false;
   double _speechRate = 0.5;
-  double _fontSize = 16.0;
+  double _fontSize = 20.0;
 
   AdvancedReaderBloc({
     required BookRepository bookRepository,
@@ -134,10 +134,11 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     }
   }
 
-  // Future enhancement: stream sentence audio from backend manifest instead of local TTS
+  // Stream sentence audio from backend manifest instead of local TTS
   Future<void> playSentenceFromUrl(String url) async {
     try {
       await _audioPlayer.stop();
+      try { await _audioPlayer.setPlaybackRate(_speechRate.clamp(0.1, 2.0)); } catch (_) {}
       await _audioPlayer.play(UrlSource(url));
       _isSpeaking = true;
       _isPaused = false;
@@ -148,6 +149,48 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     } catch (e) {
       Logger.error('playSentenceFromUrl error', e);
     }
+  }
+
+  List<int> _computeSentenceIndicesForPage(String pageContent) {
+    final full = _currentBook?.content ?? '';
+    if (full.isEmpty || pageContent.isEmpty) return [];
+    final splitter = RegExp(r'(?<=[.!?])\s+');
+    final sentences = splitter.split(full);
+    final pageStart = full.indexOf(pageContent);
+    if (pageStart < 0) return [];
+    final pageEnd = pageStart + pageContent.length;
+    final indices = <int>[];
+    int offset = 0;
+    for (int i = 0; i < sentences.length; i++) {
+      final s = sentences[i];
+      final start = full.indexOf(s, offset);
+      if (start < 0) continue;
+      final end = start + s.length;
+      offset = end;
+      if (start >= pageStart && end <= pageEnd) {
+        indices.add(i);
+      }
+      if (start > pageEnd) break;
+    }
+    return indices;
+  }
+
+  Future<void> _playPageSequentially() async {
+    if (state is! ReaderLoaded) return;
+    final currentState = state as ReaderLoaded;
+    final pageText = _getCurrentPageContent();
+    final indices = _computeSentenceIndicesForPage(pageText);
+    final readingTextId = int.tryParse(_currentBook?.id ?? '0') ?? 0;
+    for (final idx in indices) {
+      final url = await findSentenceAudioUrl(readingTextId, idx);
+      if (url != null) {
+        await playSentenceFromUrl(url);
+        try { await _audioPlayer.onPlayerComplete.first; } catch (_) {}
+      }
+    }
+    _isSpeaking = false;
+    _isPaused = false;
+    emit(currentState.copyWith(isSpeaking: false, isPaused: false));
   }
 
   void _setupPageManager() {
@@ -292,17 +335,16 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
       
       if (_isSpeaking) {
         if (_isPaused) {
-          // FlutterTts doesn't have resume, so we restart speaking
-          await _flutterTts.speak(currentState.currentPageContent);
+          await _audioPlayer.resume();
           _isPaused = false;
         } else {
-          await _flutterTts.pause();
+          await _audioPlayer.pause();
           _isPaused = true;
         }
       } else {
         _isSpeaking = true;
         _isPaused = false;
-        await _flutterTts.speak(currentState.currentPageContent);
+        await _playPageSequentially();
       }
 
       emit(currentState.copyWith(
@@ -313,6 +355,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   }
 
   Future<void> _onStopSpeech(StopSpeech event, Emitter<ReaderState> emit) async {
+    await _audioPlayer.stop();
     await _flutterTts.stop();
     _isSpeaking = false;
     _isPaused = false;
@@ -329,6 +372,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   Future<void> _onUpdateSpeechRate(UpdateSpeechRate event, Emitter<ReaderState> emit) async {
     _speechRate = event.rate;
     await _flutterTts.setSpeechRate(_speechRate);
+    try { await _audioPlayer.setPlaybackRate(_speechRate.clamp(0.1, 2.0)); } catch (_) {}
     
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;

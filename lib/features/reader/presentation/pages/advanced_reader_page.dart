@@ -330,12 +330,16 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                               final translation = await bloc.translateSentence(sentence);
                               if (!mounted) return;
                               if (translation.isNotEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(translation),
-                                    duration: const Duration(seconds: 3),
-                                  ),
-                                );
+                                ScaffoldMessenger.of(context)
+                                  ..hideCurrentSnackBar()
+                                  ..showSnackBar(
+                                    SnackBar(
+                                      content: Text(translation),
+                                      duration: const Duration(seconds: 6),
+                                      behavior: SnackBarBehavior.floating,
+                                      margin: const EdgeInsets.all(16),
+                                    ),
+                                  );
                               }
                             },
                             child: _buildRichTextWithHighlight(
