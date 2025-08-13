@@ -239,6 +239,21 @@ class AuthService implements AuthServiceProtocol {
       if (response.statusCode == 200) {
         print('🔐 [AuthService] ✅ Profile fetch successful!');
         final data = response.data as Map<String, dynamic>;
+
+        String? processProfileImageUrl(String? profileImageUrl) {
+          if (profileImageUrl == null || profileImageUrl.isEmpty) return null;
+          if (profileImageUrl.startsWith('http://') || profileImageUrl.startsWith('https://')) {
+            return profileImageUrl;
+          }
+          if (profileImageUrl.startsWith('file://')) {
+            return profileImageUrl.replaceFirst('file://', AppConfig.apiBaseUrl);
+          }
+          if (profileImageUrl.startsWith('/')) {
+            return '${AppConfig.apiBaseUrl}$profileImageUrl';
+          }
+          return '${AppConfig.apiBaseUrl}/$profileImageUrl';
+        }
+
         final userProfile = UserProfile(
           id: data['id']?.toString() ?? '',
           userName: data['userName']?.toString() ?? '',
@@ -246,6 +261,12 @@ class AuthService implements AuthServiceProtocol {
           createdAt: DateTime.tryParse('${data['createdAt']}') ?? DateTime.now(),
           updatedAt: DateTime.tryParse('${data['updatedAt']}') ?? DateTime.now(),
           isActive: true,
+          profileImageUrl: processProfileImageUrl(data['profileImageUrl']?.toString()),
+          bio: data['bio']?.toString(),
+          level: (data['subLevel'] as num?)?.toInt(),
+          experiencePoints: (data['experiencePoints'] as num?)?.toInt(),
+          totalReadBooks: (data['totalReadBooks'] as num?)?.toInt(),
+          totalQuizScore: (data['totalQuizScore'] as num?)?.toInt(),
         );
         print('🔐 [AuthService] ===== FETCH USER PROFILE END =====');
         return userProfile;
