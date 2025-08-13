@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'core/utils/logger.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'features/user/presentation/pages/profile_page.dart';
 import 'core/di/injection.dart';
 import 'features/reader/data/models/book_model.dart';
 import 'features/reader/domain/repositories/book_repository.dart';
@@ -91,12 +92,7 @@ class MyApp extends StatelessWidget {
           '/register': (context) => const RegistrationPage(),
           '/home': (context) => const HomePage(),
           '/books': (context) => const BookListPage(),
-          '/profile': (context) => const Scaffold(
-                body: Center(
-                  child: Text('Profile Page - Coming Soon!',
-                      style: TextStyle(fontSize: 24)),
-                ),
-              ),
+          '/profile': (context) => const ProfilePage(),
           '/quiz': (context) => const Scaffold(
                 body: Center(
                   child: Text('Quiz Page - Coming Soon!',

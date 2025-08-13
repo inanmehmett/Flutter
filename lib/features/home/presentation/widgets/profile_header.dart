@@ -46,7 +46,7 @@ class ProfileHeader extends StatelessWidget {
 
     return CircleAvatar(
       radius: 30,
-      backgroundColor: Colors.orange.withOpacity(0.2),
+      backgroundColor: Colors.orange.withValues(alpha: 0.2),
       child: Text(
         _getInitials(profile.userName),
         style: const TextStyle(
