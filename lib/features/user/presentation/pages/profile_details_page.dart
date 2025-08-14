@@ -77,7 +77,7 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
     setState(() => _saving = true);
     try {
       final client = getIt<NetworkManager>();
-      final resp = await client.put('/connect/change-password', data: {
+      final resp = await client.put('/api/ApiUserProfile/password', data: {
         'currentPassword': _currentPwdCtrl.text,
         'newPassword': _newPwdCtrl.text,
       });

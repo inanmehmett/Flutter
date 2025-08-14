@@ -21,6 +21,8 @@ UserProfile _$UserProfileFromJson(Map<String, dynamic> json) => UserProfile(
       experiencePoints: (json['experiencePoints'] as num?)?.toInt(),
       totalReadBooks: (json['totalReadBooks'] as num?)?.toInt(),
       totalQuizScore: (json['totalQuizScore'] as num?)?.toInt(),
+      currentStreak: (json['currentStreak'] as num?)?.toInt(),
+      longestStreak: (json['longestStreak'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$UserProfileToJson(UserProfile instance) =>
@@ -39,4 +41,6 @@ Map<String, dynamic> _$UserProfileToJson(UserProfile instance) =>
       'experiencePoints': instance.experiencePoints,
       'totalReadBooks': instance.totalReadBooks,
       'totalQuizScore': instance.totalQuizScore,
+      'currentStreak': instance.currentStreak,
+      'longestStreak': instance.longestStreak,
     };

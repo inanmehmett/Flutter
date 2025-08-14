@@ -19,6 +19,8 @@ class UserProfile {
   final int? experiencePoints;
   final int? totalReadBooks;
   final int? totalQuizScore;
+  final int? currentStreak;
+  final int? longestStreak;
 
   UserProfile({
     required this.id,
@@ -35,6 +37,8 @@ class UserProfile {
     this.experiencePoints,
     this.totalReadBooks,
     this.totalQuizScore,
+    this.currentStreak,
+    this.longestStreak,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -68,6 +72,8 @@ class UserProfile {
       experiencePoints: (json['experiencePoints'] as num?)?.toInt(),
       totalReadBooks: (json['totalReadBooks'] as num?)?.toInt(),
       totalQuizScore: (json['totalQuizScore'] as num?)?.toInt(),
+      currentStreak: (json['currentStreak'] as num?)?.toInt(),
+      longestStreak: (json['longestStreak'] as num?)?.toInt(),
     );
   }
   
@@ -88,6 +94,8 @@ class UserProfile {
     int? experiencePoints,
     int? totalReadBooks,
     int? totalQuizScore,
+    int? currentStreak,
+    int? longestStreak,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -104,6 +112,8 @@ class UserProfile {
       experiencePoints: experiencePoints ?? this.experiencePoints,
       totalReadBooks: totalReadBooks ?? this.totalReadBooks,
       totalQuizScore: totalQuizScore ?? this.totalQuizScore,
+      currentStreak: currentStreak ?? this.currentStreak,
+      longestStreak: longestStreak ?? this.longestStreak,
     );
   }
 

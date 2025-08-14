@@ -32,6 +32,7 @@ import '../../features/reader/domain/services/user_service.dart' as _i121;
 import '../cache/cache_manager.dart' as _i326;
 import '../network/api_client.dart' as _i557;
 import '../network/network_manager.dart' as _i474;
+import '../storage/last_read_manager.dart' as _i298;
 import '../storage/secure_storage_service.dart' as _i666;
 import '../storage/storage_manager.dart' as _i392;
 import '../sync/sync_manager.dart' as _i417;
@@ -103,6 +104,10 @@ extension GetItInjectableX on _i174.GetIt {
         ));
     gh.lazySingleton<_i696.TranslationService>(
         () => _i696.TranslationService(gh<_i474.NetworkManager>()));
+    gh.lazySingleton<_i298.LastReadManager>(() => _i298.LastReadManager(
+          gh<_i392.StorageManager>(),
+          gh<_i413.BookRepository>(),
+        ));
     gh.singleton<_i689.AchievementManager>(() => _i689.AchievementManager(
           gh<_i361.Dio>(),
           gh<_i474.NetworkManager>(),

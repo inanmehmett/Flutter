@@ -111,4 +111,86 @@ class UserService {
       return Left(ServerFailure());
     }
   }
+
+  // ==== API parity with Web UserProfile ====
+  Future<Either<Failure, Map<String, dynamic>>> getProfileDataApi() async {
+    try {
+      final response = await _dio.get('/api/ApiUserProfile/profile-data');
+      if (response.statusCode == 200) {
+        final data = Map<String, dynamic>.from(response.data as Map);
+        return Right(data);
+      }
+      return Left(ServerFailure());
+    } catch (e) {
+      return Left(ServerFailure());
+    }
+  }
+
+  Future<Either<Failure, Map<String, dynamic>>> getLevelDebugApi() async {
+    try {
+      final response = await _dio.get('/api/ApiUserProfile/level-debug');
+      if (response.statusCode == 200) {
+        final data = Map<String, dynamic>.from(response.data as Map);
+        return Right(data);
+      }
+      return Left(ServerFailure());
+    } catch (e) {
+      return Left(ServerFailure());
+    }
+  }
+
+  Future<Either<Failure, void>> updateUsernameApi(String userName) async {
+    try {
+      final response = await _dio.put(
+        '/api/ApiUserProfile/username',
+        data: {'userName': userName},
+      );
+      if (response.statusCode == 200) {
+        return const Right(null);
+      }
+      return Left(ServerFailure());
+    } catch (e) {
+      return Left(ServerFailure());
+    }
+  }
+
+  Future<Either<Failure, void>> changePasswordApi({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await _dio.put(
+        '/api/ApiUserProfile/password',
+        data: {
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        },
+      );
+      if (response.statusCode == 200) {
+        return const Right(null);
+      }
+      return Left(ServerFailure());
+    } catch (e) {
+      return Left(ServerFailure());
+    }
+  }
+
+  Future<Either<Failure, String>> uploadProfilePictureApi(
+      MultipartFile file) async {
+    try {
+      final formData = FormData.fromMap({'profilePicture': file});
+      final response = await _dio.post(
+        '/api/ApiUserProfile/profile-picture',
+        data: formData,
+      );
+      if (response.statusCode == 200) {
+        final data = Map<String, dynamic>.from(response.data as Map);
+        final url = (data['url'] ?? '') as String;
+        return Right(url);
+      }
+      return Left(ServerFailure());
+    } catch (e) {
+      return Left(ServerFailure());
+    }
+  }
 }

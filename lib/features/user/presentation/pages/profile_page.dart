@@ -16,6 +16,11 @@ class _ProfilePageState extends State<ProfilePage> {
   late Future<_LevelGoalData> _levelGoalFuture;
   late Future<_ProgressData> _progressFuture;
   late Future<List<_BadgeItem>> _badgesFuture;
+  // Son başarılı değerleri tutarak geçici hatalarda UI'nin sıfırlanmasını önler
+  UserProfile? _lastProfile;
+  _LevelGoalData? _lastLevelGoal;
+  _ProgressData? _lastProgress;
+  List<_BadgeItem>? _lastBadges;
 
   @override
   void initState() {
@@ -41,32 +46,62 @@ class _ProfilePageState extends State<ProfilePage> {
         ],
       ),
       body: SafeArea(
-        child: BlocBuilder<AuthBloc, AuthState>(
-          builder: (context, state) {
-            final UserProfile profile = (state is AuthAuthenticated)
-                ? state.user
-                : UserProfile(
-                    id: 'guest',
-                    userName: 'Misafir',
-                    email: '',
-                    profileImageUrl: null,
-                    createdAt: DateTime.now(),
-                    updatedAt: DateTime.now(),
-                    isActive: false,
-                    level: 0,
-                    experiencePoints: 0,
-                    totalReadBooks: 0,
-                    totalQuizScore: 0,
-                  );
+        child: BlocListener<AuthBloc, AuthState>(
+          listener: (context, state) {
+            if (state is AuthAuthenticated) {
+              _lastProfile = state.user;
+              setState(() {
+                _levelGoalFuture = _fetchLevelAndGoals();
+                _progressFuture = _fetchProgress();
+                _badgesFuture = _fetchBadges();
+              });
+            }
+          },
+          child: BlocBuilder<AuthBloc, AuthState>(
+            builder: (context, state) {
+            final UserProfile? authenticated = (state is AuthAuthenticated) ? state.user : null;
+            if (authenticated != null) {
+              _lastProfile = authenticated;
+            }
+            final UserProfile profile = _lastProfile ?? UserProfile(
+              id: 'guest',
+              userName: 'Misafir',
+              email: '',
+              profileImageUrl: null,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+              isActive: false,
+              level: 0,
+              experiencePoints: 0,
+              totalReadBooks: 0,
+              totalQuizScore: 0,
+              currentStreak: 0,
+              longestStreak: 0,
+            );
 
             return FutureBuilder<_LevelGoalData>(
               future: _levelGoalFuture,
               builder: (context, snapshot) {
-                final levelInfo = snapshot.data;
-                final xpProgress = levelInfo?.xpProgress ?? _fallbackProgress(profile.experiencePoints ?? 0);
-                final streakLabel = levelInfo?.streakDays != null ? '${levelInfo!.streakDays} gün' : '—';
-                final levelLabel = levelInfo?.levelLabel ?? 'Level';
-                final xpValue = levelInfo?.currentXP?.toString() ?? (profile.experiencePoints ?? 0).toString();
+                final _LevelGoalData? levelInfo = snapshot.data ?? _lastLevelGoal;
+                if (snapshot.hasData && snapshot.data != null) {
+                  _lastLevelGoal = snapshot.data;
+                }
+                final int profileXP = profile.experiencePoints ?? 0;
+                final int apiXP = levelInfo?.currentXP ?? 0;
+                // API 0 döndüyse veya veri yoksa ekranda 0'a düşme; mevcut/profil değerini koru
+                final int displayedXP = apiXP > 0 ? apiXP : profileXP;
+                final double xpProgress = levelInfo?.xpProgress ?? _fallbackProgress(displayedXP);
+                
+                // Level bilgilerini hazırla - hem numeric hem de label
+                final int? numericLevel = levelInfo?.currentLevel ?? _lastLevelGoal?.currentLevel;
+                final String levelDisplayText = numericLevel != null ? 'Level $numericLevel' : (levelInfo?.levelLabel ?? 'Level');
+                
+                // Streak bilgilerini hazırla - robust fallback ile
+                final int? streakDaysVal = levelInfo?.streakDays ?? _lastLevelGoal?.streakDays;
+                final int? longestStreakVal = levelInfo?.longestStreak ?? _lastLevelGoal?.longestStreak;
+                final String streakLabel = _formatStreakDisplay(streakDaysVal, longestStreakVal);
+                
+                final String xpValue = displayedXP.toString();
 
                 return Container(
                   decoration: BoxDecoration(
@@ -166,9 +201,10 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                         const SizedBox(height: 20),
                         _StatsStrip(
-                          levelLabel: levelLabel,
+                          levelLabel: levelDisplayText,
                           xp: xpValue,
                           books: (profile.totalReadBooks ?? 0).toString(),
+                          streak: streakLabel,
                         ),
                         const SizedBox(height: 20),
                         FutureBuilder<_ProgressData>(
@@ -188,8 +224,11 @@ class _ProfilePageState extends State<ProfilePage> {
                         FutureBuilder<List<_BadgeItem>>(
                           future: _badgesFuture,
                           builder: (context, badgeSnap) {
-                            final items = badgeSnap.data;
-                            if (items == null || items.isEmpty) {
+                 final items = badgeSnap.data ?? _lastBadges ?? [];
+                 if (badgeSnap.hasData && (badgeSnap.data?.isNotEmpty ?? false)) {
+                   _lastBadges = badgeSnap.data;
+                 }
+                 if (items.isEmpty) {
                               return _buildBadgesPlaceholder(context);
                             }
                             return GridView.builder(
@@ -248,7 +287,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         _settingsTile(context, Icons.notifications_outlined, 'Notifications'),
                         _settingsTile(context, Icons.privacy_tip_outlined, 'Privacy'),
                         const SizedBox(height: 12),
-                        _buildStatRow(context, profile, streakLabel),
+                        _buildStatRow(context, profile),
                       ],
                     ),
                   ),
@@ -258,6 +297,7 @@ class _ProfilePageState extends State<ProfilePage> {
           },
         ),
       ),
+      ),
     );
   }
 
@@ -266,38 +306,88 @@ class _ProfilePageState extends State<ProfilePage> {
       final client = getIt<NetworkManager>();
       final levelResp = await client.get('/api/ApiGamification/level');
       final goalsResp = await client.get('/api/ApiProgressStats/goals');
-      // Streak ayrı endpointten gelir; goals yanıtını şimdilik kullanmıyoruz
+      
+      // Streak bilgilerini yeni endpoint'ten al
       int? streakDays;
+      int? longestStreak;
       try {
         final streakResp = await client.get('/api/ApiProgressStats/streak');
         final sroot = streakResp.data is Map<String, dynamic> ? streakResp.data as Map<String, dynamic> : {};
         final sdat = sroot['data'] is Map<String, dynamic> ? sroot['data'] as Map<String, dynamic> : {};
-        streakDays = (sdat['currentStreak'] ?? sdat['CurrentStreak'] ?? sdat['streak']) as int?;
-      } catch (_) {}
+        streakDays = _asNum(sdat['currentStreak'] ?? sdat['CurrentStreak'] ?? sdat['streak']).toInt();
+        longestStreak = _asNum(sdat['longestStreak'] ?? sdat['LongestStreak']).toInt();
+      } catch (_) {
+        // Streak endpoint'i çalışmazsa goals'dan dene
+        try {
+          final groot = goalsResp.data is Map<String, dynamic> ? goalsResp.data as Map<String, dynamic> : {};
+          final gdat = groot['data'] is Map<String, dynamic> ? groot['data'] as Map<String, dynamic> : {};
+          streakDays = _asNum(gdat['streakDays'] ?? gdat['currentStreak'] ?? gdat['streak']).toInt();
+          longestStreak = _asNum(gdat['longestStreak'] ?? gdat['LongestStreak']).toInt();
+        } catch (_) {}
+      }
 
       double xpProgress = 0;
       String? levelLabel;
       int? currentXP;
+      int? currentLevel;
 
       final lroot = levelResp.data is Map<String, dynamic> ? levelResp.data as Map<String, dynamic> : {};
       final ldat = lroot['data'] is Map<String, dynamic> ? lroot['data'] as Map<String, dynamic> : {};
-      final currentXPd = (ldat['currentXP'] as num?)?.toDouble() ?? 0;
-      final xpForNext = (ldat['xpForNextLevel'] as num?)?.toDouble() ?? 1000;
-      xpProgress = xpForNext > 0 ? (currentXPd / xpForNext).clamp(0, 1).toDouble() : 0;
+      
+      // XP bilgilerini al
+      final dynamic currentXPRaw = ldat['currentXP'] ?? ldat['CurrentXP'] ?? ldat['totalXP'] ?? ldat['TotalXP'];
+      final currentXPd = _asNum(currentXPRaw).toDouble();
+      final dynamic xpForNextRaw = ldat['xpForNextLevel'] ?? ldat['XPForNextLevel'] ?? 1000;
+      final xpForNext = _asNum(xpForNextRaw, 1000).toDouble();
+      final dynamic progressRaw = ldat['progressPercentage'] ?? ldat['ProgressPercentage'];
+      final progressVal = _asNum(progressRaw).toDouble();
+      
+      xpProgress = progressVal > 0 && progressVal <= 1 ? progressVal : (xpForNext > 0 ? (currentXPd / xpForNext).clamp(0, 1).toDouble() : 0);
       currentXP = currentXPd.toInt();
-      levelLabel = (ldat['currentLevelEnglish'] ?? ldat['currentLevel'] ?? 'Level').toString();
-
-      // goals yanıtında streak olmayabilir; varsa fallback olarak yine dene
-      if (streakDays == null) {
-        final groot = goalsResp.data is Map<String, dynamic> ? goalsResp.data as Map<String, dynamic> : {};
-        final gdat = groot['data'] is Map<String, dynamic> ? groot['data'] as Map<String, dynamic> : {};
-        streakDays = (gdat['streakDays'] ?? gdat['currentStreak'] ?? gdat['streak']) as int?;
+      
+      // Level bilgilerini al - hem label hem de numeric değer
+      levelLabel = (ldat['currentLevelEnglish'] ?? ldat['CurrentLevelEnglish'] ?? ldat['currentLevel'] ?? ldat['CurrentLevel'] ?? 'Level').toString();
+      
+      // Numeric level değerini hesapla - XP'ye göre
+      if (currentXP > 0) {
+        // Basit level hesaplama: her 1000 XP = 1 level
+        currentLevel = ((currentXP - 1) ~/ 1000) + 1;
       }
 
-      return _LevelGoalData(levelLabel: levelLabel, currentXP: currentXP, xpProgress: xpProgress, streakDays: streakDays);
+      final result = _LevelGoalData(
+        levelLabel: levelLabel, 
+        currentXP: currentXP, 
+        xpProgress: xpProgress, 
+        streakDays: streakDays,
+        currentLevel: currentLevel,
+        longestStreak: longestStreak,
+      );
+      _lastLevelGoal = result;
+      return result;
     } catch (_) {
-      return _LevelGoalData(levelLabel: 'Level', currentXP: 0, xpProgress: 0, streakDays: null);
+      // Ağ/401 durumunda UI'yı sıfırlamamak için son bilinen profilden türet
+      if (_lastLevelGoal != null) return _lastLevelGoal!;
+      final xp = _lastProfile?.experiencePoints ?? 0;
+      final level = xp > 0 ? ((xp - 1) ~/ 1000) + 1 : 1;
+      return _LevelGoalData(
+        levelLabel: 'Level $level',
+        currentXP: xp,
+        xpProgress: _fallbackProgress(xp),
+        streakDays: null,
+        currentLevel: level,
+        longestStreak: null,
+      );
     }
+  }
+
+  num _asNum(dynamic value, [num fallback = 0]) {
+    if (value == null) return fallback;
+    if (value is num) return value;
+    if (value is String) {
+      final p = num.tryParse(value);
+      if (p != null) return p;
+    }
+    return fallback;
   }
 
   Future<_ProgressData> _fetchProgress() async {
@@ -320,9 +410,11 @@ class _ProfilePageState extends State<ProfilePage> {
       if (total <= 0) {
         return const _ProgressData(reading: 0, listening: 0, speaking: 0);
       }
-      return _ProgressData(reading: read / total, listening: listen / total, speaking: speak / total);
+      final result = _ProgressData(reading: read / total, listening: listen / total, speaking: speak / total);
+      _lastProgress = result;
+      return result;
     } catch (_) {
-      return const _ProgressData(reading: 0, listening: 0, speaking: 0);
+      return _lastProgress ?? const _ProgressData(reading: 0, listening: 0, speaking: 0);
     }
   }
 
@@ -333,18 +425,18 @@ class _ProfilePageState extends State<ProfilePage> {
       // Geçici: varsa kullan; yoksa boş liste dön
       final resp = await client.get('/api/ApiGamification/badges');
       final root = resp.data is Map<String, dynamic> ? resp.data as Map<String, dynamic> : {};
-      final list = root['data'] as List<dynamic>?;
-      if (list == null) return [];
+      final list = (root['data'] ?? root['Data']) as List<dynamic>?;
+      if (list == null) return _lastBadges ?? [];
       return list.map((e) {
         final m = e as Map<String, dynamic>;
         return _BadgeItem(
-          name: (m['name'] ?? '') as String,
-          imageUrl: m['imageUrl'] as String?,
-          isEarned: (m['isEarned'] as bool?) ?? false,
+          name: (m['name'] ?? m['Name'] ?? '') as String,
+          imageUrl: (m['imageUrl'] ?? m['ImageUrl']) as String?,
+          isEarned: ((m['isEarned'] ?? m['IsEarned']) as bool?) ?? false,
         );
       }).toList();
     } catch (_) {
-      return [];
+      return _lastBadges ?? [];
     }
   }
 
@@ -361,10 +453,19 @@ class _ProfilePageState extends State<ProfilePage> {
     return '$dd-$mm-$yyyy';
   }
 
-  Widget _buildStatRow(BuildContext context, UserProfile profile, String streakLabel) {
+  String _formatStreakDisplay(int? streakDays, int? longestStreak) {
+    if (streakDays == null) return '—';
+    if (streakDays == 0) return '—';
+    if (streakDays == 1) return '1 gün';
+    final String currentStreak = '$streakDays gün';
+    if (longestStreak == null) return currentStreak;
+    return '$currentStreak (${longestStreak} günlük)';
+  }
+
+  Widget _buildStatRow(BuildContext context, UserProfile profile) {
     return Row(
       children: [
-        _statCard(context, Icons.local_fire_department, 'Streak', streakLabel),
+        _statCard(context, Icons.local_fire_department, 'Streak', _formatStreakDisplay(profile.currentStreak, profile.longestStreak)),
         const SizedBox(width: 12),
         _statCard(context, Icons.menu_book, 'Okunan', '${profile.totalReadBooks ?? 0}'),
         const SizedBox(width: 12),
@@ -473,12 +574,16 @@ class _LevelGoalData {
   final int? currentXP;
   final double xpProgress;
   final int? streakDays;
+  final int? currentLevel;
+  final int? longestStreak;
 
   _LevelGoalData({
     required this.levelLabel,
     required this.currentXP,
     required this.xpProgress,
     required this.streakDays,
+    required this.currentLevel,
+    this.longestStreak,
   });
 }
 
@@ -500,11 +605,13 @@ class _StatsStrip extends StatelessWidget {
   final String levelLabel;
   final String xp;
   final String books;
+  final String streak;
 
   const _StatsStrip({
     required this.levelLabel,
     required this.xp,
     required this.books,
+    required this.streak,
   });
 
   @override
@@ -529,6 +636,8 @@ class _StatsStrip extends StatelessWidget {
           _stat(context, Icons.star, xp, 'XP'),
           const SizedBox(width: 12),
           _stat(context, Icons.menu_book, books, 'Books'),
+          const SizedBox(width: 12),
+          _stat(context, Icons.lightbulb_outline, streak, 'Streak'),
         ],
       ),
     );
