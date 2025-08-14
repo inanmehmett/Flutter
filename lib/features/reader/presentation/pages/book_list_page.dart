@@ -19,7 +19,7 @@ class BookListPage extends StatefulWidget {
 
 class _BookListPageState extends State<BookListPage> {
   final TextEditingController _searchController = TextEditingController();
-  bool _showCategories = false;
+  // Categories always visible
   int _selectedCategory = 0;
 
   @override
@@ -49,10 +49,6 @@ class _BookListPageState extends State<BookListPage> {
               ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.list),
-            onPressed: () => setState(() => _showCategories = !_showCategories),
-          ),
           if (kDebugMode)
             IconButton(
               icon: const Icon(Icons.bug_report),
@@ -78,7 +74,16 @@ class _BookListPageState extends State<BookListPage> {
             return const EmptyStateView();
           }
 
-          final filteredBooks = bookViewModel.filterBooks(_searchController.text);
+          // Build categories dynamically from books
+          final categories = bookViewModel.categories;
+          if (_selectedCategory >= categories.length) {
+            _selectedCategory = 0;
+          }
+          final selectedCategory = categories[_selectedCategory];
+          final filteredBooks = bookViewModel.filterBooksBySearchAndCategory(
+            searchText: _searchController.text,
+            category: selectedCategory,
+          );
 
           return SafeArea(
             top: false,
@@ -102,14 +107,14 @@ class _BookListPageState extends State<BookListPage> {
                   onChanged: (_) => setState(() {}),
                 ),
               ),
-              if (_showCategories)
-                CategoryPicker(
-                  categories: const ['All', 'Fiction', 'Non-Fiction', 'Poetry'],
-                  selectedCategory: _selectedCategory,
-                  onCategorySelected: (index) {
-                    setState(() => _selectedCategory = index);
-                  },
-                ),
+              // Categories: always visible, dynamic from data
+              CategoryPicker(
+                categories: categories,
+                selectedCategory: _selectedCategory,
+                onCategorySelected: (index) {
+                  setState(() => _selectedCategory = index);
+                },
+              ),
               if (bookViewModel.hasError && bookViewModel.hasBooks)
                 Container(
                   width: double.infinity,

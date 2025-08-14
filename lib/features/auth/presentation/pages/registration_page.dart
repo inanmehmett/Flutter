@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'dart:io' show Platform;
+import '../../../../core/config/app_config.dart';
 import '../bloc/auth_bloc.dart';
 import '../widgets/loading_overlay.dart';
 
@@ -45,7 +47,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
   Future<void> _googleRegister() async {
     try {
       final googleSignIn = GoogleSignIn(
-        scopes: ['email', 'profile', 'openid'],
+        clientId: Platform.isIOS ? AppConfig.googleClientId : null,
+        serverClientId: AppConfig.googleWebClientId,
+        scopes: const ['email', 'profile', 'openid'],
       );
       final account = await googleSignIn.signIn();
       if (account == null) return; // cancelled

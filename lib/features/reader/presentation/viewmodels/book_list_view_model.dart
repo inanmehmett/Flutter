@@ -19,6 +19,16 @@ class BookListViewModel extends ChangeNotifier {
   // Getters
   BookListState get state => _state;
   List<Book> get books => _books;
+  // Dynamic categories built from books
+  List<String> get categories {
+    final set = <String>{};
+    for (final b in _books) {
+      final name = (b.categoryName ?? '').trim();
+      if (name.isNotEmpty) set.add(name);
+    }
+    final list = set.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return ['All', ...list];
+  }
   bool get isLoading => _state == BookListState.loading;
   bool get isRefreshing => _isRefreshing;
   String? get errorMessage => _errorMessage;
@@ -79,21 +89,33 @@ class BookListViewModel extends ChangeNotifier {
   // Filtering
   List<Book> filterBooks(String searchText) {
     if (searchText.isEmpty) return _books;
-    
+    final query = searchText.toLowerCase();
     return _books.where((book) {
-      final titleMatch = book.title.toLowerCase().contains(searchText.toLowerCase());
-      final authorMatch = book.author?.toLowerCase().contains(searchText.toLowerCase()) ?? false;
-      return titleMatch || authorMatch;
+      final titleMatch = book.title.toLowerCase().contains(query);
+      final authorMatch = (book.author).toLowerCase().contains(query);
+      final categoryMatch = (book.categoryName ?? '').toLowerCase().contains(query);
+      return titleMatch || authorMatch || categoryMatch;
     }).toList();
   }
 
   List<Book> getBooksByCategory(String category) {
     if (category == 'All' || category.isEmpty) return _books;
-    
+    final normalized = category.toLowerCase();
     return _books.where((book) {
-      // Burada kategori filtreleme mantığı eklenebilir
-      // Şimdilik tüm kitapları döndürüyoruz
-      return true;
+      final bcat = (book.categoryName ?? '').toLowerCase();
+      return bcat == normalized;
+    }).toList();
+  }
+
+  List<Book> filterBooksBySearchAndCategory({required String searchText, required String category}) {
+    final pool = getBooksByCategory(category);
+    if (searchText.isEmpty) return pool;
+    final query = searchText.toLowerCase();
+    return pool.where((book) {
+      final titleMatch = book.title.toLowerCase().contains(query);
+      final authorMatch = (book.author).toLowerCase().contains(query);
+      final categoryMatch = (book.categoryName ?? '').toLowerCase().contains(query);
+      return titleMatch || authorMatch || categoryMatch;
     }).toList();
   }
 
