@@ -8,10 +8,10 @@ import '../config/app_config.dart';
 
 @singleton
 class ApiClient {
-  late final Dio _dio;
+  late final Dio dio;
 
   ApiClient(SecureStorageService secureStorage) {
-    _dio = Dio(
+    dio = Dio(
       BaseOptions(
         baseUrl: AppConfig.apiBaseUrl,
         connectTimeout: const Duration(seconds: 5),
@@ -19,9 +19,9 @@ class ApiClient {
       ),
     );
 
-    print('🟡[App START] ApiClient.baseURL = ${_dio.options.baseUrl}');
+    print('🟡[App START] ApiClient.baseURL = ${dio.options.baseUrl}');
 
-    _dio.interceptors.addAll([
+    dio.interceptors.addAll([
       AuthInterceptor(secureStorage),
       LoggingInterceptor(),
       CacheInterceptor(),
@@ -29,10 +29,18 @@ class ApiClient {
   }
 
   Future<Response> get(String path, {Map<String, dynamic>? queryParameters}) {
-    return _dio.get(path, queryParameters: queryParameters);
+    return dio.get(
+      path,
+      queryParameters: queryParameters,
+      options: Options(extra: {'dio': this.dio}),
+    );
   }
 
   Future<Response> post(String path, {dynamic data}) {
-    return _dio.post(path, data: data);
+    return dio.post(
+      path,
+      data: data,
+      options: Options(extra: {'dio': this.dio}),
+    );
   }
 }

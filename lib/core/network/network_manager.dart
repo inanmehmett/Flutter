@@ -44,11 +44,15 @@ class NetworkManager {
   }
 
   Future<Response> get(String path,
-      {Map<String, dynamic>? queryParameters}) async {
-    return await _dio.get(path, queryParameters: queryParameters);
+      {Map<String, dynamic>? queryParameters, Options? options}) async {
+    return await _dio.get(
+      path,
+      queryParameters: queryParameters,
+      options: options ?? Options(extra: {'dio': _dio}),
+    );
   }
 
-  Future<Response> post(String path, {dynamic data}) async {
+  Future<Response> post(String path, {dynamic data, Options? options}) async {
     // Token endpoint'i x-www-form-urlencoded bekler
     if (path == '/connect/token') {
       return await _dio.post(
@@ -60,18 +64,31 @@ class NetworkManager {
             'Content-Type': Headers.formUrlEncodedContentType,
           },
           contentType: Headers.formUrlEncodedContentType,
+          extra: {'dio': _dio},
         ),
       );
     }
-    return await _dio.post(path, data: data);
+    return await _dio.post(
+      path,
+      data: data,
+      options: options ?? Options(extra: {'dio': _dio}),
+    );
   }
 
-  Future<Response> put(String path, {dynamic data}) async {
-    return await _dio.put(path, data: data);
+  Future<Response> put(String path, {dynamic data, Options? options}) async {
+    return await _dio.put(
+      path,
+      data: data,
+      options: options ?? Options(extra: {'dio': _dio}),
+    );
   }
 
-  Future<Response> delete(String path, {dynamic data}) async {
-    return await _dio.delete(path, data: data);
+  Future<Response> delete(String path, {dynamic data, Options? options}) async {
+    return await _dio.delete(
+      path,
+      data: data,
+      options: options ?? Options(extra: {'dio': _dio}),
+    );
   }
 
   Future<Response> request(
@@ -80,16 +97,17 @@ class NetworkManager {
     dynamic data,
     Map<String, dynamic>? queryParameters,
     String? cacheKey,
+    Options? options,
   }) async {
     switch (method.toUpperCase()) {
       case 'GET':
-        return await get(path, queryParameters: queryParameters);
+        return await get(path, queryParameters: queryParameters, options: options);
       case 'POST':
-        return await post(path, data: data);
+        return await post(path, data: data, options: options);
       case 'PUT':
-        return await put(path, data: data);
+        return await put(path, data: data, options: options);
       case 'DELETE':
-        return await delete(path, data: data);
+        return await delete(path, data: data, options: options);
       default:
         throw Exception('Unsupported HTTP method: $method');
     }

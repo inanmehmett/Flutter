@@ -25,7 +25,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   Book? _currentBook;
   bool _isSpeaking = false;
   bool _isPaused = false;
-  double _speechRate = 0.8;
+  double _speechRate = 0.5;
   double _fontSize = 27.0;
   int? _currentPlayingSentenceIndex;
   int? _currentSentenceBaseInPage;

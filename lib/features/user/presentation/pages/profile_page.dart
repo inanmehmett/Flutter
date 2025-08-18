@@ -97,10 +97,12 @@ class _ProfilePageState extends State<ProfilePage> {
                 final String levelDisplayText = numericLevel != null ? 'Level $numericLevel' : (levelInfo?.levelLabel ?? 'Level');
                 
                 // Streak bilgilerini hazırla - robust fallback ile
-                final int? streakDaysVal = levelInfo?.streakDays ?? _lastLevelGoal?.streakDays;
-                final int? longestStreakVal = levelInfo?.longestStreak ?? _lastLevelGoal?.longestStreak;
+                final int? streakDaysVal = levelInfo?.streakDays ?? _lastLevelGoal?.streakDays ?? profile.currentStreak;
+                final int? longestStreakVal = levelInfo?.longestStreak ?? _lastLevelGoal?.longestStreak ?? profile.longestStreak;
                 final String streakLabel = _formatStreakDisplay(streakDaysVal, longestStreakVal);
                 
+                // Streak progress hesapla - _StatsStrip widget'ında hesaplanıyor
+
                 final String xpValue = displayedXP.toString();
 
                 return Container(
@@ -205,6 +207,9 @@ class _ProfilePageState extends State<ProfilePage> {
                           xp: xpValue,
                           books: (profile.totalReadBooks ?? 0).toString(),
                           streak: streakLabel,
+                          streakProgress: _StatsStrip.calculateProgress(streakDaysVal, longestStreakVal),
+                          streakDays: streakDaysVal,
+                          longestStreak: longestStreakVal,
                         ),
                         const SizedBox(height: 20),
                         FutureBuilder<_ProgressData>(
@@ -454,22 +459,19 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   String _formatStreakDisplay(int? streakDays, int? longestStreak) {
-    if (streakDays == null) return '—';
-    if (streakDays == 0) return '—';
+    if (streakDays == null || streakDays == 0) return '—';
     if (streakDays == 1) return '1 gün';
-    final String currentStreak = '$streakDays gün';
-    if (longestStreak == null) return currentStreak;
-    return '$currentStreak (${longestStreak} günlük)';
+    return '$streakDays gün';
   }
 
   Widget _buildStatRow(BuildContext context, UserProfile profile) {
     return Row(
       children: [
-        _statCard(context, Icons.local_fire_department, 'Streak', _formatStreakDisplay(profile.currentStreak, profile.longestStreak)),
-        const SizedBox(width: 12),
         _statCard(context, Icons.menu_book, 'Okunan', '${profile.totalReadBooks ?? 0}'),
         const SizedBox(width: 12),
-        _statCard(context, Icons.quiz, 'Quiz Puanı', '${profile.totalQuizScore ?? 0}')
+        _statCard(context, Icons.quiz, 'Quiz Puanı', '${profile.totalQuizScore ?? 0}'),
+        const SizedBox(width: 12),
+        _statCard(context, Icons.trending_up, 'Toplam XP', '${profile.experiencePoints ?? 0}'),
       ],
     );
   }
@@ -606,13 +608,37 @@ class _StatsStrip extends StatelessWidget {
   final String xp;
   final String books;
   final String streak;
+  final double streakProgress;
+  final int? streakDays;
+  final int? longestStreak;
 
   const _StatsStrip({
     required this.levelLabel,
     required this.xp,
     required this.books,
     required this.streak,
+    required this.streakProgress,
+    required this.streakDays,
+    required this.longestStreak,
   });
+
+  String _getStreakMotivation(int? streakDays) {
+    if (streakDays == null || streakDays == 0) return 'İlk adımı at!';
+    if (streakDays == 1) return 'Harika başlangıç!';
+    if (streakDays < 7) return 'Devam et!';
+    if (streakDays < 14) return '1 hafta tamamlandı!';
+    if (streakDays < 30) return '2 hafta tamamlandı!';
+    if (streakDays < 100) return '1 ay tamamlandı!';
+    return 'Efsanevi streak!';
+  }
+
+  static double calculateProgress(int? streakDays, int? longestStreak) {
+    if (streakDays == null || streakDays == 0) return 0.0;
+    if (longestStreak == null || longestStreak == 0) return 1.0; // Streak yoksa tamamlandı
+
+    final double currentStreakProgress = (streakDays / longestStreak).clamp(0.0, 1.0);
+    return currentStreakProgress;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -629,30 +655,114 @@ class _StatsStrip extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          _stat(context, Icons.stairs, levelLabel, 'Level'),
-          const SizedBox(width: 12),
-          _stat(context, Icons.star, xp, 'XP'),
-          const SizedBox(width: 12),
-          _stat(context, Icons.menu_book, books, 'Books'),
-          const SizedBox(width: 12),
-          _stat(context, Icons.lightbulb_outline, streak, 'Streak'),
+          Row(
+            children: [
+              _stat(context, Icons.stairs, levelLabel, 'Level'),
+              const SizedBox(width: 12),
+              _stat(context, Icons.star, xp, 'XP'),
+              const SizedBox(width: 12),
+              _stat(context, Icons.menu_book, books, 'Books'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  children: [
+                    Icon(Icons.local_fire_department, color: Theme.of(context).colorScheme.primary, size: 24),
+                    const SizedBox(height: 6),
+                    Text(
+                      streak, 
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold, 
+                        fontSize: 22,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 2),
+                    const Text('Streak', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                    if (streakDays != null && streakDays! > 0 && longestStreak != null && longestStreak! > 0) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'En uzun: ${longestStreak} gün',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (streakProgress > 0) ...[
+            const SizedBox(height: 8),
+            Text(
+              _getStreakMotivation(streakDays),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.primary,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Container(
+              height: 6,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: streakProgress,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${(streakProgress * 100).round()}% tamamlandı',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _stat(BuildContext context, IconData icon, String value, String label) {
+  Widget _stat(BuildContext context, IconData icon, String value, String label, {bool isLarge = false}) {
     return Expanded(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: Theme.of(context).colorScheme.primary),
+          Icon(icon, color: Theme.of(context).colorScheme.primary, size: isLarge ? 24 : 20),
           const SizedBox(height: 6),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          Text(
+            value, 
+            style: TextStyle(
+              fontWeight: FontWeight.bold, 
+              fontSize: isLarge ? 22 : 18,
+            ),
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 2),
-          Text(label, style: TextStyle(color: Colors.grey[600])),
+          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: isLarge ? 14 : 12)),
         ],
       ),
     );
@@ -733,4 +843,6 @@ class _LearningProgressCard extends StatelessWidget {
     );
   }
 }
+
+
 

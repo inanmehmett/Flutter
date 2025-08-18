@@ -382,7 +382,7 @@ class AuthService implements AuthServiceProtocol {
         data: {
           'grant_type': 'google_oauth',
           'id_token': idToken,
-          'scope': 'roles profile email',
+          'scope': 'offline_access roles profile email',
         },
       );
       if (response.statusCode == 200) {

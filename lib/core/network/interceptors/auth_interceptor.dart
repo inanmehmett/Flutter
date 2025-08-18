@@ -7,49 +7,50 @@ class AuthInterceptor extends Interceptor {
   AuthInterceptor(this._secureStorage) {
     print('🔐 [AuthInterceptor] ===== INITIALIZATION =====');
     print('🔐 [AuthInterceptor] AuthInterceptor created');
-    print(
-        '🔐 [AuthInterceptor] SecureStorageService: ${_secureStorage.runtimeType}');
+    print('🔐 [AuthInterceptor] SecureStorageService: ${_secureStorage.runtimeType}');
     print('🔐 [AuthInterceptor] ===== INITIALIZATION COMPLETE =====');
   }
 
   @override
-  void onRequest(
-      RequestOptions options, RequestInterceptorHandler handler) async {
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
     print('🔐 [AuthInterceptor] ===== REQUEST INTERCEPTION =====');
     print('🔐 [AuthInterceptor] URL: ${options.uri}');
     print('🔐 [AuthInterceptor] Method: ${options.method}');
     print('🔐 [AuthInterceptor] Path: ${options.path}');
+    print('🔐 [AuthInterceptor] Headers: ${options.headers}');
+    print('🔐 [AuthInterceptor] Extra: ${options.extra}');
 
     // Set correct content type for token endpoint
     if (options.path.contains('/connect/token')) {
       options.contentType = Headers.formUrlEncodedContentType;
     }
 
-    // Check if this is an auth-related request that doesn't need a token
-    final isAuthRequest = options.path.contains('/connect/token') ||
+    // Check if this is a request that doesn't need a token
+    final isPublicRequest = options.path.contains('/connect/token') ||
         options.path.contains('/connect/register') ||
         options.path.contains('/connect/logout');
+    
+    // All /api/ endpoints require authentication
+    final isAuthRequest = !isPublicRequest;
 
     print('🔐 [AuthInterceptor] Is auth request: $isAuthRequest');
 
-    if (!isAuthRequest) {
-      print('🔐 [AuthInterceptor] Getting token for non-auth request...');
+    if (isAuthRequest) {
+      print('🔐 [AuthInterceptor] Getting token for auth request...');
       try {
         final token = await _secureStorage.getAccessToken();
         if (token != null) {
-          print(
-              '🔐 [AuthInterceptor] ✅ Token found: ${token.substring(0, 10)}...');
+          print('🔐 [AuthInterceptor] ✅ Token found: ${token.substring(0, 10)}...');
           options.headers['Authorization'] = 'Bearer $token';
           print('🔐 [AuthInterceptor] ✅ Authorization header added');
         } else {
-          print(
-              '🔐 [AuthInterceptor] ⚠️ No token found, proceeding without authorization');
+          print('🔐 [AuthInterceptor] ⚠️ No token found for auth request');
         }
       } catch (e) {
         print('🔐 [AuthInterceptor] ❌ Error getting token: $e');
       }
     } else {
-      print('🔐 [AuthInterceptor] Skipping token for auth request');
+      print('🔐 [AuthInterceptor] Skipping token for public request');
     }
 
     print('🔐 [AuthInterceptor] Final headers: ${options.headers}');
@@ -64,6 +65,7 @@ class AuthInterceptor extends Interceptor {
     print('🔐 [AuthInterceptor] Status Code: ${response.statusCode}');
     print('🔐 [AuthInterceptor] URL: ${response.requestOptions.uri}');
     print('🔐 [AuthInterceptor] Method: ${response.requestOptions.method}');
+    print('🔐 [AuthInterceptor] Response Data: ${response.data}');
     print('🔐 [AuthInterceptor] ===== RESPONSE INTERCEPTION END =====');
 
     super.onResponse(response, handler);
@@ -76,6 +78,8 @@ class AuthInterceptor extends Interceptor {
     print('🔐 [AuthInterceptor] Status Code: ${err.response?.statusCode}');
     print('🔐 [AuthInterceptor] URL: ${err.requestOptions.uri}');
     print('🔐 [AuthInterceptor] Method: ${err.requestOptions.method}');
+    print('🔐 [AuthInterceptor] Error Response: ${err.response?.data}');
+    print('🔐 [AuthInterceptor] Error Message: ${err.message}');
 
     if (err.response?.statusCode == 401) {
       print('🔐 [AuthInterceptor] ❌ 401 Unauthorized - Token may be invalid or expired');
@@ -83,21 +87,27 @@ class AuthInterceptor extends Interceptor {
       try {
         // Try to refresh the token via OpenIddict token endpoint
         final refreshToken = await _secureStorage.getRefreshToken();
+        print('🔐 [AuthInterceptor] Refresh token: ${refreshToken?.substring(0, 10)}...');
+
         if (refreshToken != null) {
           print('🔐 [AuthInterceptor] 🔄 Attempting token refresh...');
 
-          // Use a fresh Dio with same base URL
-          final refreshDio = Dio(BaseOptions(baseUrl: err.requestOptions.baseUrl));
+          // Use a fresh Dio for token refresh only
+          final refreshDio = Dio(BaseOptions(
+            baseUrl: err.requestOptions.baseUrl,
+            headers: {'Content-Type': Headers.formUrlEncodedContentType},
+          ));
+
+          print('🔐 [AuthInterceptor] Making refresh token request...');
           final refreshResponse = await refreshDio.post(
             '/connect/token',
             data: {
               'grant_type': 'refresh_token',
               'refresh_token': refreshToken,
             },
-            options: Options(headers: {
-              'Content-Type': Headers.formUrlEncodedContentType,
-            }),
           );
+          print('🔐 [AuthInterceptor] Refresh response status: ${refreshResponse.statusCode}');
+          print('🔐 [AuthInterceptor] Refresh response data: ${refreshResponse.data}');
 
           if (refreshResponse.statusCode == 200) {
             final data = refreshResponse.data is Map<String, dynamic>
@@ -107,6 +117,10 @@ class AuthInterceptor extends Interceptor {
             final newRefreshToken = data['refresh_token'] ?? data['refreshToken'];
             final expiresIn = data['expires_in'] ?? 3600;
 
+            print('🔐 [AuthInterceptor] New access token: ${newAccessToken?.substring(0, 10)}...');
+            print('🔐 [AuthInterceptor] New refresh token: ${newRefreshToken?.substring(0, 10)}...');
+            print('🔐 [AuthInterceptor] Expires in: $expiresIn seconds');
+
             if (newAccessToken != null && newRefreshToken != null) {
               await _secureStorage.saveTokens(
                 accessToken: newAccessToken,
@@ -115,24 +129,42 @@ class AuthInterceptor extends Interceptor {
               );
               print('🔐 [AuthInterceptor] ✅ Token refreshed successfully');
 
-              // Retry the original request with new token
+              // Retry the original request with new token using the original Dio instance
               err.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
-              final retryResponse = await refreshDio.fetch(err.requestOptions);
-              handler.resolve(retryResponse);
-              return;
+              
+              // Get the Dio instance that made the original request
+              final dio = err.requestOptions.extra['dio'] as Dio?;
+              print('🔐 [AuthInterceptor] Original Dio instance: ${dio != null ? "found" : "not found"}');
+              
+              if (dio != null) {
+                print('🔐 [AuthInterceptor] 🔄 Retrying original request with new token...');
+                final retryResponse = await dio.fetch(err.requestOptions);
+                print('🔐 [AuthInterceptor] ✅ Original request retry successful');
+                handler.resolve(retryResponse);
+                return;
+              } else {
+                print('🔐 [AuthInterceptor] ❌ Original Dio instance not found in request options');
+              }
+            } else {
+              print('🔐 [AuthInterceptor] ❌ New tokens are null in refresh response');
             }
+          } else {
+            print('🔐 [AuthInterceptor] ❌ Refresh request failed with status: ${refreshResponse.statusCode}');
           }
+        } else {
+          print('🔐 [AuthInterceptor] ❌ No refresh token found');
         }
       } catch (refreshError) {
         print('🔐 [AuthInterceptor] ❌ Token refresh failed: $refreshError');
       }
 
-      // If refresh fails, clear tokens and let the error propagate
-      print('🔐 [AuthInterceptor] 🗑️ Clearing tokens due to refresh failure');
-      await _secureStorage.clearTokens();
+      // If refresh fails, just let the error propagate
+      print('🔐 [AuthInterceptor] ❌ Token refresh failed, letting error propagate');
+      handler.next(err);
+      return;
     }
 
     print('🔐 [AuthInterceptor] ===== ERROR INTERCEPTION END =====');
-    super.onError(err, handler);
+    handler.next(err);
   }
 }
