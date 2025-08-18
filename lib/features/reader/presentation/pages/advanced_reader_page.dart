@@ -735,19 +735,20 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
               trailing: Text('${state.fontSize.round()}'),
             ),
             
-            // Speech rate control
+            // Speech rate presets (practical discrete levels)
             ListTile(
               title: const Text('Konuşma Hızı'),
-              subtitle: Slider(
-                value: state.speechRate,
-                min: 0.1,
-                max: 1.0,
-                divisions: 9,
-                onChanged: (rate) {
-                  _readerBloc.add(UpdateSpeechRate(rate));
-                },
+              subtitle: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _buildRateChip(label: 'Yavaş', value: 0.45, current: state.speechRate),
+                  _buildRateChip(label: 'Normal', value: 0.50, current: state.speechRate),
+                  _buildRateChip(label: 'Orta-Hızlı', value: 0.65, current: state.speechRate),
+                  _buildRateChip(label: 'Hızlı', value: 0.80, current: state.speechRate),
+                ],
               ),
-              trailing: Text('${state.speechRate.toStringAsFixed(1)}x'),
+              trailing: Text('${state.speechRate.toStringAsFixed(2)}x'),
             ),
           ],
         ),
@@ -757,6 +758,20 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
             child: const Text('Kapat'),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildRateChip({required String label, required double value, required double current}) {
+    final bool selected = (current - value).abs() < 0.02;
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => _readerBloc.add(UpdateSpeechRate(value)),
+      selectedColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+      labelStyle: TextStyle(
+        color: selected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
+        fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
       ),
     );
   }

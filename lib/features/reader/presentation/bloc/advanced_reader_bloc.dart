@@ -26,6 +26,14 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   bool _isSpeaking = false;
   bool _isPaused = false;
   double _speechRate = 0.5;
+
+  double _audioRateForTts(double ttsRate) {
+    // Map normalized TTS rate (0.1-1.0) to a practical audio playback rate
+    if (ttsRate <= 0.46) return 0.9;    // Yavaş
+    if (ttsRate <= 0.56) return 1.0;    // Normal
+    if (ttsRate <= 0.75) return 1.1;    // Orta-Hızlı
+    return 1.2;                         // Hızlı
+  }
   double _fontSize = 27.0;
   int? _currentPlayingSentenceIndex;
   int? _currentSentenceBaseInPage;
@@ -162,7 +170,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   Future<void> playSentenceFromUrl(String url) async {
     try {
       await _audioPlayer.stop();
-      try { await _audioPlayer.setPlaybackRate(_speechRate.clamp(0.1, 2.0)); } catch (_) {}
+      try { await _audioPlayer.setPlaybackRate(_audioRateForTts(_speechRate).clamp(0.1, 2.0)); } catch (_) {}
       await _audioPlayer.play(UrlSource(url));
       _isSpeaking = true;
       _isPaused = false;
@@ -479,7 +487,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   Future<void> _onUpdateSpeechRate(UpdateSpeechRate event, Emitter<ReaderState> emit) async {
     _speechRate = event.rate;
     await _flutterTts.setSpeechRate(_speechRate);
-    try { await _audioPlayer.setPlaybackRate(_speechRate.clamp(0.1, 2.0)); } catch (_) {}
+    try { await _audioPlayer.setPlaybackRate(_audioRateForTts(_speechRate).clamp(0.1, 2.0)); } catch (_) {}
     
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
