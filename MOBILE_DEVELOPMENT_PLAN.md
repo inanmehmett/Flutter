@@ -47,6 +47,7 @@
   - `GET /api/ReadingTexts/{id}`
   - `GET /api/ApiReadingTexts/{id}/manifest?voiceId=default&sourceLang=EN&targetLang=TR`
   - Gelişmiş Okuyucu: cümleye dokun → çeviri + veritabanı ses dosyasıyla oynat; sayfa içi cümle highlight; Play ile sırayla çalma; sayfalar arası auto-advance. [DURUM: TAMAMLANDI]
+  - DB’de çeviri/ses bulunmazsa: DeepL ile çeviri + ElevenLabs ile mp3 üretimi ve DB’ye kalıcı kaydetme (manifest’te Translation/AudioUrl dolu döner). [DURUM: TAMAMLANDI]
 - Mobil optimize endpoint’ler (opsiyonel)
   - `GET /api/mobile/dashboard`
   - `GET /api/mobile/reading-texts?page=1&pageSize=10`
@@ -107,7 +108,7 @@
   - Cümleye dokun → çeviri + veritabanı ses dosyası öncelikli çalma, yoksa TTS fallback.
   - Cümle highlight (tap ve autoplay sırasında) ve haptik geri bildirim.
   - Play ile sayfadaki cümlelerin ardışık çalınması ve sayfalar arası otomatik ilerleme.
-  - Oynatma hızı ayarı (TTS ve audioplayers için) ve varsayılan hız 0.8.
+  - Oynatma hızı ayarı (TTS ve audioplayers için): varsayılan hız 0.5 (Normal). Hız önayarları: Yavaş (0.45), Normal (0.50), Orta-Hızlı (0.65), Hızlı (0.80).
   - Varsayılan yazı boyutu 27.0; ayarlardan değiştirilebilir.
   - SnackBar iyileştirmeleri (floating, süre artırımı).
 - Altyapı:
