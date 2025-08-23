@@ -1,8 +1,13 @@
-import 'package:flutter/material.dart';
 import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../../core/utils/logger.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
+
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_manager.dart';
+import '../../../../core/utils/logger.dart';
 import '../bloc/advanced_reader_bloc.dart';
 import '../bloc/reader_event.dart';
 import '../bloc/reader_state.dart';
@@ -12,9 +17,9 @@ class AdvancedReaderPage extends StatefulWidget {
   final BookModel book;
 
   const AdvancedReaderPage({
-    Key? key,
+    super.key,
     required this.book,
-  }) : super(key: key);
+  });
 
   @override
   State<AdvancedReaderPage> createState() => _AdvancedReaderPageState();
@@ -56,22 +61,115 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     _readerBloc.add(LoadBook(widget.book.id.toString()));
   }
 
+  // Tema renklerini döndüren yardımcı metodlar
+  Color _getThemeBackgroundColor(ThemeManager themeManager) {
+    switch (themeManager.currentTheme) {
+      case AppTheme.light:
+        return Colors.white;
+      case AppTheme.dark:
+        return const Color(0xFF121212);
+      case AppTheme.sepia:
+        return const Color(0xFFF5F1E8);
+    }
+  }
+
+  Color _getThemeTextColor(ThemeManager themeManager) {
+    switch (themeManager.currentTheme) {
+      case AppTheme.light:
+        return Colors.black87;
+      case AppTheme.dark:
+        return Colors.white;
+      case AppTheme.sepia:
+        return const Color(0xFF2C1810);
+    }
+  }
+
+  Color _getThemePrimaryColor(ThemeManager themeManager) {
+    switch (themeManager.currentTheme) {
+      case AppTheme.light:
+        return const Color(0xFFFF9800);
+      case AppTheme.dark:
+        return const Color(0xFFFF9800);
+      case AppTheme.sepia:
+        return const Color(0xFFD4B483);
+    }
+  }
+
+  Color _getThemeSurfaceColor(ThemeManager themeManager) {
+    switch (themeManager.currentTheme) {
+      case AppTheme.light:
+        return Colors.white;
+      case AppTheme.dark:
+        return const Color(0xFF1E1E1E);
+      case AppTheme.sepia:
+        return const Color(0xFFF5F1E8);
+    }
+  }
+
+  Color _getThemeOnSurfaceColor(ThemeManager themeManager) {
+    switch (themeManager.currentTheme) {
+      case AppTheme.light:
+        return Colors.black87;
+      case AppTheme.dark:
+        return Colors.white;
+      case AppTheme.sepia:
+        return const Color(0xFF2C1810);
+    }
+  }
+
+  Color _getThemeOutlineVariantColor(ThemeManager themeManager) {
+    switch (themeManager.currentTheme) {
+      case AppTheme.light:
+        return Colors.grey.shade300;
+      case AppTheme.dark:
+        return Colors.grey.shade700;
+      case AppTheme.sepia:
+        return const Color(0xFFD4B483);
+    }
+  }
+
+  Color _getThemeSurfaceContainerHighestColor(ThemeManager themeManager) {
+    switch (themeManager.currentTheme) {
+      case AppTheme.light:
+        return Colors.grey.shade100;
+      case AppTheme.dark:
+        return const Color(0xFF2C2C2C);
+      case AppTheme.sepia:
+        return const Color(0xFFE8E0D0);
+    }
+  }
+
+  Color _getThemeOnSurfaceVariantColor(ThemeManager themeManager) {
+    switch (themeManager.currentTheme) {
+      case AppTheme.light:
+        return Colors.grey.shade600;
+      case AppTheme.dark:
+        return Colors.grey.shade400;
+      case AppTheme.sepia:
+        return const Color(0xFF5D4A3A);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: BlocBuilder<AdvancedReaderBloc, ReaderState>(
-        builder: (context, state) {
-          if (state is ReaderLoading) {
-            return _buildLoadingView();
-          } else if (state is ReaderError) {
-            return _buildErrorView(state.message);
-          } else if (state is ReaderLoaded) {
-            return _buildReaderView(state);
-          } else {
-            return _buildInitialView();
-          }
-        },
-      ),
+    return Consumer<ThemeManager>(
+      builder: (context, themeManager, child) {
+        return Scaffold(
+          body: BlocBuilder<AdvancedReaderBloc, ReaderState>(
+            builder: (context, state) {
+              if (state is ReaderLoading) {
+                return _buildLoadingView();
+              } else if (state is ReaderError) {
+                return _buildErrorView(state.message);
+              } else if (state is ReaderLoaded) {
+                return _buildReaderView(state);
+              } else {
+                return _buildInitialView();
+              }
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -134,81 +232,85 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
   }
 
   Widget _buildReaderView(ReaderLoaded state) {
-    // Sync PageView position with bloc-driven page changes (e.g., auto-advance)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (_pageController.hasClients) {
-        final current = _pageController.page?.round() ?? _pageController.initialPage;
-        if (current != state.currentPage) {
-          _suppressOnPageChanged = true;
-          _animateToPage(state.currentPage);
-        }
-      }
-    });
-    // Auto-scroll within the current page to keep the playing sentence visible
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (state is! ReaderLoaded) return;
-      if (state.playingSentenceIndex == null) return;
-      final pageIndex = state.currentPage;
-      final pageContent = _getPageContent(pageIndex);
-      if (pageContent.isEmpty) return;
-      final range = context.read<AdvancedReaderBloc>()
-          .computeLocalRangeForSentence(pageContent, state.playingSentenceIndex!);
-      if (range == null) return;
-      final start = range[0];
-      final textKey = _textKeys[pageIndex];
-      final renderBox = textKey?.currentContext?.findRenderObject() as RenderBox?;
-      final availableWidth = renderBox?.size.width;
-      final controller = _scrollControllers[pageIndex];
-      if (availableWidth == null || controller == null || !controller.hasClients) return;
+    return Consumer<ThemeManager>(
+      builder: (context, themeManager, child) {
+        // Sync PageView position with bloc-driven page changes (e.g., auto-advance)
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (_pageController.hasClients) {
+            final current = _pageController.page?.round() ?? _pageController.initialPage;
+            if (current != state.currentPage) {
+              _suppressOnPageChanged = true;
+              _animateToPage(state.currentPage);
+            }
+          }
+        });
+        // Auto-scroll within the current page to keep the playing sentence visible
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (state is! ReaderLoaded) return;
+          if (state.playingSentenceIndex == null) return;
+          final pageIndex = state.currentPage;
+          final pageContent = _getPageContent(pageIndex);
+          if (pageContent.isEmpty) return;
+          final range = context.read<AdvancedReaderBloc>()
+              .computeLocalRangeForSentence(pageContent, state.playingSentenceIndex!);
+          if (range == null) return;
+          final start = range[0];
+          final textKey = _textKeys[pageIndex];
+          final renderBox = textKey?.currentContext?.findRenderObject() as RenderBox?;
+          final availableWidth = renderBox?.size.width;
+          final controller = _scrollControllers[pageIndex];
+          if (availableWidth == null || controller == null || !controller.hasClients) return;
 
-      final style = TextStyle(
-        fontSize: state.fontSize,
-        height: 1.6,
-        letterSpacing: 0.1,
-        color: Theme.of(context).colorScheme.onSurface,
-      );
-      final textSpan = TextSpan(text: pageContent, style: style);
-      final tp = TextPainter(
-        text: textSpan,
-        textDirection: TextDirection.ltr,
-        maxLines: null,
-      );
-      tp.layout(maxWidth: availableWidth);
-      final caretOffset = tp.getOffsetForCaret(TextPosition(offset: start), Rect.zero);
-      final target = (caretOffset.dy - 80).clamp(0.0, controller.position.maxScrollExtent);
-      controller.animateTo(
-        target,
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeInOut,
-      );
-    });
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildTopBar(state),
-            _buildProgressBar(state),
-            Expanded(
-              child: _buildReadingArea(state),
+          final style = TextStyle(
+            fontSize: state.fontSize,
+            height: 1.6,
+            letterSpacing: 0.1,
+            color: _getThemeTextColor(themeManager),
+          );
+          final textSpan = TextSpan(text: pageContent, style: style);
+          final tp = TextPainter(
+            text: textSpan,
+            textDirection: TextDirection.ltr,
+            maxLines: null,
+          );
+          tp.layout(maxWidth: availableWidth);
+          final caretOffset = tp.getOffsetForCaret(TextPosition(offset: start), Rect.zero);
+          final target = (caretOffset.dy - 80).clamp(0.0, controller.position.maxScrollExtent);
+          controller.animateTo(
+            target,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeInOut,
+          );
+        });
+        return Scaffold(
+          backgroundColor: _getThemeBackgroundColor(themeManager),
+          body: SafeArea(
+            child: Column(
+              children: [
+                _buildTopBar(state, themeManager),
+                _buildProgressBar(state, themeManager),
+                Expanded(
+                  child: _buildReadingArea(state, themeManager),
+                ),
+                _buildControls(state, themeManager),
+              ],
             ),
-            _buildControls(state),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildTopBar(ReaderLoaded state) {
+  Widget _buildTopBar(ReaderLoaded state, ThemeManager themeManager) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: _getThemeSurfaceColor(themeManager),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -217,7 +319,10 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: Icon(
+              Icons.arrow_back,
+              color: _getThemeOnSurfaceColor(themeManager),
+            ),
             onPressed: () => Navigator.of(context).pop(),
           ),
           Expanded(
@@ -226,9 +331,10 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
               children: [
                 Text(
                   state.book.title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
+                    color: _getThemeOnSurfaceColor(themeManager),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -237,36 +343,39 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                   'Sayfa ${state.currentPage + 1} / ${state.totalPages}',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    color: _getThemeOnSurfaceColor(themeManager).withValues(alpha: 0.6),
                   ),
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => _showSettingsDialog(state),
+            icon: Icon(
+              Icons.tune,
+              color: _getThemeOnSurfaceColor(themeManager),
+            ),
+            onPressed: () => _showSettingsSheet(state, themeManager),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildProgressBar(ReaderLoaded state) {
+  Widget _buildProgressBar(ReaderLoaded state, ThemeManager themeManager) {
     final progress = (state.currentPage + 1) / state.totalPages;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: LinearProgressIndicator(
         value: progress,
-        backgroundColor: Theme.of(context).colorScheme.surface,
+        backgroundColor: _getThemeSurfaceColor(themeManager),
         valueColor: AlwaysStoppedAnimation<Color>(
-          Theme.of(context).colorScheme.primary,
+          _getThemePrimaryColor(themeManager),
         ),
       ),
     );
   }
 
-  Widget _buildReadingArea(ReaderLoaded state) {
+  Widget _buildReadingArea(ReaderLoaded state, ThemeManager themeManager) {
     return LayoutBuilder(
       builder: (context, constraints) {
         // Update page size for pagination
@@ -314,7 +423,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeInOut,
-                    color: Theme.of(context).colorScheme.surface,
+                    color: _getThemeSurfaceColor(themeManager),
                     padding: const EdgeInsets.all(20),
                     child: SingleChildScrollView(
                       controller: _scrollControllers.putIfAbsent(index, () => ScrollController()),
@@ -326,14 +435,14 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                                color: _getThemePrimaryColor(themeManager).withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
                               'Sayfa ${index + 1}',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Theme.of(context).colorScheme.primary,
+                                color: _getThemePrimaryColor(themeManager),
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -346,7 +455,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                                HapticFeedback.selectionClick();
                               final textStyle = TextStyle(
                                 fontSize: state.fontSize,
-                                color: Theme.of(context).colorScheme.onSurface,
+                                color: _getThemeTextColor(themeManager),
                                 height: 1.6,
                                 letterSpacing: 0.1,
                               );
@@ -406,7 +515,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                                  pageContent,
                                  TextStyle(
                                    fontSize: state.fontSize,
-                                   color: Theme.of(context).colorScheme.onSurface,
+                                   color: _getThemeTextColor(themeManager),
                                    height: 1.6,
                                    letterSpacing: 0.1,
                                  ),
@@ -436,12 +545,12 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                     child: Container(
                       padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                            color: _getThemePrimaryColor(themeManager).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Icon(
                         Icons.arrow_back_ios,
-                        color: Theme.of(context).colorScheme.primary,
+                        color: _getThemeOnSurfaceColor(themeManager),
                         size: 20,
                       ),
                     ),
@@ -461,12 +570,12 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                     child: Container(
                       padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                            color: _getThemePrimaryColor(themeManager).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Icon(
                         Icons.arrow_forward_ios,
-                        color: Theme.of(context).colorScheme.primary,
+                        color: _getThemeOnSurfaceColor(themeManager),
                         size: 20,
                       ),
                     ),
@@ -487,7 +596,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                       child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.9),
+                          color: _getThemePrimaryColor(themeManager).withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -553,7 +662,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
             style: style,
             children: [
               TextSpan(text: before),
-              TextSpan(text: mid, style: style.copyWith(backgroundColor: Colors.yellow.withOpacity(0.35))),
+              TextSpan(text: mid, style: style.copyWith(backgroundColor: Colors.yellow.withValues(alpha: 0.35))),
               TextSpan(text: after),
             ],
           ),
@@ -573,7 +682,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
         style: style,
         children: [
           TextSpan(text: before),
-          TextSpan(text: mid, style: style.copyWith(backgroundColor: Colors.yellow.withOpacity(0.4))),
+          TextSpan(text: mid, style: style.copyWith(backgroundColor: Colors.yellow.withValues(alpha: 0.4))),
           TextSpan(text: after),
         ],
       ),
@@ -588,14 +697,14 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     }
   }
 
-  Widget _buildControls(ReaderLoaded state) {
+  Widget _buildControls(ReaderLoaded state, ThemeManager themeManager) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: _getThemeSurfaceColor(themeManager),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, -2),
           ),
@@ -613,8 +722,8 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                 _readerBloc.add(GoToPage(targetPage));
               }
             },
-            activeColor: Theme.of(context).colorScheme.primary,
-            inactiveColor: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+            activeColor: _getThemePrimaryColor(themeManager),
+            inactiveColor: _getThemePrimaryColor(themeManager).withValues(alpha: 0.3),
           ),
           
           // Page info
@@ -625,23 +734,24 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
               children: [
                 Text(
                   'Sayfa ${state.currentPage + 1}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
+                    color: _getThemeOnSurfaceColor(themeManager),
                   ),
                 ),
                 Text(
                   '/ ${state.totalPages}',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    color: _getThemeOnSurfaceColor(themeManager).withValues(alpha: 0.6),
                   ),
                 ),
                 Text(
                   '${(((state.currentPage + 1) / state.totalPages) * 100).toStringAsFixed(0)}%',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Theme.of(context).colorScheme.primary,
+                    color: _getThemePrimaryColor(themeManager),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -660,14 +770,14 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                 icon: const Icon(Icons.skip_previous),
                 onPressed: _goToPreviousPage,
                 iconSize: 32,
-                color: Theme.of(context).colorScheme.onSurface,
+                color: _getThemeOnSurfaceColor(themeManager),
               ),
               
               // Play/Pause button
               Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Theme.of(context).colorScheme.primary,
+                  color: _getThemePrimaryColor(themeManager),
                 ),
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 200),
@@ -695,7 +805,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                 icon: const Icon(Icons.stop),
                 onPressed: () => _readerBloc.add(StopSpeech()),
                 iconSize: 32,
-                color: Theme.of(context).colorScheme.onSurface,
+                color: _getThemeOnSurfaceColor(themeManager),
               ),
               
               // Next page
@@ -703,7 +813,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                 icon: const Icon(Icons.skip_next),
                 onPressed: _goToNextPage,
                 iconSize: 32,
-                color: Theme.of(context).colorScheme.onSurface,
+                color: _getThemeOnSurfaceColor(themeManager),
               ),
             ],
           ),
@@ -712,66 +822,328 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     );
   }
 
-  void _showSettingsDialog(ReaderLoaded state) {
-    showDialog(
+  void _showSettingsSheet(ReaderLoaded state, ThemeManager themeManager) {
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Okuma Ayarları'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Font size control
-            ListTile(
-              title: const Text('Yazı Boyutu'),
-              subtitle: Slider(
-                value: state.fontSize,
-                min: 12.0,
-                max: 32.0,
-                divisions: 20,
-                onChanged: (size) {
-                  _readerBloc.add(UpdateFontSize(size));
-                },
-              ),
-              trailing: Text('${state.fontSize.round()}'),
-            ),
-            
-            // Speech rate presets (practical discrete levels)
-            ListTile(
-              title: const Text('Konuşma Hızı'),
-              subtitle: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _buildRateChip(label: 'Yavaş', value: 0.45, current: state.speechRate),
-                  _buildRateChip(label: 'Normal', value: 0.50, current: state.speechRate),
-                  _buildRateChip(label: 'Orta-Hızlı', value: 0.65, current: state.speechRate),
-                  _buildRateChip(label: 'Hızlı', value: 0.80, current: state.speechRate),
-                ],
-              ),
-              trailing: Text('${state.speechRate.toStringAsFixed(2)}x'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Kapat'),
-          ),
-        ],
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
+      builder: (ctx) {
+        var currentFont = state.fontSize;
+        var currentRate = state.speechRate;
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 8,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+          ),
+          child: StatefulBuilder(
+            builder: (ctx, setSheetState) {
+              void setFont(double v) {
+                final clamped = v.clamp(12.0, 32.0);
+                setSheetState(() => currentFont = clamped);
+                _readerBloc.add(UpdateFontSize(clamped));
+              }
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: _getThemeOutlineVariantColor(themeManager),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const Text(
+                    'Konuşma Hızı',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildRateChip(label: 'Yavaş', value: 0.45, current: currentRate, themeManager: themeManager),
+                      _buildRateChip(label: 'Normal', value: 0.50, current: currentRate, themeManager: themeManager),
+                      _buildRateChip(label: 'Orta-Hızlı', value: 0.65, current: currentRate, themeManager: themeManager),
+                      _buildRateChip(label: 'Hızlı', value: 0.80, current: currentRate, themeManager: themeManager),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _buildThemeSection(themeManager),
+                  const SizedBox(height: 16),
+                  _buildFontPresetsSection(currentFont, setFont, themeManager),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Yazı Boyutu',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.text_decrease_rounded),
+                        onPressed: () => setFont(currentFont - 1.0),
+                        tooltip: 'Azalt',
+                      ),
+                      Expanded(
+                        child: Slider(
+                          value: currentFont,
+                          min: 12.0,
+                          max: 32.0,
+                          divisions: 20,
+                          onChanged: (v) => setFont(v),
+                        ),
+                      ),
+                      Text('${currentFont.round()}'),
+                      IconButton(
+                        icon: const Icon(Icons.text_increase_rounded),
+                        onPressed: () => setFont(currentFont + 1.0),
+                        tooltip: 'Artır',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _getThemeSurfaceContainerHighestColor(themeManager),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Önizleme: Reading makes a full man.',
+                      style: TextStyle(fontSize: currentFont, height: 1.4),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton.icon(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      icon: const Icon(Icons.check),
+                      label: const Text('Bitti'),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildRateChip({required String label, required double value, required double current}) {
+  Widget _buildRateChip({
+    required String label, 
+    required double value, 
+    required double current,
+    required ThemeManager themeManager,
+  }) {
     final bool selected = (current - value).abs() < 0.02;
     return ChoiceChip(
       label: Text(label),
       selected: selected,
       onSelected: (_) => _readerBloc.add(UpdateSpeechRate(value)),
-      selectedColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+      selectedColor: _getThemePrimaryColor(themeManager).withValues(alpha: 0.15),
       labelStyle: TextStyle(
-        color: selected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
+        color: selected ? _getThemePrimaryColor(themeManager) : _getThemeOnSurfaceColor(themeManager),
         fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+      ),
+    );
+  }
+
+  Widget _buildThemeSection(ThemeManager themeManager) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Tema',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildThemeChip(
+                icon: Icons.light_mode,
+                label: 'Açık',
+                theme: AppTheme.light,
+                themeManager: themeManager,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildThemeChip(
+                icon: Icons.filter_vintage,
+                label: 'Sepia',
+                theme: AppTheme.sepia,
+                themeManager: themeManager,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildThemeChip(
+                icon: Icons.dark_mode,
+                label: 'Koyu',
+                theme: AppTheme.dark,
+                themeManager: themeManager,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildThemeChip({
+    required IconData icon,
+    required String label,
+    required AppTheme theme,
+    required ThemeManager themeManager,
+  }) {
+    final isSelected = themeManager.currentTheme == theme;
+    
+    return InkWell(
+      onTap: () => themeManager.setTheme(theme),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? _getThemePrimaryColor(themeManager).withValues(alpha: 0.15)
+              : _getThemeSurfaceContainerHighestColor(themeManager),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected
+                ? _getThemePrimaryColor(themeManager)
+                : _getThemeOutlineVariantColor(themeManager),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: isSelected
+                  ? _getThemePrimaryColor(themeManager)
+                  : _getThemeOnSurfaceColor(themeManager),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: isSelected
+                    ? _getThemePrimaryColor(themeManager)
+                    : _getThemeOnSurfaceColor(themeManager),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFontPresetsSection(double currentFont, Function(double) setFont, ThemeManager themeManager) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Yazı Boyutu Önayarları',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildFontPresetChip(
+                label: 'Küçük',
+                size: 20.0,
+                current: currentFont,
+                onTap: () => setFont(20.0),
+                themeManager: themeManager,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildFontPresetChip(
+                label: 'Orta',
+                size: 24.0,
+                current: currentFont,
+                onTap: () => setFont(24.0),
+                themeManager: themeManager,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildFontPresetChip(
+                label: 'Büyük',
+                size: 28.0,
+                current: currentFont,
+                onTap: () => setFont(28.0),
+                themeManager: themeManager,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFontPresetChip({
+    required String label,
+    required double size,
+    required double current,
+    required VoidCallback onTap,
+    required ThemeManager themeManager,
+  }) {
+    final isSelected = (current - size).abs() < 1.0;
+    
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: _getThemePrimaryColor(themeManager).withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: _getThemePrimaryColor(themeManager),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Text(
+              'Aa',
+              style: TextStyle(
+                fontSize: size * 0.6,
+                fontWeight: FontWeight.w500,
+                color: _getThemeOnSurfaceVariantColor(themeManager),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: _getThemeOnSurfaceVariantColor(themeManager),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

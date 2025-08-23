@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'core/utils/logger.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'core/theme/theme_manager.dart';
 import 'features/user/presentation/pages/profile_page.dart';
 import 'features/user/presentation/pages/profile_page_sample.dart';
 import 'features/user/presentation/pages/profile_details_page.dart';
@@ -49,6 +50,11 @@ void main() async {
     await Hive.openBox<DateTime>('last_read');
     Logger.debug('All Hive boxes opened');
 
+    // Initialize ThemeManager
+    Logger.debug('Initializing ThemeManager...');
+    await ThemeManager().init();
+    Logger.debug('ThemeManager initialized');
+
     // Initialize DI
     Logger.debug('Initializing dependency injection...');
     await configureDependencies();
@@ -75,6 +81,9 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<BookListViewModel>(
           create: (context) => BookListViewModel(getIt<BookRepository>()),
+        ),
+        ChangeNotifierProvider<ThemeManager>(
+          create: (context) => ThemeManager(),
         ),
       ],
       child: MaterialApp(
