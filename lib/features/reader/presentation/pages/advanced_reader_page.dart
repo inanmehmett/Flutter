@@ -8,10 +8,14 @@ import 'package:provider/provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_manager.dart';
 import '../../../../core/utils/logger.dart';
+import '../../../../core/di/injection.dart';
 import '../bloc/advanced_reader_bloc.dart';
 import '../bloc/reader_event.dart';
 import '../bloc/reader_state.dart';
+import '../cubit/reading_quiz_cubit.dart';
 import '../../data/models/book_model.dart';
+import '../../data/services/reading_quiz_service.dart';
+import 'reading_quiz_page.dart';
 
 class AdvancedReaderPage extends StatefulWidget {
   final BookModel book;
@@ -817,6 +821,28 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
               ),
             ],
           ),
+          
+          // Quiz button - Son sayfada görünür
+          if (state.currentPage == state.totalPages - 1) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ElevatedButton.icon(
+                onPressed: () => _navigateToQuiz(state),
+                icon: const Icon(Icons.quiz_outlined),
+                label: const Text('Kitap Quiz\'ini Çöz'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _getThemePrimaryColor(themeManager),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1226,6 +1252,21 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
 
     final sentence = fullText.substring(start, end).trim();
     return sentence;
+  }
+
+  void _navigateToQuiz(ReaderLoaded state) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BlocProvider(
+          create: (context) => ReadingQuizCubit(getIt<ReadingQuizService>()),
+          child: ReadingQuizPage(
+            readingTextId: int.tryParse(state.book.id) ?? 0,
+            bookTitle: state.book.title,
+          ),
+        ),
+      ),
+    );
   }
 
   @override

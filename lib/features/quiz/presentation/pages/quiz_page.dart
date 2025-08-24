@@ -44,7 +44,7 @@ class QuizPage extends StatelessWidget {
           } else if (quizState is state_.QuizResultState) {
             return QuizResultView(
               result: quizState.result,
-              onRestart: () => context.read<QuizCubit>().startQuiz(),
+              onRestart: () => context.read<QuizCubit>().restartQuiz(),
             );
           } else if (quizState is state_.QuizError) {
             return QuizErrorView(

@@ -7,6 +7,7 @@ abstract class QuizRepository {
     required int count,
     String? category,
     String? difficulty,
+    int? readingTextId,
   });
 
   Future<Either<Failure, AnswerResult>> checkAnswer({

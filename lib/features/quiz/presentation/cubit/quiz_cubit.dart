@@ -9,16 +9,20 @@ class QuizCubit extends Cubit<QuizState> {
   int _currentQuestionIndex = 0;
   int _score = 0;
   List<QuestionResult> _questionResults = [];
+  int? _readingTextId;
 
   QuizCubit(this._repository) : super(const QuizInitial());
 
-  Future<void> startQuiz() async {
+  Future<void> startQuiz({int? readingTextId}) async {
     emit(const QuizLoading());
     try {
+      _readingTextId = readingTextId;
+      
       final result = await _repository.getQuestions(
         count: 10,
         category: null,
         difficulty: null,
+        readingTextId: readingTextId,
       );
 
       result.fold(
@@ -28,10 +32,15 @@ class QuizCubit extends Cubit<QuizState> {
           _currentQuestionIndex = 0;
           _score = 0;
           _questionResults = [];
-          emit(QuizQuestionState(
-            question: questions[0],
-            selectedOption: null,
-          ));
+          
+          if (questions.isNotEmpty) {
+            emit(QuizQuestionState(
+              question: questions[0],
+              selectedOption: null,
+            ));
+          } else {
+            emit(QuizError(message: 'Quiz soruları bulunamadı'));
+          }
         },
       );
     } catch (e) {
@@ -63,6 +72,7 @@ class QuizCubit extends Cubit<QuizState> {
         result.fold(
           (failure) => emit(QuizError(message: failure.message)),
           (answerResult) {
+            // Her doğru cevap için 10 puan
             if (answerResult.isCorrect) {
               _score += 10;
             }
@@ -94,17 +104,44 @@ class QuizCubit extends Cubit<QuizState> {
         selectedOption: null,
       ));
     } else {
-      final result = QuizResult(
-        score: _score,
-        totalQuestions: _questions.length,
-        correctAnswers: _questionResults.where((r) => r.isCorrect).length,
-        wrongAnswers: _questionResults.where((r) => !r.isCorrect).length,
-        percentage: (_score / (_questions.length * 10)) * 100,
-        questionResults: _questionResults,
-      );
+      // Quiz tamamlandı, sonucu hesapla
+      _calculateAndEmitResult();
+    }
+  }
 
-      _repository.saveQuizResult(result);
-      emit(QuizResultState(result: result));
+  void _calculateAndEmitResult() {
+    if (_questions.isEmpty) return;
+
+    final correctAnswers = _questionResults.where((r) => r.isCorrect).length;
+    final wrongAnswers = _questionResults.where((r) => !r.isCorrect).length;
+    final totalQuestions = _questions.length;
+    
+    // Yüzde hesaplama - her soru 10 puan
+    final maxPossibleScore = totalQuestions * 10;
+    final percentage = maxPossibleScore > 0 ? (_score / maxPossibleScore) * 100 : 0.0;
+
+    final result = QuizResult(
+      score: _score,
+      totalQuestions: totalQuestions,
+      correctAnswers: correctAnswers,
+      wrongAnswers: wrongAnswers,
+      percentage: percentage,
+      questionResults: _questionResults,
+    );
+
+    // Sonucu kaydet
+    _repository.saveQuizResult(result);
+    
+    // Sonuç state'ini emit et
+    emit(QuizResultState(result: result));
+  }
+
+  // Quiz'i yeniden başlat
+  void restartQuiz() {
+    if (_readingTextId != null) {
+      startQuiz(readingTextId: _readingTextId);
+    } else {
+      startQuiz();
     }
   }
 }

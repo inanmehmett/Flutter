@@ -16,12 +16,14 @@ class QuizRepositoryImpl implements QuizRepository {
     required int count,
     String? category,
     String? difficulty,
+    int? readingTextId,
   }) async {
     try {
       final questions = await _quizService.getQuestions(
         count: count,
         category: category,
         difficulty: difficulty,
+        readingTextId: readingTextId,
       );
       return Right(questions);
     } catch (e) {

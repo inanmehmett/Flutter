@@ -27,6 +27,28 @@ class QuizQuestion extends Equatable {
     );
   }
 
+  factory QuizQuestion.fromReadingQuizJson(Map<String, dynamic> json) {
+    return QuizQuestion(
+      id: json['id'] as int,
+      text: json['questionText'] as String, // Backend'de questionText olarak geliyor
+      options: (json['answers'] as List) // Backend'de answers olarak geliyor
+          .map((option) => QuizOption.fromReadingQuizJson(option))
+          .toList(),
+      difficulty: 'medium', // Reading quiz'de difficulty bilgisi yok
+      category: 'reading', // Reading quiz kategorisi
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'text': text,
+      'options': options.map((option) => option.toJson()).toList(),
+      'difficulty': difficulty,
+      'category': category,
+    };
+  }
+
   QuizOption? get correctOption =>
       options.firstWhere((option) => option.isCorrect);
 
@@ -51,6 +73,22 @@ class QuizOption extends Equatable {
       text: json['text'] as String,
       isCorrect: json['isCorrect'] as bool,
     );
+  }
+
+  factory QuizOption.fromReadingQuizJson(Map<String, dynamic> json) {
+    return QuizOption(
+      id: json['id'] as int,
+      text: json['answerText'] as String, // Backend'de answerText olarak geliyor
+      isCorrect: json['isCorrect'] as bool,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'text': text,
+      'isCorrect': isCorrect,
+    };
   }
 
   @override
@@ -110,6 +148,17 @@ class QuizResult extends Equatable {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'score': score,
+      'totalQuestions': totalQuestions,
+      'correctAnswers': correctAnswers,
+      'wrongAnswers': wrongAnswers,
+      'percentage': percentage,
+      'questionResults': questionResults.map((result) => result.toJson()).toList(),
+    };
+  }
+
   @override
   List<Object?> get props => [
         score,
@@ -138,6 +187,14 @@ class QuestionResult extends Equatable {
       selectedOption: QuizOption.fromJson(json['selectedOption']),
       isCorrect: json['isCorrect'] as bool,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'question': question.toJson(),
+      'selectedOption': selectedOption.toJson(),
+      'isCorrect': isCorrect,
+    };
   }
 
   @override

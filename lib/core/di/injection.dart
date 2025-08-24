@@ -21,6 +21,8 @@ import '../../features/reader/services/page_cache.dart';
 import '../../features/reader/services/pagination_worker.dart';
 import '../../features/auth/data/services/auth_service.dart';
 import '../../features/reader/data/services/translation_service.dart';
+import '../../features/reader/data/services/reading_quiz_service.dart';
+import '../network/api_client.dart';
 import 'injection.config.dart';
 import '../storage/last_read_manager.dart';
 import '../storage/storage_manager.dart';
@@ -100,6 +102,13 @@ Future<void> configureDependencies() async {
   // Register TranslationService (only if not already registered by injectable)
   if (!getIt.isRegistered<TranslationService>()) {
     getIt.registerLazySingleton<TranslationService>(() => TranslationService(getIt<NetworkManager>()));
+  }
+
+  // Register ReadingQuizService
+  if (!getIt.isRegistered<ReadingQuizService>()) {
+    getIt.registerLazySingleton<ReadingQuizService>(
+      () => ReadingQuizService(getIt<ApiClient>(), getIt<SecureStorageService>()),
+    );
   }
   
   // Register Pagination Services

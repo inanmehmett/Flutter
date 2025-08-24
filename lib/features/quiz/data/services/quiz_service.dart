@@ -15,20 +15,37 @@ class QuizService {
     required int count,
     String? category,
     String? difficulty,
+    int? readingTextId,
   }) async {
     try {
-      final response = await _dio.get(
-        '/questions',
-        queryParameters: {
+      String endpoint;
+      Map<String, dynamic> queryParams = {};
+      
+      if (readingTextId != null) {
+        // Reading quiz için özel endpoint
+        endpoint = '/api/reading-quiz/start/$readingTextId';
+      } else {
+        // Genel quiz için
+        endpoint = '/questions';
+        queryParams = {
           'count': count,
           if (category != null) 'category': category,
           if (difficulty != null) 'difficulty': difficulty,
-        },
-      );
+        };
+      }
+
+      final response = await _dio.get(endpoint, queryParameters: queryParams);
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = response.data['questions'];
-        return data.map((json) => QuizQuestion.fromJson(json)).toList();
+        if (readingTextId != null) {
+          // Reading quiz response formatı
+          final List<dynamic> questionsData = response.data['data']['questions'];
+          return questionsData.map((json) => QuizQuestion.fromReadingQuizJson(json)).toList();
+        } else {
+          // Genel quiz response formatı
+          final List<dynamic> data = response.data['questions'];
+          return data.map((json) => QuizQuestion.fromJson(json)).toList();
+        }
       } else {
         throw Exception('Failed to load questions');
       }
@@ -42,8 +59,9 @@ class QuizService {
     QuizOption selectedOption,
   ) async {
     try {
+      // Reading quiz için answer checking
       final response = await _dio.post(
-        '/check-answer',
+        '/api/reading-quiz/check-answer',
         data: {
           'questionId': question.id,
           'selectedOptionId': selectedOption.id,
@@ -57,6 +75,29 @@ class QuizService {
       }
     } catch (e) {
       throw Exception('Failed to check answer: $e');
+    }
+  }
+
+  Future<AnswerResult> completeQuiz({
+    required int readingTextId,
+    required List<Map<String, dynamic>> answers,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/reading-quiz/complete',
+        data: {
+          'readingTextId': readingTextId,
+          'answers': answers,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return AnswerResult.fromJson(response.data);
+      } else {
+        throw Exception('Failed to complete quiz');
+      }
+    } catch (e) {
+      throw Exception('Failed to complete quiz: $e');
     }
   }
 }
