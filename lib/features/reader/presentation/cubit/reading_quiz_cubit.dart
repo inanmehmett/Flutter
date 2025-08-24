@@ -1,0 +1,179 @@
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:equatable/equatable.dart';
+import '../../domain/entities/reading_quiz_models.dart';
+import '../../data/services/reading_quiz_service.dart';
+import '../../../../core/utils/logger.dart';
+
+part 'reading_quiz_state.dart';
+
+class ReadingQuizCubit extends Cubit<ReadingQuizState> {
+  final ReadingQuizService _readingQuizService;
+
+  ReadingQuizCubit(this._readingQuizService) : super(ReadingQuizInitial());
+
+  /// Quiz başlatır
+  Future<void> startQuiz(int readingTextId) async {
+    try {
+      Logger.info('ReadingQuizCubit.startQuiz readingTextId=$readingTextId');
+      emit(ReadingQuizLoading());
+      
+      final response = await _readingQuizService.startQuiz(readingTextId);
+      
+      if (response.success && response.data != null) {
+        Logger.info('ReadingQuizCubit.startQuiz success quizId=${response.data!.quizId}');
+        emit(ReadingQuizStarted(
+          quizData: response.data!,
+          currentQuestionIndex: 0,
+          userAnswers: [],
+          startTime: DateTime.now(),
+        ));
+      } else {
+        Logger.warning('ReadingQuizCubit.startQuiz failed message=${response.message}');
+        emit(ReadingQuizError(response.message));
+      }
+    } catch (e) {
+      Logger.error('ReadingQuizCubit.startQuiz exception', e);
+      emit(ReadingQuizError('Quiz başlatılamadı: $e'));
+    }
+  }
+
+  /// Soruyu cevaplar
+  void answerQuestion(int questionId, int? selectedAnswerId, String? userAnswerText) {
+    Logger.debug('ReadingQuizCubit.answerQuestion q=$questionId selected=$selectedAnswerId text=$userAnswerText');
+    if (state is ReadingQuizStarted) {
+      final currentState = state as ReadingQuizStarted;
+      final questionStartTime = currentState.questionStartTime ?? DateTime.now();
+      final timeSpent = DateTime.now().difference(questionStartTime).inSeconds;
+      
+      final userAnswer = ReadingQuizUserAnswer(
+        questionId: questionId,
+        selectedAnswerId: selectedAnswerId,
+        userAnswerText: userAnswerText,
+        timeSpentSeconds: timeSpent,
+      );
+
+      final updatedAnswers = List<ReadingQuizUserAnswer>.from(currentState.userAnswers)
+        ..add(userAnswer);
+
+      final nextQuestionIndex = currentState.currentQuestionIndex + 1;
+      
+      if (nextQuestionIndex >= currentState.quizData.questions.length) {
+        // Quiz tamamlandı
+        Logger.info('ReadingQuizCubit.answerQuestion -> completed with ${updatedAnswers.length} answers');
+        emit(ReadingQuizCompleted(
+          quizData: currentState.quizData,
+          userAnswers: updatedAnswers,
+          startTime: currentState.startTime,
+        ));
+      } else {
+        // Sonraki soruya geç
+        Logger.info('ReadingQuizCubit.answerQuestion -> nextQuestion index=$nextQuestionIndex');
+        emit(ReadingQuizStarted(
+          quizData: currentState.quizData,
+          currentQuestionIndex: nextQuestionIndex,
+          userAnswers: updatedAnswers,
+          startTime: currentState.startTime,
+          questionStartTime: DateTime.now(),
+        ));
+      }
+    }
+  }
+
+  /// Quiz'i tamamlar ve sonucu sunucuya gönderir
+  Future<void> submitQuiz() async {
+    Logger.info('ReadingQuizCubit.submitQuiz state=${state.runtimeType}');
+    if (state is ReadingQuizCompleted) {
+      final currentState = state as ReadingQuizCompleted;
+      
+      try {
+        emit(ReadingQuizSubmitting());
+        
+        final request = ReadingQuizCompleteRequest(
+          quizId: currentState.quizData.quizId,
+          startedAt: currentState.startTime,
+          answers: currentState.userAnswers,
+        );
+
+        Logger.network('ReadingQuizCubit.submitQuiz -> ${request.toJson()}');
+
+        final response = await _readingQuizService.completeQuiz(request);
+        
+        if (response.success && response.data != null) {
+          Logger.info('ReadingQuizCubit.submitQuiz success resultId=${response.data!.resultId}');
+          emit(ReadingQuizFinished(response.data!));
+        } else {
+          Logger.warning('ReadingQuizCubit.submitQuiz failed message=${response.message}');
+          emit(ReadingQuizError(response.message));
+        }
+      } catch (e) {
+        Logger.error('ReadingQuizCubit.submitQuiz exception', e);
+        emit(ReadingQuizError('Quiz gönderilemedi: $e'));
+      }
+    } else {
+      Logger.warning('ReadingQuizCubit.submitQuiz invalid state=${state.runtimeType}');
+      emit(ReadingQuizError('Quiz durumu geçersiz: ${state.runtimeType}'));
+    }
+  }
+
+  /// Quiz'i sıfırlar
+  void resetQuiz() {
+    Logger.info('ReadingQuizCubit.resetQuiz');
+    emit(ReadingQuizInitial());
+  }
+
+  /// Önceki soruya dön
+  void goToPreviousQuestion() {
+    Logger.info('ReadingQuizCubit.goToPreviousQuestion');
+    if (state is ReadingQuizStarted) {
+      final currentState = state as ReadingQuizStarted;
+      if (currentState.currentQuestionIndex > 0) {
+        final previousIndex = currentState.currentQuestionIndex - 1;
+        
+        // Son cevabı kaldır
+        final updatedAnswers = List<ReadingQuizUserAnswer>.from(currentState.userAnswers);
+        if (updatedAnswers.isNotEmpty) {
+          updatedAnswers.removeLast();
+        }
+        
+        emit(ReadingQuizStarted(
+          quizData: currentState.quizData,
+          currentQuestionIndex: previousIndex,
+          userAnswers: updatedAnswers,
+          startTime: currentState.startTime,
+          questionStartTime: DateTime.now(),
+        ));
+      }
+    }
+  }
+
+  /// Mevcut soruyu al
+  ReadingQuizQuestion? getCurrentQuestion() {
+    if (state is ReadingQuizStarted) {
+      final currentState = state as ReadingQuizStarted;
+      if (currentState.currentQuestionIndex < currentState.quizData.questions.length) {
+        return currentState.quizData.questions[currentState.currentQuestionIndex];
+      }
+    }
+    return null;
+  }
+
+  /// İlerleme yüzdesini hesapla
+  double getProgress() {
+    if (state is ReadingQuizStarted) {
+      final currentState = state as ReadingQuizStarted;
+      return (currentState.currentQuestionIndex + 1) / currentState.quizData.questions.length;
+    }
+    return 0.0;
+  }
+
+  /// Kalan zamanı hesapla (saniye)
+  int getRemainingTime() {
+    if (state is ReadingQuizStarted) {
+      final currentState = state as ReadingQuizStarted;
+      final elapsed = DateTime.now().difference(currentState.startTime).inMinutes;
+      final remaining = currentState.quizData.timeLimitMinutes - elapsed;
+      return remaining > 0 ? remaining * 60 : 0;
+    }
+    return 0;
+  }
+}
