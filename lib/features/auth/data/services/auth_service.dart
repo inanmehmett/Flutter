@@ -277,9 +277,13 @@ class AuthService implements AuthServiceProtocol {
           profileImageUrl: processProfileImageUrl(data['profileImageUrl']?.toString()),
           bio: data['bio']?.toString(),
           level: (data['subLevel'] as num?)?.toInt(),
+          levelName: data['levelName']?.toString(),
+          levelDisplay: data['levelDisplay']?.toString(),
           experiencePoints: (data['experiencePoints'] as num?)?.toInt(),
           totalReadBooks: (data['totalReadBooks'] as num?)?.toInt(),
           totalQuizScore: (data['totalQuizScore'] as num?)?.toInt(),
+          currentStreak: (data['currentStreak'] as num?)?.toInt(),
+          longestStreak: (data['longestStreak'] as num?)?.toInt(),
         );
         print('🔐 [AuthService] ===== FETCH USER PROFILE END =====');
         return userProfile;
@@ -339,7 +343,7 @@ class AuthService implements AuthServiceProtocol {
 
   @override
   Future<void> updateProfileImage(File image) async {
-    // No change for now; backend path not finalized in API
+    // Upload to backend profile-picture endpoint
     print('🔐 [AuthService] ===== UPDATE PROFILE IMAGE START =====');
     print('🔐 [AuthService] Image path: ${image.path}');
     print('🔐 [AuthService] Image size: ${await image.length()} bytes');
@@ -351,14 +355,15 @@ class AuthService implements AuthServiceProtocol {
       }
 
       final formData = FormData.fromMap({
-        'image': await MultipartFile.fromFile(image.path),
+        'profilePicture': await MultipartFile.fromFile(image.path),
       });
 
-      print('🔐 [AuthService] Making POST request to /api/auth/profile/image...');
-      await _networkManager.post(
-        '/api/auth/profile/image',
+      print('🔐 [AuthService] Making POST request to /api/ApiUserProfile/profile-picture...');
+      final resp = await _networkManager.post(
+        '/api/ApiUserProfile/profile-picture',
         data: formData,
       );
+      print('🔐 [AuthService] Upload response: ${resp.statusCode} ${resp.data}');
     } catch (e) {
       print('🔐 [AuthService] ===== UPDATE PROFILE IMAGE ERROR =====');
       print('🔐 [AuthService] Error: $e');

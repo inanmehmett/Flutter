@@ -22,6 +22,7 @@ import '../../features/reader/services/pagination_worker.dart';
 import '../../features/auth/data/services/auth_service.dart';
 import '../../features/reader/data/services/translation_service.dart';
 import '../../features/reader/data/services/reading_quiz_service.dart';
+import '../../features/game/services/game_service.dart';
 import '../network/api_client.dart';
 import 'injection.config.dart';
 import '../storage/last_read_manager.dart';
@@ -109,6 +110,11 @@ Future<void> configureDependencies() async {
     getIt.registerLazySingleton<ReadingQuizService>(
       () => ReadingQuizService(getIt<ApiClient>(), getIt<SecureStorageService>()),
     );
+  }
+
+  // Register GameService
+  if (!getIt.isRegistered<GameService>()) {
+    getIt.registerLazySingleton<GameService>(() => GameService(getIt<ApiClient>()));
   }
   
   // Register Pagination Services

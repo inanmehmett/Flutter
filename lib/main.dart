@@ -23,6 +23,7 @@ import 'features/reader/presentation/pages/book_list_page.dart';
 import 'features/reader/presentation/pages/book_preview_page.dart';
 import 'features/reader/presentation/pages/advanced_reader_page.dart';
 import 'features/reader/presentation/bloc/advanced_reader_bloc.dart';
+import 'features/user/presentation/pages/badges_page.dart';
 
 void main() async {
   Logger.info('App starting...');
@@ -94,12 +95,29 @@ class MyApp extends StatelessWidget {
             seedColor: Color(0xFF3B82F6),
             brightness: Brightness.light,
           ),
+          pageTransitionsTheme: const PageTransitionsTheme(
+            builders: {
+              TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+              TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+              TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+              TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+              TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+            },
+          ),
           scaffoldBackgroundColor: Colors.white,
           appBarTheme: const AppBarTheme(
             backgroundColor: Colors.white,
             foregroundColor: Colors.black,
             elevation: 0,
             centerTitle: true,
+          ),
+          bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+            backgroundColor: Colors.white,
+            selectedItemColor: Colors.black87,
+            unselectedItemColor: Colors.black54,
+            showUnselectedLabels: true,
+            type: BottomNavigationBarType.fixed,
+            elevation: 8,
           ),
           snackBarTheme: const SnackBarThemeData(
             behavior: SnackBarBehavior.floating,
@@ -114,16 +132,17 @@ class MyApp extends StatelessWidget {
         routes: {
           '/login': (context) => const LoginPage(),
           '/register': (context) => const RegistrationPage(),
-          '/home': (context) => const HomePage(),
-          '/books': (context) => const BookListPage(),
-          '/profile': (context) => const ProfilePage(),
+          '/home': (context) => const AppShell(initialIndex: 0),
+          '/books': (context) => const AppShell(initialIndex: 1),
+          '/profile': (context) => const AppShell(initialIndex: 3),
           '/profile-details': (context) => const ProfileDetailsPage(),
+          '/badges': (context) => BadgesPage(),
           '/profile-sample': (context) => const ProfileSamplePage(),
-          '/quiz': (context) => const Scaffold(
+          '/quiz': (context) => Scaffold(
                 body: Center(
-                  child: Text('Quiz Page - Coming Soon!',
-                      style: TextStyle(fontSize: 24)),
+                  child: Text('Quiz Page - Coming Soon!', style: TextStyle(fontSize: 24)),
                 ),
+                bottomNavigationBar: const _GlobalBottomNav(currentIndex: 2),
               ),
           '/reader': (context) {
             final book = ModalRoute.of(context)!.settings.arguments;
@@ -135,7 +154,7 @@ class MyApp extends StatelessWidget {
               child: AdvancedReaderPage(book: book as BookModel),
             );
           },
-          '/games': (context) => const Scaffold(
+          '/games': (context) => Scaffold(
                 body: Center(
                   child: Text('Games Page - Coming Soon!',
                       style: TextStyle(fontSize: 24)),
@@ -151,6 +170,93 @@ class MyApp extends StatelessWidget {
           },
         },
       ),
+    );
+  }
+}
+
+class AppShell extends StatefulWidget {
+  final int initialIndex;
+  const AppShell({super.key, this.initialIndex = 0});
+
+  @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  late int _currentIndex;
+
+  final _pages = const [
+    HomePage(showBottomNav: false),
+    BookListPage(showBottomNav: false),
+    // Placeholder Quiz page
+    Scaffold(body: Center(child: Text('Quiz Page - Coming Soon!', style: TextStyle(fontSize: 24)))),
+    ProfilePage(),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        switchInCurve: Curves.fastOutSlowIn,
+        switchOutCurve: Curves.fastOutSlowIn,
+        child: IndexedStack(
+          key: ValueKey<int>(_currentIndex),
+          index: _currentIndex,
+          children: _pages,
+        ),
+      ),
+      bottomNavigationBar: _GlobalBottomNav(
+        currentIndex: _currentIndex,
+        onTap: (i) => setState(() => _currentIndex = i),
+      ),
+    );
+  }
+}
+
+class _GlobalBottomNav extends StatelessWidget {
+  final int currentIndex;
+  final ValueChanged<int>? onTap;
+  const _GlobalBottomNav({required this.currentIndex, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return BottomNavigationBar(
+      currentIndex: currentIndex,
+      type: BottomNavigationBarType.fixed,
+      items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+        BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'Books'),
+        BottomNavigationBarItem(icon: Icon(Icons.quiz), label: 'Quiz'),
+        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+      ],
+      onTap: (index) {
+        if (onTap != null) {
+          onTap!(index);
+          return;
+        }
+        // Fallback route navigation
+        switch (index) {
+          case 0:
+            Navigator.pushReplacementNamed(context, '/home');
+            break;
+          case 1:
+            Navigator.pushReplacementNamed(context, '/books');
+            break;
+          case 2:
+            Navigator.pushReplacementNamed(context, '/quiz');
+            break;
+          case 3:
+            Navigator.pushReplacementNamed(context, '/profile');
+            break;
+        }
+      },
     );
   }
 }

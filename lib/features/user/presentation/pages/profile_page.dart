@@ -4,6 +4,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/data/models/user_profile.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/network/network_manager.dart';
+import '../../../../core/config/app_config.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -93,8 +94,10 @@ class _ProfilePageState extends State<ProfilePage> {
                 final double xpProgress = levelInfo?.xpProgress ?? _fallbackProgress(displayedXP);
                 
                 // Level bilgilerini hazırla - hem numeric hem de label
-                final int? numericLevel = levelInfo?.currentLevel ?? _lastLevelGoal?.currentLevel;
-                final String levelDisplayText = numericLevel != null ? 'Level $numericLevel' : (levelInfo?.levelLabel ?? 'Level');
+                final String levelDisplayText = _lastProfile?.levelDisplay
+                    ?? _lastProfile?.levelName
+                    ?? levelInfo?.levelLabel
+                    ?? '—';
                 
                 // Streak bilgilerini hazırla - robust fallback ile
                 final int? streakDaysVal = levelInfo?.streakDays ?? _lastLevelGoal?.streakDays ?? profile.currentStreak;
@@ -143,26 +146,52 @@ class _ProfilePageState extends State<ProfilePage> {
                                 ],
                               ),
                             ),
-                            child: CircleAvatar(
-                              radius: 56,
-                              backgroundColor: Colors.white,
-                              child: CircleAvatar(
-                                radius: 52,
-                                backgroundColor: Theme.of(context).colorScheme.surface,
-                                backgroundImage: profile.profileImageUrl != null
-                                    ? NetworkImage(profile.profileImageUrl!)
-                                    : null,
-                                child: profile.profileImageUrl == null
-                                    ? Text(
-                                        profile.userName.isNotEmpty ? profile.userName[0] : 'U',
-                                        style: TextStyle(
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.bold,
-                                          color: Theme.of(context).colorScheme.primary,
-                                        ),
-                                      )
-                                    : null,
-                              ),
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Hero(
+                                  tag: 'avatar_${profile.id}',
+                                  child: CircleAvatar(
+                                    radius: 56,
+                                    backgroundColor: Colors.white,
+                                    child: CircleAvatar(
+                                      radius: 52,
+                                      backgroundColor: Theme.of(context).colorScheme.surface,
+                                      backgroundImage: profile.profileImageUrl != null
+                                          ? NetworkImage(profile.profileImageUrl!)
+                                          : null,
+                                      child: profile.profileImageUrl == null
+                                          ? Text(
+                                              profile.userName.isNotEmpty ? profile.userName[0] : 'U',
+                                              style: TextStyle(
+                                                fontSize: 28,
+                                                fontWeight: FontWeight.bold,
+                                                color: Theme.of(context).colorScheme.primary,
+                                              ),
+                                            )
+                                          : null,
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  right: -2,
+                                  bottom: -2,
+                                  child: Material(
+                                    color: Theme.of(context).colorScheme.primary,
+                                    shape: const CircleBorder(),
+                                    child: InkWell(
+                                      customBorder: const CircleBorder(),
+                                      onTap: () {
+                                        Navigator.pushNamed(context, '/profile-details');
+                                      },
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(6.0),
+                                        child: Icon(Icons.camera_alt, color: Colors.white, size: 18),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -207,7 +236,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           xp: xpValue,
                           books: (profile.totalReadBooks ?? 0).toString(),
                           streak: streakLabel,
-                          streakProgress: _StatsStrip.calculateProgress(streakDaysVal, longestStreakVal),
+                          streakProgress: 0,
                           streakDays: streakDaysVal,
                           longestStreak: longestStreakVal,
                         ),
@@ -229,56 +258,70 @@ class _ProfilePageState extends State<ProfilePage> {
                         FutureBuilder<List<_BadgeItem>>(
                           future: _badgesFuture,
                           builder: (context, badgeSnap) {
-                 final items = badgeSnap.data ?? _lastBadges ?? [];
-                 if (badgeSnap.hasData && (badgeSnap.data?.isNotEmpty ?? false)) {
-                   _lastBadges = badgeSnap.data;
-                 }
-                 if (items.isEmpty) {
+                            final items = badgeSnap.data ?? _lastBadges ?? [];
+                            if (badgeSnap.hasData && (badgeSnap.data?.isNotEmpty ?? false)) {
+                              _lastBadges = badgeSnap.data;
+                            }
+                            if (items.isEmpty) {
                               return _buildBadgesPlaceholder(context);
                             }
-                            return GridView.builder(
-                              physics: const NeverScrollableScrollPhysics(),
-                              shrinkWrap: true,
-                              itemCount: items.length,
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                                childAspectRatio: 1,
-                              ),
-                              itemBuilder: (context, index) {
-                                final b = items[index];
-                                return Container(
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.surface,
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.05),
-                                        blurRadius: 6,
-                                        offset: const Offset(0, 2),
+                            final preview = items.take(6).toList();
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                GridView.builder(
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  shrinkWrap: true,
+                                  itemCount: preview.length,
+                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 3,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                    childAspectRatio: 1,
+                                  ),
+                                  itemBuilder: (context, index) {
+                                    final b = preview[index];
+                                    return Container(
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context).colorScheme.surface,
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.05),
+                                            blurRadius: 6,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
                                       ),
-                                    ],
+                                      child: Center(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (b.imageUrl != null && b.imageUrl!.isNotEmpty)
+                                              SizedBox(
+                                                width: 36,
+                                                height: 36,
+                                                child: Image.network(b.imageUrl!, fit: BoxFit.contain),
+                                              )
+                                            else
+                                              Icon(Icons.emoji_events, color: Theme.of(context).colorScheme.primary),
+                                            const SizedBox(height: 6),
+                                            Text(b.name, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton(
+                                    onPressed: () => Navigator.pushNamed(context, '/badges'),
+                                    child: const Text('Tüm rozetleri gör'),
                                   ),
-                                  child: Center(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (b.imageUrl != null && b.imageUrl!.isNotEmpty)
-                                          SizedBox(
-                                            width: 36,
-                                            height: 36,
-                                            child: Image.network(b.imageUrl!, fit: BoxFit.contain),
-                                          )
-                                        else
-                                          Icon(Icons.emoji_events, color: Theme.of(context).colorScheme.primary),
-                                        const SizedBox(height: 6),
-                                        Text(b.name, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
+                                ),
+                              ],
                             );
                           },
                         ),
@@ -302,7 +345,7 @@ class _ProfilePageState extends State<ProfilePage> {
           },
         ),
       ),
-      ),
+    ),
     );
   }
 
@@ -436,7 +479,7 @@ class _ProfilePageState extends State<ProfilePage> {
         final m = e as Map<String, dynamic>;
         return _BadgeItem(
           name: (m['name'] ?? m['Name'] ?? '') as String,
-          imageUrl: (m['imageUrl'] ?? m['ImageUrl']) as String?,
+          imageUrl: _normalizeImageUrl((m['imageUrl'] ?? m['ImageUrl']) as String?),
           isEarned: ((m['isEarned'] ?? m['IsEarned']) as bool?) ?? false,
         );
       }).toList();
@@ -542,6 +585,13 @@ class _ProfilePageState extends State<ProfilePage> {
         );
       },
     );
+  }
+
+  String? _normalizeImageUrl(String? path) {
+    if (path == null || path.isEmpty) return null;
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    if (path.startsWith('/')) return '${AppConfig.apiBaseUrl}$path';
+    return '${AppConfig.apiBaseUrl}/$path';
   }
 
   Widget _settingsTile(BuildContext context, IconData icon, String title) {
@@ -702,44 +752,7 @@ class _StatsStrip extends StatelessWidget {
             ],
           ),
           if (streakProgress > 0) ...[
-            const SizedBox(height: 8),
-            Text(
-              _getStreakMotivation(streakDays),
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.primary,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Container(
-              height: 6,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(3),
-              ),
-              child: FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: streakProgress,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${(streakProgress * 100).round()}% tamamlandı',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
+            // Bars removed per UX request
           ],
         ],
       ),

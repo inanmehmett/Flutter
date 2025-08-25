@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../../auth/data/models/user_profile.dart';
+import '../../../../core/config/app_config.dart';
 
 class ProfileHeader extends StatelessWidget {
   final UserProfile profile;
+  final String? levelName;
+  final int? streakDays;
 
-  const ProfileHeader({super.key, required this.profile});
+  const ProfileHeader({super.key, required this.profile, this.levelName, this.streakDays});
 
   @override
   Widget build(BuildContext context) {
@@ -14,9 +17,9 @@ class ProfileHeader extends StatelessWidget {
         children: [
           _buildProfileImage(),
           const SizedBox(width: 15),
-          _buildUserInfo(),
+          _buildUserInfo(context),
           const Spacer(),
-          _buildProfileButton(context),
+          // profile button removed; whole card is tappable in parent
         ],
       ),
     );
@@ -24,9 +27,10 @@ class ProfileHeader extends StatelessWidget {
 
   Widget _buildProfileImage() {
     if (profile.profileImageUrl != null && profile.profileImageUrl!.isNotEmpty) {
+      final imageUrl = _normalize(profile.profileImageUrl!);
       return CircleAvatar(
         radius: 30,
-        backgroundImage: NetworkImage(profile.profileImageUrl!),
+        backgroundImage: NetworkImage(imageUrl),
         onBackgroundImageError: (exception, stackTrace) {
           print('🖼️ [ProfileHeader] Image load error: $exception');
         },
@@ -58,7 +62,7 @@ class ProfileHeader extends StatelessWidget {
     );
   }
 
-  Widget _buildUserInfo() {
+  Widget _buildUserInfo(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -66,12 +70,32 @@ class ProfileHeader extends StatelessWidget {
           profile.userName,
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        Text(
-          'Seviye: ${profile.level ?? "Başlangıç"}',
-          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+        Row(
+          children: [
+            Icon(Icons.workspace_premium, color: Theme.of(context).colorScheme.primary, size: 16),
+            const SizedBox(width: 4),
+            Text(
+              (levelName ?? profile.levelName ?? _formatLevel(profile.level)).toString(),
+              style: TextStyle(fontSize: 14, color: Colors.grey[700], fontWeight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Row(
+          children: [
+            Icon(Icons.local_fire_department, color: Colors.orange.shade700, size: 16),
+            const SizedBox(width: 4),
+            Text('${(streakDays ?? profile.currentStreak ?? 0)} gün streak', style: TextStyle(fontSize: 13, color: Colors.orange.shade700)),
+          ],
         ),
       ],
     );
+  }
+
+  String _formatLevel(int? level) {
+    if (level == null || level <= 0) return '—';
+    return 'Level $level';
   }
 
   Widget _buildProfileButton(BuildContext context) {
@@ -94,5 +118,11 @@ class ProfileHeader extends StatelessWidget {
       return '${parts.first[0]}${parts.last[0]}';
     }
     return name.isNotEmpty ? name[0] : 'U';
+  }
+
+  String _normalize(String url) {
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (url.startsWith('/')) return '${AppConfig.apiBaseUrl}$url';
+    return '${AppConfig.apiBaseUrl}/$url';
   }
 }

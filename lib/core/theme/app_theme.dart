@@ -42,6 +42,14 @@ enum AppTheme {
         ),
       ),
     ),
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      backgroundColor: Colors.white,
+      selectedItemColor: Colors.black87,
+      unselectedItemColor: Colors.black54,
+      showUnselectedLabels: true,
+      type: BottomNavigationBarType.fixed,
+      elevation: 8,
+    ),
   );
 
   static final ThemeData _darkTheme = ThemeData(
@@ -70,6 +78,14 @@ enum AppTheme {
         ),
       ),
     ),
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      backgroundColor: Color(0xFF121212),
+      selectedItemColor: Colors.white,
+      unselectedItemColor: Colors.white70,
+      showUnselectedLabels: true,
+      type: BottomNavigationBarType.fixed,
+      elevation: 8,
+    ),
   );
 
   static final ThemeData _sepiaTheme = ThemeData(
@@ -97,6 +113,14 @@ enum AppTheme {
           borderRadius: BorderRadius.circular(8),
         ),
       ),
+    ),
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      backgroundColor: Colors.white,
+      selectedItemColor: Colors.brown,
+      unselectedItemColor: Colors.brown,
+      showUnselectedLabels: true,
+      type: BottomNavigationBarType.fixed,
+      elevation: 8,
     ),
   );
 }

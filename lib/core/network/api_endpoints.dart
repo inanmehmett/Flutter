@@ -28,6 +28,10 @@ class ApiEndpoints {
   
   // Gamification endpoints
   static const String gamification = '$base/gamification';
+  static const String level = '$gamification/level';
+  static const String dailyTasks = '$gamification/daily-tasks';
+  static const String claimTask = '$gamification/tasks/complete';
+  static const String earnXP = '$gamification/xp/earn';
   static const String badges = '$gamification/badges';
   static const String achievements = '$gamification/achievements';
   static const String leaderboard = '$gamification/leaderboard';

@@ -16,6 +16,8 @@ class UserProfile {
   final bool isActive;
   final String? bio;
   final int? level;
+  final String? levelName;
+  final String? levelDisplay;
   final int? experiencePoints;
   final int? totalReadBooks;
   final int? totalQuizScore;
@@ -34,6 +36,8 @@ class UserProfile {
     required this.isActive,
     this.bio,
     this.level,
+    this.levelName,
+    this.levelDisplay,
     this.experiencePoints,
     this.totalReadBooks,
     this.totalQuizScore,
@@ -69,6 +73,8 @@ class UserProfile {
       isActive: json['isActive'] as bool,
       bio: json['bio'] as String?,
       level: (json['level'] as num?)?.toInt(),
+      levelName: json['levelName'] as String?,
+      levelDisplay: json['levelDisplay'] as String?,
       experiencePoints: (json['experiencePoints'] as num?)?.toInt(),
       totalReadBooks: (json['totalReadBooks'] as num?)?.toInt(),
       totalQuizScore: (json['totalQuizScore'] as num?)?.toInt(),
@@ -91,6 +97,8 @@ class UserProfile {
     bool? isActive,
     String? bio,
     int? level,
+    String? levelName,
+    String? levelDisplay,
     int? experiencePoints,
     int? totalReadBooks,
     int? totalQuizScore,
@@ -109,6 +117,8 @@ class UserProfile {
       isActive: isActive ?? this.isActive,
       bio: bio ?? this.bio,
       level: level ?? this.level,
+      levelName: levelName ?? this.levelName,
+      levelDisplay: levelDisplay ?? this.levelDisplay,
       experiencePoints: experiencePoints ?? this.experiencePoints,
       totalReadBooks: totalReadBooks ?? this.totalReadBooks,
       totalQuizScore: totalQuizScore ?? this.totalQuizScore,

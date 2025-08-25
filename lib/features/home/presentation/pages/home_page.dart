@@ -11,7 +11,8 @@ import '../../../home/presentation/widgets/profile_header.dart';
 import '../../../../core/storage/last_read_manager.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final bool showBottomNav;
+  const HomePage({super.key, this.showBottomNav = true});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -103,20 +104,28 @@ class _HomePageState extends State<HomePage> {
                         Navigator.pushNamed(context, '/login');
                       }
                     },
-                    child: ProfileHeader(profile: userProfile),
+                    child: ProfileHeader(
+                      profile: userProfile,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   // Time-based greeting personalized
-                  Text(
-                    _personalizeGreeting(greeting, userProfile.userName),
-                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    switchInCurve: Curves.fastOutSlowIn,
+                    switchOutCurve: Curves.fastOutSlowIn,
+                    child: Text(
+                      _personalizeGreeting(greeting, userProfile.userName),
+                      key: ValueKey<String>(_personalizeGreeting(greeting, userProfile.userName)),
+                      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text('Bugün ne okumak istersiniz?', style: TextStyle(color: Colors.grey[600])),
                   const SizedBox(height: 24),
+                  // Gamification header removed per UX
 
                   // Hızlı erişim kaldırıldı
-                  const SizedBox(height: 12),
 
                   // Recommended Books
                   Row(
@@ -377,7 +386,7 @@ class _HomePageState extends State<HomePage> {
           },
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
+      bottomNavigationBar: widget.showBottomNav ? BottomNavigationBar(
         currentIndex: 0,
         onTap: (index) {
           switch (index) {
@@ -386,6 +395,9 @@ class _HomePageState extends State<HomePage> {
               break;
             case 2:
               Navigator.pushReplacementNamed(context, '/quiz');
+              break;
+            case 3:
+              Navigator.pushReplacementNamed(context, '/profile');
               break;
           }
         },
@@ -402,8 +414,12 @@ class _HomePageState extends State<HomePage> {
             icon: Icon(Icons.quiz),
             label: 'Quiz',
           ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profile',
+          ),
         ],
-      ),
+      ) : null,
     );
   }
 

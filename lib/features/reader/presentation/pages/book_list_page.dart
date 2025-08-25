@@ -11,7 +11,8 @@ import '../widgets/empty_state_view.dart';
 import '../../data/models/book_model.dart';
 
 class BookListPage extends StatefulWidget {
-  const BookListPage({super.key});
+  final bool showBottomNav;
+  const BookListPage({super.key, this.showBottomNav = true});
 
   @override
   State<BookListPage> createState() => _BookListPageState();
@@ -279,7 +280,7 @@ class _BookListPageState extends State<BookListPage> {
           );
         },
       ),
-      bottomNavigationBar: BottomNavigationBar(
+      bottomNavigationBar: widget.showBottomNav ? BottomNavigationBar(
         currentIndex: 1,
         onTap: (index) {
           switch (index) {
@@ -291,6 +292,9 @@ class _BookListPageState extends State<BookListPage> {
               break;
             case 2:
               Navigator.pushReplacementNamed(context, '/quiz');
+              break;
+            case 3:
+              Navigator.pushReplacementNamed(context, '/profile');
               break;
           }
         },
@@ -307,8 +311,12 @@ class _BookListPageState extends State<BookListPage> {
             icon: Icon(Icons.quiz),
             label: 'Quiz',
           ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profile',
+          ),
         ],
-      ),
+      ) : null,
     );
   }
 }
