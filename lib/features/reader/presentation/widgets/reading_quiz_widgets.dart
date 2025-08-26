@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../domain/entities/reading_quiz_models.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/logger.dart';
+import '../../../../core/widgets/toasts.dart';
 
 /// Quiz başlangıç ekranı - Production kalitesinde modern tasarım
 class ReadingQuizStartView extends StatelessWidget {
@@ -279,66 +281,8 @@ class ReadingQuizStartView extends StatelessWidget {
   }
 
   Widget _buildPremiumFeatures(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.purple.shade50, Colors.blue.shade50],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.purple.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.diamond, color: Colors.purple.shade600, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Premium Avantajları',
-                  overflow: TextOverflow.ellipsis,
-                  softWrap: false,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.purple.shade600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '• Reklamsız quiz deneyimi\n• Detaylı performans analizi\n• Özel ipuçları ve açıklamalar\n• Sınırsız quiz çözme',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.grey.shade700,
-            ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () {
-                // Premium satın alma
-              },
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: Colors.purple.shade600),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text(
-                'Premium\'a Geç',
-                style: TextStyle(color: Colors.purple.shade600),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    // Premium alanı kaldırıldı
+    return const SizedBox.shrink();
   }
 
   Widget _buildFooter(BuildContext context) {
@@ -859,7 +803,7 @@ class ReadingQuizSubmittingView extends StatelessWidget {
 }
 
 /// Quiz sonuç ekranı - Production kalitesinde modern tasarım
-class ReadingQuizResultView extends StatelessWidget {
+class ReadingQuizResultView extends StatefulWidget {
   final ReadingQuizResult result;
   final VoidCallback onRetakeQuiz;
   final VoidCallback onBackToBook;
@@ -870,10 +814,42 @@ class ReadingQuizResultView extends StatelessWidget {
     required this.onRetakeQuiz,
     required this.onBackToBook,
   }) : super(key: key);
+  @override
+  State<ReadingQuizResultView> createState() => _ReadingQuizResultViewState();
+}
+
+class _ReadingQuizResultViewState extends State<ReadingQuizResultView> {
+  bool _toastsShown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _toastsShown) return;
+      _toastsShown = true;
+      // 1) XP gain toast
+      ToastOverlay.show(context, XpToast(widget.result.xpEarned));
+      HapticFeedback.lightImpact();
+      // 2) Total XP animated toast (chain after ~1s)
+      final from = (widget.result.newTotalXP - widget.result.xpEarned).clamp(0, widget.result.newTotalXP);
+      Future.delayed(const Duration(milliseconds: 1000), () {
+        if (!mounted) return;
+        ToastOverlay.show(context, XpTotalToast(from: from, to: widget.result.newTotalXP));
+      });
+      // 3) Level up toast
+      if (widget.result.levelUp && widget.result.newLevel != null) {
+        Future.delayed(const Duration(milliseconds: 1900), () {
+          if (!mounted) return;
+          ToastOverlay.show(context, LevelUpToast(widget.result.newLevel!));
+          HapticFeedback.mediumImpact();
+        });
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isPassed = result.isPassed;
+    final isPassed = widget.result.isPassed;
     final theme = Theme.of(context);
     
     return Scaffold(
@@ -991,38 +967,21 @@ class ReadingQuizResultView extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Puan
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.star, color: Colors.amber.shade600, size: 32),
-              const SizedBox(width: 12),
-              Flexible(
-                child: Text(
-                  '${result.score} Puan',
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.displayMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.amber.shade600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
+          // Puan alanı kaldırıldı
+          const SizedBox(height: 0),
           
           // Yüzde
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             decoration: BoxDecoration(
-              color: result.percentage >= 70 ? Colors.green.shade100 : Colors.orange.shade100,
+              color: widget.result.percentage >= 70 ? Colors.green.shade100 : Colors.orange.shade100,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              '${result.percentage.toStringAsFixed(1)}%',
+              '${widget.result.percentage.toStringAsFixed(1)}%',
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: result.percentage >= 70 ? Colors.green.shade700 : Colors.orange.shade700,
+                color: widget.result.percentage >= 70 ? Colors.green.shade700 : Colors.orange.shade700,
               ),
             ),
           ),
@@ -1033,13 +992,14 @@ class ReadingQuizResultView extends StatelessWidget {
 
   Widget _buildDetailedStats(BuildContext context) {
     final theme = Theme.of(context);
+    final total = widget.result.correctAnswers + widget.result.wrongAnswers;
     return Row(
       children: [
         Expanded(
           child: _buildStatCard(
             context,
             'Doğru',
-            '${result.correctAnswers}/3',
+            '${widget.result.correctAnswers}/$total',
             Icons.check_circle,
             Colors.green,
           ),
@@ -1048,18 +1008,8 @@ class ReadingQuizResultView extends StatelessWidget {
         Expanded(
           child: _buildStatCard(
             context,
-            'Yanlış',
-            '${result.wrongAnswers}/3',
-            Icons.cancel,
-            Colors.red,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
-            context,
             'Süre',
-            '${(result.timeSpent / 60).round()}dk',
+            '${(widget.result.timeSpent / 60).round()}dk',
             Icons.timer,
             Colors.blue,
           ),
@@ -1146,7 +1096,7 @@ class ReadingQuizResultView extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '+${result.xpEarned} XP',
+                      '+${widget.result.xpEarned} XP',
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: Colors.orange.shade600,
@@ -1158,7 +1108,7 @@ class ReadingQuizResultView extends StatelessWidget {
             ],
           ),
           
-          if (result.levelUp) ...[
+          if (widget.result.levelUp) ...[
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 16),
@@ -1186,9 +1136,9 @@ class ReadingQuizResultView extends StatelessWidget {
                             color: Colors.purple.shade600,
                           ),
                         ),
-                        if (result.newLevel != null)
+                        if (widget.result.newLevel != null)
                           Text(
-                            result.newLevel!,
+                            widget.result.newLevel!,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: Colors.purple.shade600,
                             ),
@@ -1206,61 +1156,8 @@ class ReadingQuizResultView extends StatelessWidget {
   }
 
   Widget _buildPremiumFeatures(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.purple.shade50, Colors.blue.shade50],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.purple.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.diamond, color: Colors.purple.shade600, size: 24),
-              const SizedBox(width: 8),
-              Text(
-                'Premium Özellikler',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.purple.shade600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '• Reklamsız deneyim\n• Detaylı analitikler\n• Özel ipuçları\n• Sınırsız quiz',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: Colors.grey.shade700,
-            ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                // Premium satın alma
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple.shade600,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text('Premium\'a Geç'),
-            ),
-          ),
-        ],
-      ),
-    );
+    // Sonuç sayfasında premium alanı kaldırıldı
+    return const SizedBox.shrink();
   }
 
   Widget _buildActionButtons(BuildContext context) {
@@ -1269,7 +1166,7 @@ class ReadingQuizResultView extends StatelessWidget {
       children: [
         Expanded(
           child: OutlinedButton(
-            onPressed: onRetakeQuiz,
+            onPressed: widget.onRetakeQuiz,
             style: OutlinedButton.styleFrom(
               side: BorderSide(color: theme.primaryColor),
               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1288,7 +1185,7 @@ class ReadingQuizResultView extends StatelessWidget {
         const SizedBox(width: 16),
         Expanded(
           child: ElevatedButton(
-            onPressed: onBackToBook,
+            onPressed: widget.onBackToBook,
             style: ElevatedButton.styleFrom(
               backgroundColor: theme.primaryColor,
               foregroundColor: Colors.white,

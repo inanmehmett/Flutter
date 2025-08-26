@@ -24,6 +24,10 @@ import 'features/reader/presentation/pages/book_preview_page.dart';
 import 'features/reader/presentation/pages/advanced_reader_page.dart';
 import 'features/reader/presentation/bloc/advanced_reader_bloc.dart';
 import 'features/user/presentation/pages/badges_page.dart';
+import 'core/realtime/realtime_service.dart';
+import 'core/widgets/toasts.dart';
+import 'core/network/api_client.dart';
+import 'core/network/network_manager.dart';
 
 void main() async {
   Logger.info('App starting...');
@@ -184,6 +188,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   late int _currentIndex;
+  late final RealtimeService _realtime;
 
   final _pages = const [
     HomePage(showBottomNav: false),
@@ -197,6 +202,25 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    _realtime = RealtimeService(getIt<ApiClient>(), getIt<NetworkManager>())..start();
+    _realtime.events.listen((evt) {
+      if (!mounted) return;
+      final ctx = context;
+      switch (evt.type) {
+        case RealtimeEventType.xpChanged:
+          ToastOverlay.show(ctx, XpToast((evt.payload['deltaXP'] ?? 0) as int));
+          break;
+        case RealtimeEventType.levelUp:
+          ToastOverlay.show(ctx, LevelUpToast((evt.payload['levelLabel'] ?? '') as String));
+          break;
+        case RealtimeEventType.badgeEarned:
+          ToastOverlay.show(ctx, BadgeToast((evt.payload['name'] ?? '') as String));
+          break;
+        case RealtimeEventType.streakUpdated:
+          ToastOverlay.show(ctx, StreakToast((evt.payload['currentStreak'] ?? 0) as int));
+          break;
+      }
+    });
   }
 
   @override

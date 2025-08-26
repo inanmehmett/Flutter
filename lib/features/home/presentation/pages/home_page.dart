@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../reader/presentation/viewmodels/book_list_view_model.dart';
-import '../../../reader/domain/entities/book.dart';
 import '../../../reader/data/models/book_model.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/data/models/user_profile.dart';
 import '../../../../core/di/injection.dart';
 import '../../../home/presentation/widgets/profile_header.dart';
 import '../../../../core/storage/last_read_manager.dart';
+import '../../../../core/widgets/badge_celebration.dart';
+import '../../../../core/network/network_manager.dart';
 
 class HomePage extends StatefulWidget {
   final bool showBottomNav;
@@ -19,6 +20,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  int? _cachedStreakDays;
+  int _booksTabIndex = 0; // 0: Önerilen, 1: Trend
   @override
   void initState() {
     super.initState();
@@ -31,6 +34,22 @@ class _HomePageState extends State<HomePage> {
         context.read<AuthBloc>().add(CheckAuthStatus()));
   }
 
+  Future<int?> _fetchStreakDays() async {
+    if (_cachedStreakDays != null) return _cachedStreakDays;
+    try {
+      final client = getIt<NetworkManager>();
+      final resp = await client.get('/api/ApiProgressStats/streak');
+      final root = resp.data is Map<String, dynamic> ? resp.data as Map<String, dynamic> : {};
+      final data = root['data'] is Map<String, dynamic> ? root['data'] as Map<String, dynamic> : {};
+      final val = (data['currentStreak'] ?? data['CurrentStreak'] ?? data['streak']);
+      final streak = (val is num) ? val.toInt() : (val is String ? int.tryParse(val) ?? 0 : 0);
+      _cachedStreakDays = streak;
+      return streak;
+    } catch (_) {
+      return _cachedStreakDays;
+    }
+  }
+
   String _greetingByTime() {
     final hour = DateTime.now().hour;
     if (hour < 5) return 'İyi geceler';
@@ -41,7 +60,7 @@ class _HomePageState extends State<HomePage> {
 
   String _personalizeGreeting(String greeting, String userName) {
     final name = userName.trim();
-    return name.isNotEmpty ? '$greeting $name' : greeting;
+    return name.isNotEmpty ? '$greeting, $name!' : '$greeting!';
   }
 
   @override
@@ -104,12 +123,19 @@ class _HomePageState extends State<HomePage> {
                         Navigator.pushNamed(context, '/login');
                       }
                     },
-                    child: ProfileHeader(
-                      profile: userProfile,
+                    child: FutureBuilder<int?>(
+                      future: _fetchStreakDays(),
+                      builder: (context, snap) {
+                        final streak = snap.data ?? userProfile!.currentStreak;
+                        return ProfileHeader(
+                          profile: userProfile!,
+                          streakDays: streak,
+                        );
+                      },
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // Time-based greeting personalized
+                  // Time-based greeting personalized + test button (temporary)
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 220),
                     switchInCurve: Curves.fastOutSlowIn,
@@ -122,6 +148,14 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 4),
                   Text('Bugün ne okumak istersiniz?', style: TextStyle(color: Colors.grey[600])),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      BadgeCelebration.show(context, name: 'Test Rozet', earned: true);
+                    },
+                    icon: const Icon(Icons.celebration),
+                    label: const Text('Badge Test'),
+                  ),
                   const SizedBox(height: 24),
                   // Gamification header removed per UX
 
@@ -130,8 +164,25 @@ class _HomePageState extends State<HomePage> {
                   // Recommended Books
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: const [
-                      Text('Önerilen Kitaplar', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    children: [
+                      Text(_booksTabIndex == 0 ? 'Önerilen Kitaplar' : 'Trend Kitaplar',
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      ChoiceChip(
+                        label: const Text('Önerilen'),
+                        selected: _booksTabIndex == 0,
+                        onSelected: (v) => setState(() => _booksTabIndex = 0),
+                      ),
+                      const SizedBox(width: 8),
+                      ChoiceChip(
+                        label: const Text('Trend'),
+                        selected: _booksTabIndex == 1,
+                        onSelected: (v) => setState(() => _booksTabIndex = 1),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -171,7 +222,9 @@ class _HomePageState extends State<HomePage> {
                         );
                       }
 
-                      final books = bookViewModel.getRecommendedBooks();
+                      final books = _booksTabIndex == 0
+                          ? bookViewModel.getRecommendedBooks()
+                          : bookViewModel.getTrendingBooks();
 
                       if (books.isEmpty) {
                         return Container(

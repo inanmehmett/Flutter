@@ -38,7 +38,7 @@ class ReadingQuizCubit extends Cubit<ReadingQuizState> {
   }
 
   /// Soruyu cevaplar
-  void answerQuestion(int questionId, int? selectedAnswerId, String? userAnswerText) {
+  Future<void> answerQuestion(int questionId, int? selectedAnswerId, String? userAnswerText) async {
     Logger.debug('ReadingQuizCubit.answerQuestion q=$questionId selected=$selectedAnswerId text=$userAnswerText');
     if (state is ReadingQuizStarted) {
       final currentState = state as ReadingQuizStarted;
@@ -65,6 +65,8 @@ class ReadingQuizCubit extends Cubit<ReadingQuizState> {
           userAnswers: updatedAnswers,
           startTime: currentState.startTime,
         ));
+        // Ara ekranı atla: otomatik olarak sonucu gönder ve sonuç sayfasına geç
+        await submitQuiz();
       } else {
         // Sonraki soruya geç
         Logger.info('ReadingQuizCubit.answerQuestion -> nextQuestion index=$nextQuestionIndex');

@@ -11,15 +11,20 @@ class ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return Container(
       padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           _buildProfileImage(),
-          const SizedBox(width: 15),
-          _buildUserInfo(context),
-          const Spacer(),
-          // profile button removed; whole card is tappable in parent
+          const SizedBox(width: 12),
+          Expanded(child: _buildUserInfo(context)),
+          const SizedBox(width: 8),
+          _buildRightSide(context),
         ],
       ),
     );
@@ -32,7 +37,7 @@ class ProfileHeader extends StatelessWidget {
         radius: 30,
         backgroundImage: NetworkImage(imageUrl),
         onBackgroundImageError: (exception, stackTrace) {
-          print('🖼️ [ProfileHeader] Image load error: $exception');
+          debugPrint('🖼️ [ProfileHeader] Image load error: $exception');
         },
         child: profile.profileImageUrl!.contains('placeholder') || 
                profile.profileImageUrl!.contains('default') 
@@ -81,14 +86,35 @@ class ProfileHeader extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 2),
-        Row(
-          children: [
-            Icon(Icons.local_fire_department, color: Colors.orange.shade700, size: 16),
-            const SizedBox(width: 4),
-            Text('${(streakDays ?? profile.currentStreak ?? 0)} gün streak', style: TextStyle(fontSize: 13, color: Colors.orange.shade700)),
-          ],
+        // Streak kaldırıldı (sadece seviye gösterimi)
+      ],
+    );
+  }
+
+  Widget _buildRightSide(BuildContext context) {
+    final int streak = (streakDays ?? profile.currentStreak ?? 0);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.local_fire_department, size: 16, color: Colors.orange.shade700),
+              const SizedBox(width: 6),
+              Text('$streak gün', style: const TextStyle(fontWeight: FontWeight.w600)),
+            ],
+          ),
         ),
+        const SizedBox(height: 8),
+        Icon(Icons.chevron_right, color: Colors.grey[700]),
       ],
     );
   }
@@ -96,20 +122,6 @@ class ProfileHeader extends StatelessWidget {
   String _formatLevel(int? level) {
     if (level == null || level <= 0) return '—';
     return 'Level $level';
-  }
-
-  Widget _buildProfileButton(BuildContext context) {
-    return TextButton(
-      onPressed: () {
-        Navigator.pushNamed(context, '/profile');
-      },
-      style: TextButton.styleFrom(
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      ),
-      child: const Text('Profil'),
-    );
   }
 
   String _getInitials(String name) {

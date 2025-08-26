@@ -1,10 +1,36 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform, kIsWeb;
+import 'local_config.dart';
 
 class AppConfig {
-  static const String apiBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://localhost:5001',
-  );
+  // Centralized API base URL resolution
+  // Priority:
+  // 1) --dart-define API_BASE_URL (CI/production or manual override)
+  // 2) Platform defaults (web uses same origin; iOS simulator 127.0.0.1; Android emulator 10.0.2.2)
+  // 3) LocalConfig.lanBaseUrl for physical devices or when defaults fail
+  static String get apiBaseUrl {
+    const override = String.fromEnvironment('API_BASE_URL');
+    if (override.isNotEmpty) return override;
+
+    if (kIsWeb) {
+      return 'http://localhost:5001';
+    }
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.iOS:
+        // Prefer LAN for physical device; simulator will still work with LAN
+        return LocalConfig.lanBaseUrl;
+      case TargetPlatform.android:
+        // Android emulator host loopback
+        return 'http://10.0.2.2:5001';
+      case TargetPlatform.macOS:
+      case TargetPlatform.windows:
+      case TargetPlatform.linux:
+        return 'http://127.0.0.1:5001';
+      default:
+        return LocalConfig.lanBaseUrl;
+    }
+  }
   static const Duration defaultTimeout = Duration(seconds: 30);
   static const int maxRetries = 3;
   static const Duration retryDelay = Duration(seconds: 1);

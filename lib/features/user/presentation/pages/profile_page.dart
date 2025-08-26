@@ -5,6 +5,7 @@ import '../../../auth/data/models/user_profile.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/network/network_manager.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../../core/widgets/badge_icon.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -297,14 +298,16 @@ class _ProfilePageState extends State<ProfilePage> {
                                         child: Column(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            if (b.imageUrl != null && b.imageUrl!.isNotEmpty)
-                                              SizedBox(
-                                                width: 36,
-                                                height: 36,
-                                                child: Image.network(b.imageUrl!, fit: BoxFit.contain),
-                                              )
-                                            else
-                                              Icon(Icons.emoji_events, color: Theme.of(context).colorScheme.primary),
+                                            SizedBox(
+                                              width: 36,
+                                              height: 36,
+                                              child: BadgeIcon(
+                                                name: b.name,
+                                                // Profil önizlemesinde imageUrl olsa da BadgeIcon gösterelim
+                                                earned: b.isEarned,
+                                                size: 36,
+                                              ),
+                                            ),
                                             const SizedBox(height: 6),
                                             Text(b.name, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                                           ],

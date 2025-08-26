@@ -54,13 +54,8 @@ class ReadingQuizPage extends StatelessWidget {
                 : null,
             );
           } else if (state is ReadingQuizCompleted) {
-            return ReadingQuizCompletedView(
-              quizData: state.quizData,
-              userAnswers: state.userAnswers,
-              onSubmitQuiz: () {
-                context.read<ReadingQuizCubit>().submitQuiz();
-              },
-            );
+            // Ara ekrana gerek yok; otomatik gönderim yapılır, burada yükleniyor göster
+            return const ReadingQuizSubmittingView();
           } else if (state is ReadingQuizSubmitting) {
             return const ReadingQuizSubmittingView();
           } else if (state is ReadingQuizFinished) {

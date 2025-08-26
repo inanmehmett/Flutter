@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../game/services/game_service.dart';
+import '../../../../core/widgets/badge_icon.dart';
+import '../../../../core/widgets/badge_celebration.dart';
 
 class BadgesPage extends StatefulWidget {
   const BadgesPage({super.key});
@@ -49,7 +51,11 @@ class _BadgesPageState extends State<BadgesPage> {
               final String name = (m['name'] ?? m['Name'] ?? '').toString();
               final String? imageUrl = _normalizeImageUrl((m['imageUrl'] ?? m['ImageUrl']) as String?);
               final bool isEarned = ((m['isEarned'] ?? m['IsEarned']) as bool?) ?? false;
-              return _BadgeTile(name: name, imageUrl: imageUrl, earned: isEarned);
+              final String? category = (m['category'] ?? m['Category'])?.toString();
+              final String? rarity = (m['rarity'] ?? m['Rarity'])?.toString();
+              final String? rarityColor = (m['rarityColor'] ?? m['RarityColor'])?.toString();
+              final String? description = (m['description'] ?? m['Description'])?.toString();
+              return _BadgeTile(name: name, description: description, imageUrl: imageUrl, earned: isEarned, category: category, rarity: rarity, rarityColor: rarityColor);
             },
           );
         },
@@ -60,14 +66,25 @@ class _BadgesPageState extends State<BadgesPage> {
 
 class _BadgeTile extends StatelessWidget {
   final String name;
+  final String? description;
   final String? imageUrl;
   final bool earned;
+  final String? category;
+  final String? rarity;
+  final String? rarityColor;
 
-  const _BadgeTile({required this.name, required this.imageUrl, required this.earned});
+  const _BadgeTile({required this.name, this.description, required this.imageUrl, required this.earned, this.category, this.rarity, this.rarityColor});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return InkWell(
+      onTap: () {
+        if (earned) {
+          BadgeCelebration.show(context, name: name, subtitle: description ?? '', earned: true);
+        }
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
@@ -82,22 +99,7 @@ class _BadgeTile extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (imageUrl != null && imageUrl!.isNotEmpty)
-            SizedBox(
-              width: 44,
-              height: 44,
-              child: Image.network(
-                imageUrl!,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => Icon(
-                  Icons.emoji_events,
-                  size: 44,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            )
-          else
-            Icon(Icons.emoji_events, size: 44, color: Theme.of(context).colorScheme.primary),
+          BadgeIcon(name: name, category: category, rarity: rarity, rarityColorHex: rarityColor, earned: earned, size: 44),
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -106,7 +108,11 @@ class _BadgeTile extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: earned ? Theme.of(context).colorScheme.onSurface : Colors.grey[600],
+              ),
             ),
           ),
           const SizedBox(height: 4),
@@ -119,7 +125,7 @@ class _BadgeTile extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ));
   }
 }
 

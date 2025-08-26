@@ -31,6 +31,7 @@ class QuizResultView extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
+          // Puan alanı kaldırıldı, sadece yüzde ve doğru/toplam göster
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -40,22 +41,15 @@ class QuizResultView extends StatelessWidget {
             child: Column(
               children: [
                 Text(
-                  'Skorunuz',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${result.score} Puan',
-                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                  '${result.percentage.toStringAsFixed(1)}% Başarı',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         color: Theme.of(context).primaryColor,
                         fontWeight: FontWeight.bold,
                       ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${result.percentage.toStringAsFixed(1)}% (${result.correctAnswers}/${result.totalQuestions})',
+                  'Doğru: ${result.correctAnswers}/${result.totalQuestions}',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: Colors.grey[600],
                       ),
@@ -72,15 +66,6 @@ class QuizResultView extends StatelessWidget {
                   title: 'Doğru',
                   value: result.correctAnswers.toString(),
                   color: Colors.green,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildStatCard(
-                  context,
-                  title: 'Yanlış',
-                  value: result.wrongAnswers.toString(),
-                  color: Colors.red,
                 ),
               ),
               const SizedBox(width: 12),
