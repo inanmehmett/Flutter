@@ -30,64 +30,66 @@ class BadgeCelebration {
               children: [
                 // Confetti across entire screen, non-blocking
                 IgnorePointer(child: Stack(children: _buildStars(theme, controller.value, MediaQuery.of(context).size))),
-                // Center spotlight badge with glow (no rectangle, no backdrop)
+                // Center spotlight badge with glow + closer labels just beneath the badge
                 Center(
                   child: Opacity(
                     opacity: opacity,
                     child: Transform.scale(
                       scale: scale,
-                      child: Container(
-                        padding: const EdgeInsets.all(26),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.45), blurRadius: 52),
-                            BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.25), blurRadius: 104),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(26),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.45), blurRadius: 52),
+                                BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.25), blurRadius: 104),
+                              ],
+                            ),
+                            child: BadgeIcon(name: name, earned: earned, size: 168),
+                          ),
+                          const SizedBox(height: 12),
+                          // Title (high-contrast)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              name,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.black,
+                                shadows: [
+                                  Shadow(color: Colors.white70, blurRadius: 6),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (subtitle != null && subtitle.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              child: Text(
+                                subtitle,
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black,
+                                  shadows: [
+                                    Shadow(color: Colors.white54, blurRadius: 4),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ],
-                        ),
-                        child: BadgeIcon(name: name, earned: earned, size: 168),
+                        ],
                       ),
                     ),
-                  ),
-                ),
-                // Text labels without background, subtle shadow
-                Positioned(
-                  bottom: MediaQuery.of(context).size.height * 0.22,
-                  left: 16,
-                  right: 16,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        name,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          shadows: [
-                            Shadow(color: Colors.black.withValues(alpha: 0.45), blurRadius: 8),
-                          ],
-                        ),
-                      ),
-                      if (subtitle != null && subtitle.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          subtitle,
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white.withValues(alpha: 0.95),
-                            shadows: [
-                              Shadow(color: Colors.black.withValues(alpha: 0.40), blurRadius: 6),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
                   ),
                 ),
                 // Share button (optional)

@@ -26,6 +26,7 @@ class ReadingQuizCubit extends Cubit<ReadingQuizState> {
           currentQuestionIndex: 0,
           userAnswers: [],
           startTime: DateTime.now(),
+          questionStartTime: DateTime.now(),
         ));
       } else {
         Logger.warning('ReadingQuizCubit.startQuiz failed message=${response.message}');

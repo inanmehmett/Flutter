@@ -18,6 +18,23 @@ class BadgeIcon extends StatelessWidget {
     this.size = 44,
   });
 
+  // Static mapping for specific badge names -> fixed icons
+  static const Map<String, IconData> _nameIconOverrides = {
+    // keys must be normalized (lowercase, Turkish chars simplified)
+    'hiz ustasi': Icons.speed_rounded,
+    'hiz ustası': Icons.speed_rounded,
+    'hiz sampiyonu': Icons.speed_rounded,
+    'dogruluk ustasi': Icons.track_changes_rounded,
+    'dogruluk ustası': Icons.track_changes_rounded,
+    'dogruluk sampiyonu': Icons.track_changes_rounded,
+    // Early bird / night owl / careful reader
+    'erken kus': Icons.wb_sunny_rounded,
+    'erken kuş': Icons.wb_sunny_rounded,
+    'gece kusu': Icons.nights_stay_rounded,
+    'gece kuşu': Icons.nights_stay_rounded,
+    'dikkatli okuyucu': Icons.fact_check_rounded,
+  };
+
   @override
   Widget build(BuildContext context) {
     final Color ringColor = _ringColor(context);
@@ -55,7 +72,16 @@ class BadgeIcon extends StatelessWidget {
   }
 
   IconData _iconForCategory() {
+    // First, try explicit name overrides
+    final normalizedName = _normalizeText(name ?? '');
+    if (_nameIconOverrides.containsKey(normalizedName)) {
+      return _nameIconOverrides[normalizedName]!;
+    }
+
     final key = _inferCategory().toLowerCase();
+    // Turkish keyword alignments for better visual semantics
+    if (key.contains('hız') || key.contains('hiz') || key.contains('speed') || key.contains('fast')) return Icons.speed_rounded;
+    if (key.contains('doğruluk') || key.contains('dogruluk') || key.contains('accuracy') || key.contains('doğrul') || key.contains('dogrul')) return Icons.track_changes_rounded;
     if (key.contains('read')) return Icons.menu_book_rounded;
     if (key.contains('quiz') || key.contains('test')) return Icons.quiz_rounded;
     if (key.contains('streak') || key.contains('fire')) return Icons.local_fire_department_rounded;
@@ -120,6 +146,19 @@ class BadgeIcon extends StatelessWidget {
     if (text.contains('gizli') || text.contains('secret')) return 'secret';
     if (RegExp(r'^[abc][12]\.[123]').hasMatch(text)) return 'level';
     return 'special';
+  }
+
+  String _normalizeText(String input) {
+    final lower = input.toLowerCase();
+    return lower
+        .replaceAll('ı', 'i')
+        .replaceAll('i̇', 'i')
+        .replaceAll('ş', 's')
+        .replaceAll('ğ', 'g')
+        .replaceAll('ü', 'u')
+        .replaceAll('ö', 'o')
+        .replaceAll('ç', 'c')
+        .trim();
   }
 
   Color? _parseHexColor(String? hex) {

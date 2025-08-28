@@ -1,5 +1,4 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform, kIsWeb;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform, kIsWeb, kDebugMode;
 import 'local_config.dart';
 
 class AppConfig {

@@ -450,7 +450,12 @@ class _HomePageState extends State<HomePage> {
               Navigator.pushReplacementNamed(context, '/quiz');
               break;
             case 3:
-              Navigator.pushReplacementNamed(context, '/profile');
+              final state = context.read<AuthBloc>().state;
+              if (state is AuthAuthenticated) {
+                Navigator.pushReplacementNamed(context, '/profile');
+              } else {
+                Navigator.pushReplacementNamed(context, '/login');
+              }
               break;
           }
         },

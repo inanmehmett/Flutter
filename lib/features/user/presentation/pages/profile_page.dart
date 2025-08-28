@@ -23,10 +23,20 @@ class _ProfilePageState extends State<ProfilePage> {
   _LevelGoalData? _lastLevelGoal;
   _ProgressData? _lastProgress;
   List<_BadgeItem>? _lastBadges;
+  bool _redirectedToLogin = false;
 
   @override
   void initState() {
     super.initState();
+    // İlk açılışta state'e göre yönlendirme yap (auth yoksa login'e)
+    final initialAuthState = context.read<AuthBloc>().state;
+    if (initialAuthState is! AuthAuthenticated) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _redirectedToLogin) return;
+        _redirectedToLogin = true;
+        Navigator.pushReplacementNamed(context, '/login');
+      });
+    }
     _levelGoalFuture = _fetchLevelAndGoals();
     _progressFuture = _fetchProgress();
     _badgesFuture = _fetchBadges();
@@ -57,6 +67,13 @@ class _ProfilePageState extends State<ProfilePage> {
                 _progressFuture = _fetchProgress();
                 _badgesFuture = _fetchBadges();
               });
+            } else if (state is AuthUnauthenticated && !_redirectedToLogin) {
+              // Auth yoksa login sayfasına yönlendir
+              _redirectedToLogin = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                Navigator.pushReplacementNamed(context, '/login');
+              });
             }
           },
           child: BlocBuilder<AuthBloc, AuthState>(
@@ -64,6 +81,10 @@ class _ProfilePageState extends State<ProfilePage> {
             final UserProfile? authenticated = (state is AuthAuthenticated) ? state.user : null;
             if (authenticated != null) {
               _lastProfile = authenticated;
+            }
+            // Yönlendirme sürecinde boş bir görünüm dön
+            if ((state is! AuthAuthenticated) && _redirectedToLogin) {
+              return const SizedBox.shrink();
             }
             final UserProfile profile = _lastProfile ?? UserProfile(
               id: 'guest',
