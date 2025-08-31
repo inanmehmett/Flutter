@@ -96,8 +96,15 @@ class BookRepositoryImpl implements BookRepository {
   @override
   Future<Either<Failure, BookModel?>> fetchBookDetails(String id) async {
     try {
-      final response = await networkManager.get('/books/$id');
-      final book = BookModel.fromJson(response.data);
+      // Align with backend ApiReadingTexts endpoint
+      final response = await networkManager.get('/api/ApiReadingTexts/$id');
+      final data = (response.data is Map<String, dynamic>)
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{};
+      final bookJson = (data['data'] is Map<String, dynamic>)
+          ? data['data'] as Map<String, dynamic>
+          : data;
+      final book = BookModel.fromJson(bookJson);
       return Right(book);
     } catch (e) {
       return Left(ServerFailure());
@@ -129,8 +136,14 @@ class BookRepositoryImpl implements BookRepository {
   @override
   Future<BookModel?> getBookById(String id) async {
     try {
-      final response = await networkManager.get('/books/$id');
-      return BookModel.fromJson(response.data);
+      final response = await networkManager.get('/api/ApiReadingTexts/$id');
+      final data = (response.data is Map<String, dynamic>)
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{};
+      final bookJson = (data['data'] is Map<String, dynamic>)
+          ? data['data'] as Map<String, dynamic>
+          : data;
+      return BookModel.fromJson(bookJson);
     } catch (e) {
       print('Error getting book by id: $e');
       return null;

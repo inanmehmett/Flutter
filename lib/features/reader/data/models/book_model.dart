@@ -125,7 +125,11 @@ class BookModel extends HiveObject implements Book {
   }) : lastModifiedDate = lastModifiedDate ?? DateTime.now();
 
   factory BookModel.fromJson(Map<String, dynamic> json) {
-    print('📚 [BookModel] Parsing JSON: ${json.keys.toList()}');
+    assert(() {
+      // ignore: avoid_print
+      print('📚 [BookModel] Parsing JSON: ${json.keys.toList()}');
+      return true;
+    }());
     
     // Icon URL'yi tam URL'ye çevir
     String? processIconUrl(String? iconUrl) {

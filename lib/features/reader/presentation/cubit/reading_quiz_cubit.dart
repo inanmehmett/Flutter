@@ -2,6 +2,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/reading_quiz_models.dart';
 import '../../data/services/reading_quiz_service.dart';
+import '../../../../core/analytics/event_service.dart';
+import '../../../../core/di/injection.dart';
 import '../../../../core/utils/logger.dart';
 
 part 'reading_quiz_state.dart';
@@ -104,6 +106,37 @@ class ReadingQuizCubit extends Cubit<ReadingQuizState> {
         if (response.success && response.data != null) {
           Logger.info('ReadingQuizCubit.submitQuiz success resultId=${response.data!.resultId}');
           emit(ReadingQuizFinished(response.data!));
+
+          // Emit quiz_passed event if passed; include readingTextId when available
+          try {
+            final passed = response.data!.isPassed;
+            final readingTextId = currentState.quizData.readingTextId;
+            final score = response.data!.score;
+            final percentage = response.data!.percentage;
+            final eventSvc = getIt<EventService>();
+            await eventSvc.sendEvents([
+              {
+                'eventType': 'quiz_completed',
+                'occurredAt': DateTime.now().toUtc().toIso8601String(),
+                'payload': {
+                  'readingTextId': readingTextId,
+                  'score': score,
+                  'percentage': percentage,
+                  'passed': passed,
+                }
+              },
+              if (passed)
+                {
+                  'eventType': 'quiz_passed',
+                  'occurredAt': DateTime.now().toUtc().toIso8601String(),
+                  'payload': {
+                    'readingTextId': readingTextId,
+                    'score': score,
+                    'percentage': percentage,
+                  }
+                },
+            ]);
+          } catch (_) {}
         } else {
           Logger.warning('ReadingQuizCubit.submitQuiz failed message=${response.message}');
           emit(ReadingQuizError(response.message));

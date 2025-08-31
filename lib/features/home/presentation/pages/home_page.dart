@@ -3,13 +3,15 @@ import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../reader/presentation/viewmodels/book_list_view_model.dart';
 import '../../../reader/data/models/book_model.dart';
+import '../../../reader/domain/entities/book.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/data/models/user_profile.dart';
 import '../../../../core/di/injection.dart';
 import '../../../home/presentation/widgets/profile_header.dart';
 import '../../../../core/storage/last_read_manager.dart';
-import '../../../../core/widgets/badge_celebration.dart';
 import '../../../../core/network/network_manager.dart';
+import '../../../../core/config/app_config.dart';
+// import removed: ApiClient no longer used for home counters
 
 class HomePage extends StatefulWidget {
   final bool showBottomNav;
@@ -21,7 +23,6 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int? _cachedStreakDays;
-  int _booksTabIndex = 0; // 0: Önerilen, 1: Trend
   @override
   void initState() {
     super.initState();
@@ -32,7 +33,21 @@ class _HomePageState extends State<HomePage> {
     // Check auth status when page initializes
     Future.microtask(() =>
         context.read<AuthBloc>().add(CheckAuthStatus()));
+
+    // Removed: prefetch of finished/validated counters
   }
+
+  String _resolveImageUrl(String? imageUrl, String? iconUrl) {
+    final url = (iconUrl != null && iconUrl.isNotEmpty)
+        ? iconUrl
+        : (imageUrl ?? '');
+    if (url.isEmpty) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (url.startsWith('/')) return '${AppConfig.apiBaseUrl}$url';
+    return '${AppConfig.apiBaseUrl}/$url';
+  }
+
+  // Removed: _extractCount helper for counters
 
   Future<int?> _fetchStreakDays() async {
     if (_cachedStreakDays != null) return _cachedStreakDays;
@@ -148,186 +163,48 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 4),
                   Text('Bugün ne okumak istersiniz?', style: TextStyle(color: Colors.grey[600])),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      BadgeCelebration.show(context, name: 'Test Rozet', earned: true);
-                    },
-                    icon: const Icon(Icons.celebration),
-                    label: const Text('Badge Test'),
-                  ),
-                  const SizedBox(height: 24),
+                  // Removed: Okunan/Doğrulanan counters
+                  const SizedBox(height: 16),
                   // Gamification header removed per UX
 
                   // Hızlı erişim kaldırıldı
 
-                  // Recommended Books
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(_booksTabIndex == 0 ? 'Önerilen Kitaplar' : 'Trend Kitaplar',
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      ChoiceChip(
-                        label: const Text('Önerilen'),
-                        selected: _booksTabIndex == 0,
-                        onSelected: (v) => setState(() => _booksTabIndex = 0),
-                      ),
-                      const SizedBox(width: 8),
-                      ChoiceChip(
-                        label: const Text('Trend'),
-                        selected: _booksTabIndex == 1,
-                        onSelected: (v) => setState(() => _booksTabIndex = 1),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Consumer<BookListViewModel>(
-                    builder: (context, bookViewModel, child) {
-                      if (bookViewModel.isLoading) {
-                        return const Center(
-                          child: CircularProgressIndicator(),
-                        );
-                      }
-
-                      if (bookViewModel.hasError && !bookViewModel.hasBooks) {
-                        return Container(
-                          height: 200,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Kitaplar yüklenirken hata oluştu',
-                                  style: TextStyle(color: Colors.red[700]),
-                                ),
-                                const SizedBox(height: 8),
-                                ElevatedButton(
-                                  onPressed: () => bookViewModel.refreshBooks(),
-                                  child: const Text('Tekrar Dene'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }
-
-                      final books = _booksTabIndex == 0
-                          ? bookViewModel.getRecommendedBooks()
-                          : bookViewModel.getTrendingBooks();
-
-                      if (books.isEmpty) {
-                        return Container(
-                          height: 200,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Center(
-                            child: Text('Henüz kitap bulunamadı'),
-                          ),
-                        );
-                      }
-                      return SizedBox(
-                        height: 210,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: books.length.clamp(0, 8),
-                          separatorBuilder: (_, __) => const SizedBox(width: 12),
-                          itemBuilder: (context, index) {
-                            final book = books[index];
-                            return SizedBox(
-                              width: 140,
-                              child: Card(
-                                elevation: 4,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(12),
-                                  onTap: () {
-                                    Navigator.pushNamed(
-                                      context,
-                                      '/book-preview',
-                                      arguments: BookModel.fromBook(book),
-                                    );
-                                  },
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      ClipRRect(
-                                        borderRadius: const BorderRadius.only(
-                                          topLeft: Radius.circular(12),
-                                          topRight: Radius.circular(12),
-                                        ),
-                                        child: SizedBox(
-                                          height: 120,
-                                          width: double.infinity,
-                                          child: book.iconUrl != null && book.iconUrl!.isNotEmpty
-                                              ? Image.network(
-                                                  book.imageUrl?.isNotEmpty == true ? book.imageUrl! : book.iconUrl!,
-                                                  fit: BoxFit.cover,
-                                                )
-                                              : Container(
-                                                  color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
-                                                  child: Icon(
-                                                    Icons.menu_book,
-                                                    size: 40,
-                                                    color: Theme.of(context).colorScheme.primary,
-                                                  ),
-                                                ),
-                                        ),
-                                      ),
-                                      Padding(
-                                        padding: const EdgeInsets.fromLTRB(10,10,10,10),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              book.title,
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Row(
-                                              children: [
-                                                Text(
-                                                  'Sev. ${book.textLevel ?? "1"} • ${book.estimatedReadingTimeInMinutes} dk',
-                                                  style: TextStyle(color: Colors.grey[700], fontSize: 10),
-                                                ),
-                                                const SizedBox(width: 6),
-                                                const Icon(Icons.headset, size: 14, color: Colors.grey),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 32),
+                  // (Önerilen/Trend sekmeleri kaldırıldı)
 
                   // Continue Reading
                   const SizedBox(height: 24),
                   _buildContinueReading(context),
+                  const SizedBox(height: 24),
+                  // Sana Özel (önerilen)
+                  const Text('Sana Özel', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  Consumer<BookListViewModel>(
+                    builder: (context, bookViewModel, child) {
+                      if (bookViewModel.isLoading) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      final userLevel = (userProfile?.levelName ?? userProfile?.levelDisplay ?? '')
+                          .toString()
+                          .trim();
+                      final books = bookViewModel.getRecommendedBooks(limit: 8, userLevel: userLevel);
+                      if (books.isEmpty) return const SizedBox.shrink();
+                      return _buildBooksScroller(context, books);
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  // Yeni Eklenenler
+                  const Text('Yeni Eklenenler', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  Consumer<BookListViewModel>(
+                    builder: (context, bookViewModel, child) {
+                      if (bookViewModel.isLoading) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      final books = bookViewModel.getRecentlyAddedBooks(limit: 8);
+                      if (books.isEmpty) return const SizedBox.shrink();
+                      return _buildBooksScroller(context, books);
+                    },
+                  ),
                   const SizedBox(height: 24),
                   // Trending Books - horizontal list
                   const Text('Trend Kitaplar', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
@@ -354,82 +231,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                         );
                       }
-
-                      return SizedBox(
-                        height: 200,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: books.length.clamp(0, 8),
-                          separatorBuilder: (_, __) => const SizedBox(width: 12),
-                          itemBuilder: (context, index) {
-                            final book = books[index];
-                            return SizedBox(
-                              width: 130,
-                              child: Card(
-                                elevation: 4,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(16),
-                                  onTap: () {
-                                    Navigator.pushNamed(
-                                      context,
-                                      '/book-preview',
-                                      arguments: BookModel.fromBook(book),
-                                    );
-                                  },
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      ClipRRect(
-                                        borderRadius: const BorderRadius.only(
-                                          topLeft: Radius.circular(16),
-                                          topRight: Radius.circular(16),
-                                        ),
-                                        child: SizedBox(
-                                          height: 110,
-                                          width: 130,
-                                          child: book.iconUrl != null && book.iconUrl!.isNotEmpty
-                                              ? Image.network(
-                                                  book.imageUrl?.isNotEmpty == true ? book.imageUrl! : book.iconUrl!,
-                                                  fit: BoxFit.cover,
-                                                )
-                                              : Container(
-                                                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                                                  child: Icon(
-                                                    Icons.book,
-                                                    size: 40,
-                                                    color: Theme.of(context).colorScheme.primary,
-                                                  ),
-                                                ),
-                                        ),
-                                      ),
-                                      Padding(
-                                        padding: const EdgeInsets.fromLTRB(10,10,10,10),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              book.title,
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            const SizedBox(height: 2),
-                                            const Icon(Icons.headset, size: 13, color: Colors.grey),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      );
+                      return _buildBooksScroller(context, books);
                     },
                   ),
                   const SizedBox(height: 32),
@@ -483,51 +285,133 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildContinueReading(BuildContext context) {
     final lastReadManager = getIt<LastReadManager>();
-    return FutureBuilder<LastReadInfo?>(
-      future: lastReadManager.getLastRead(),
-      builder: (context, snapshot) {
-        final info = snapshot.data;
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.play_circle_fill, size: 32),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return StreamBuilder<LastReadInfo?>(
+      stream: lastReadManager.updates,
+      builder: (context, _) {
+        return FutureBuilder<List<LastReadInfo>>(
+          future: lastReadManager.getRecentReads(limit: 5),
+          builder: (context, snapshot) {
+            final items = snapshot.data ?? const <LastReadInfo>[];
+            if (snapshot.connectionState == ConnectionState.waiting && items.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Row(
                   children: [
-                    const Text('Okumaya devam et', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    const SizedBox(height: 2),
-                    Text(
-                      snapshot.connectionState == ConnectionState.waiting
-                          ? 'Yükleniyor...'
-                          : (info == null
-                              ? 'Son okunan: bulunamadı'
-                              : '${info.book.title} • Sayfa ${info.pageIndex + 1}'),
-                      style: const TextStyle(fontSize: 12),
-                      overflow: TextOverflow.ellipsis,
+                    SizedBox(width: 4),
+                    CircularProgressIndicator(strokeWidth: 2),
+                    SizedBox(width: 12),
+                    Expanded(child: Text('Yükleniyor...')),
+                  ],
+                ),
+              );
+            }
+
+            if (items.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.play_circle_fill, size: 32),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text('Son okunan bulunamadı'),
                     ),
                   ],
                 ),
-              ),
-              OutlinedButton(
-                onPressed: () {
-                  if (info == null) return;
-                  Navigator.pushNamed(
-                    context,
-                    '/reader',
-                    arguments: info.book,
-                  );
-                },
-                child: const Text('Devam'),
-              ),
-            ],
-          ),
+              );
+            }
+
+            // Multiple recent items horizontal list
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.play_circle_fill, size: 32),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text('Okumaya devam et', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 92,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: items.length.clamp(0, 5),
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final info = items[index];
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () {
+                          Navigator.pushNamed(context, '/reader', arguments: info.book);
+                        },
+                        child: Container(
+                          width: 240,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              _RecentCoverThumb(info: info),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      info.book.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontWeight: FontWeight.w600),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Sayfa ${info.pageIndex + 1}',
+                                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              const Icon(Icons.play_arrow),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -579,3 +463,113 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
+
+Widget _buildBooksScroller(BuildContext context, List<Book> books) {
+  String resolveUrl(String? imageUrl, String? iconUrl) {
+    final url = (iconUrl != null && iconUrl.isNotEmpty) ? iconUrl : (imageUrl ?? '');
+    if (url.isEmpty) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (url.startsWith('/')) return '${AppConfig.apiBaseUrl}$url';
+    return '${AppConfig.apiBaseUrl}/$url';
+  }
+
+  // Photo-like proportions from the reference: tall cover and compact texts
+  const double cardWidth = 121; // ~+10%
+  final double coverHeight = cardWidth * 1.30; // keep same aspect ratio
+  final double listHeight = coverHeight + 82; // slight slack for larger text box
+
+  return SizedBox(
+    height: listHeight,
+    child: ListView.separated(
+      scrollDirection: Axis.horizontal,
+      itemCount: books.length.clamp(0, 8),
+      separatorBuilder: (_, __) => const SizedBox(width: 16),
+      itemBuilder: (context, index) {
+        final book = books[index];
+        final cover = resolveUrl(book.imageUrl, book.iconUrl);
+        return SizedBox(
+          width: cardWidth,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () {
+              Navigator.pushNamed(
+                context,
+                '/book-preview',
+                arguments: BookModel.fromBook(book),
+              );
+            },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    height: coverHeight,
+                    width: double.infinity,
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                    child: cover.isEmpty
+                        ? const Icon(Icons.menu_book, size: 40)
+                        : Image.network(
+                            cover,
+                            fit: BoxFit.cover,
+                            errorBuilder: (c, e, s) => const Icon(Icons.menu_book, size: 40),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  book.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, height: 1.15),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Daily English',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.grey[700], fontSize: 13, height: 1.1),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${book.estimatedReadingTimeInMinutes} min • Lvl ${book.textLevel ?? '1'}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.grey[800], fontSize: 13, height: 1.1),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+
+class _RecentCoverThumb extends StatelessWidget {
+  final LastReadInfo info;
+  const _RecentCoverThumb({required this.info});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.findAncestorStateOfType<_HomePageState>();
+    final resolved = state?._resolveImageUrl(info.book.imageUrl, info.book.iconUrl) ?? '';
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        height: 48,
+        width: 48,
+        color: Theme.of(context).colorScheme.primary.withOpacity(0.06),
+        child: resolved.isEmpty
+            ? const Icon(Icons.menu_book, size: 24)
+            : Image.network(
+                resolved,
+                fit: BoxFit.cover,
+                errorBuilder: (c, e, s) => const Icon(Icons.menu_book, size: 24),
+              ),
+      ),
+    );
+  }
+}
+
+// Removed: _StatChip (home counters UI)

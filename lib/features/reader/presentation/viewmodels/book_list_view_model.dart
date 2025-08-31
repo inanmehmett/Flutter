@@ -137,6 +137,12 @@ class BookListViewModel extends ChangeNotifier {
     return pool.take(limit).toList();
   }
 
+  List<Book> getRecentlyAddedBooks({int limit = 8}) {
+    final sorted = [..._books]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return sorted.take(limit).toList();
+  }
+
   // Error handling
   void clearError() {
     _errorMessage = null;

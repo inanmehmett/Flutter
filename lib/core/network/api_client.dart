@@ -43,4 +43,8 @@ class ApiClient {
       options: Options(extra: {'dio': this.dio}),
     );
   }
+
+  Future<Response> getMeReadingCount({String mode = 'finished'}) {
+    return get('/api/me/reading/count', queryParameters: {'mode': mode});
+  }
 }

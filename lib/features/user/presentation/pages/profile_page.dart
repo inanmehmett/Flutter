@@ -6,6 +6,7 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/network/network_manager.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/widgets/badge_icon.dart';
+import '../../../../core/network/api_client.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -24,6 +25,8 @@ class _ProfilePageState extends State<ProfilePage> {
   _ProgressData? _lastProgress;
   List<_BadgeItem>? _lastBadges;
   bool _redirectedToLogin = false;
+  int? _readingFinishedCount;
+  int? _readingValidatedCount;
 
   @override
   void initState() {
@@ -40,6 +43,21 @@ class _ProfilePageState extends State<ProfilePage> {
     _levelGoalFuture = _fetchLevelAndGoals();
     _progressFuture = _fetchProgress();
     _badgesFuture = _fetchBadges();
+
+    // Prefetch reading counts (finished + validated)
+    Future.microtask(() async {
+      try {
+        final api = getIt<ApiClient>();
+        final respFinished = await api.getMeReadingCount(mode: 'finished');
+        final respValidated = await api.getMeReadingCount(mode: 'validated');
+        if (mounted) {
+          setState(() {
+            _readingFinishedCount = _extractCount(respFinished.data);
+            _readingValidatedCount = _extractCount(respValidated.data);
+          });
+        }
+      } catch (_) {}
+    });
   }
 
   @override
@@ -130,6 +148,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
                 final String xpValue = displayedXP.toString();
 
+                final booksCount = _readingValidatedCount ?? _readingFinishedCount ?? (profile.totalReadBooks ?? 0);
                 return Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -256,7 +275,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         _StatsStrip(
                           levelLabel: levelDisplayText,
                           xp: xpValue,
-                          books: (profile.totalReadBooks ?? 0).toString(),
+                          books: booksCount.toString(),
                           streak: streakLabel,
                           streakProgress: 0,
                           streakDays: streakDaysVal,
@@ -359,7 +378,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         _settingsTile(context, Icons.notifications_outlined, 'Notifications'),
                         _settingsTile(context, Icons.privacy_tip_outlined, 'Privacy'),
                         const SizedBox(height: 12),
-                        _buildStatRow(context, profile),
+                        _buildStatRow(context, booksCount, profile),
                       ],
                     ),
                   ),
@@ -371,6 +390,19 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     ),
     );
+  }
+
+  int? _extractCount(dynamic data) {
+    try {
+      final root = data is Map<String, dynamic> ? data : <String, dynamic>{};
+      final d = root['data'] is Map<String, dynamic> ? root['data'] as Map<String, dynamic> : {};
+      final c = d['count'];
+      if (c is num) return c.toInt();
+      if (c is String) return int.tryParse(c);
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<_LevelGoalData> _fetchLevelAndGoals() async {
@@ -531,10 +563,10 @@ class _ProfilePageState extends State<ProfilePage> {
     return '$streakDays gün';
   }
 
-  Widget _buildStatRow(BuildContext context, UserProfile profile) {
+  Widget _buildStatRow(BuildContext context, int booksCount, UserProfile profile) {
     return Row(
       children: [
-        _statCard(context, Icons.menu_book, 'Okunan', '${profile.totalReadBooks ?? 0}'),
+        _statCard(context, Icons.menu_book, 'Okunan', '$booksCount'),
         const SizedBox(width: 12),
         _statCard(context, Icons.quiz, 'Quiz Puanı', '${profile.totalQuizScore ?? 0}'),
         const SizedBox(width: 12),

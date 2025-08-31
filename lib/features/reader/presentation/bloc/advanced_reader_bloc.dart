@@ -11,6 +11,7 @@ import '../../services/page_manager.dart';
 import '../../data/services/translation_service.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/storage/last_read_manager.dart';
+import '../../../../core/analytics/event_service.dart';
 import 'reader_event.dart';
 import 'reader_state.dart';
 
@@ -18,6 +19,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   final BookRepository _bookRepository;
   final FlutterTts _flutterTts;
   final TranslationService _translationService = getIt<TranslationService>();
+  final EventService _eventService = getIt<EventService>();
   final PageManager _pageManager;
   final AudioPlayer _audioPlayer = AudioPlayer();
   final Map<int, List<Map<String, dynamic>>> _manifestCache = {};
@@ -37,6 +39,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   double _fontSize = 27.0;
   int? _currentPlayingSentenceIndex;
   int? _currentSentenceBaseInPage;
+  Timer? _readingHeartbeat;
 
   AdvancedReaderBloc({
     required BookRepository bookRepository,
@@ -249,6 +252,14 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     final readingTextId = int.tryParse(_currentBook?.id ?? '0') ?? 0;
     var pageIndex = _pageManager.currentPageIndex;
 
+    // start heartbeat to credit non-audio reading time
+    _readingHeartbeat?.cancel();
+    if (readingTextId > 0) {
+      _readingHeartbeat = Timer.periodic(const Duration(seconds: 15), (_) {
+        try { unawaited(_eventService.readingActive(readingTextId, 15)); } catch (_) {}
+      });
+    }
+
     while (_isSpeaking && pageIndex < _pageManager.totalPages) {
       final pageText = _getCurrentPageContent();
       final indices = _computeSentenceIndicesForPage(pageText);
@@ -258,8 +269,14 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
         emit(currentState.copyWith(playingSentenceIndex: idx));
         final url = await findSentenceAudioUrl(readingTextId, idx);
         if (url != null) {
+          final startedAt = DateTime.now();
           await playSentenceFromUrl(url);
           try { await _audioPlayer.onPlayerComplete.first; } catch (_) {}
+          final endedAt = DateTime.now();
+          final durationMs = endedAt.difference(startedAt).inMilliseconds;
+          if (readingTextId > 0) {
+            unawaited(_eventService.sentenceListened(readingTextId, idx, durationMs));
+          }
         }
       }
 
@@ -280,9 +297,17 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
 
     _isSpeaking = false;
     _isPaused = false;
+    _readingHeartbeat?.cancel();
     if (state is ReaderLoaded) {
       final endState = state as ReaderLoaded;
       emit(endState.copyWith(isSpeaking: false, isPaused: false, playingSentenceIndex: null));
+    }
+
+    // Fire reading_completed when reached the end naturally
+    if (readingTextId > 0 && pageIndex >= _pageManager.totalPages - 1) {
+      try {
+        unawaited(_eventService.readingCompleted(readingTextId));
+      } catch (_) {}
     }
   }
 
@@ -339,13 +364,26 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
           }
 
           _currentBook = bookModel;
-          
+
           // Configure page manager for this book
           _pageManager.configureBook(int.tryParse(bookModel.id) ?? 0);
-          
+
           // Initialize pagination with the book content
           await _initializePagination(bookModel.content);
 
+          // Try to restore last read page
+          int initialPage = 0;
+          try {
+            final lastRead = await getIt<LastReadManager>().getLastRead();
+            if (lastRead != null && lastRead.book.id == bookModel.id) {
+              initialPage = lastRead.pageIndex.clamp(0, _pageManager.totalPages > 0 ? _pageManager.totalPages - 1 : 0);
+              if (initialPage != _pageManager.currentPageIndex) {
+                await _pageManager.goToPage(initialPage);
+              }
+            }
+          } catch (_) {}
+
+          // Emit initial loaded state with restored page if available
           emit(ReaderLoaded(
             book: bookModel,
             currentPage: _pageManager.currentPageIndex,
@@ -356,6 +394,25 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
             isPaused: _isPaused,
             speechRate: _speechRate,
           ));
+
+          // Persist last read immediately to ensure Home picks it up
+          try {
+            await getIt<LastReadManager>().saveLastRead(
+              bookId: bookModel.id,
+              pageIndex: _pageManager.currentPageIndex,
+            );
+          } catch (_) {}
+
+          // Fire reading_started event (non-blocking)
+          final readingTextId = int.tryParse(bookModel.id) ?? 0;
+          if (readingTextId > 0) {
+            unawaited(_eventService.readingStarted(readingTextId));
+            // Start passive reading heartbeat for users who read silently
+            _readingHeartbeat?.cancel();
+            _readingHeartbeat = Timer.periodic(const Duration(seconds: 15), (_) {
+              try { unawaited(_eventService.readingActive(readingTextId, 15)); } catch (_) {}
+            });
+          }
         },
       );
     } catch (e) {
@@ -525,6 +582,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   Future<void> close() async {
     await _flutterTts.stop();
     try { await _audioPlayer.dispose(); } catch (_) {}
+    _readingHeartbeat?.cancel();
     _pageManager.dispose();
     return super.close();
   }
