@@ -40,7 +40,7 @@ class SignalRService {
     
     try {
       // Get authentication token
-      final token = await _secureStorage.getToken();
+      final token = await _secureStorage.getAccessToken();
       if (token == null) {
         print('⚠️ No auth token found, skipping SignalR connection');
         _isConnecting = false;
@@ -55,15 +55,7 @@ class SignalRService {
 
       // Create connection with authentication
       _connection = HubConnectionBuilder()
-          .withUrl(
-            hubUrl,
-            options: HttpConnectionOptions(
-              accessTokenFactory: () async => token,
-              headers: {
-                'Authorization': 'Bearer $token',
-              },
-            ),
-          )
+          .withUrl(hubUrl)
           .withAutomaticReconnect([0, 2000, 10000, 30000])
           .build();
 

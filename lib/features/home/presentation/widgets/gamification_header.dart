@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../auth/data/models/user_profile.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../../core/enums/cefr_level.dart';
 
 class GamificationHeader extends StatelessWidget {
   final UserProfile profile;
@@ -22,6 +23,10 @@ class GamificationHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentXP = totalXP ?? profile.experiencePoints ?? 0;
+    final cefrLevel = CefrLevel.fromXP(currentXP);
+    final levelColor = Color(int.parse(cefrLevel.color.replaceFirst('#', '0xff')));
+    
     return Container(
       margin: const EdgeInsets.all(16.0),
       padding: const EdgeInsets.all(20.0),
@@ -30,14 +35,18 @@ class GamificationHeader extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-            Theme.of(context).colorScheme.secondary.withValues(alpha: 0.05),
+            levelColor.withOpacity(0.1),
+            levelColor.withOpacity(0.05),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: levelColor.withOpacity(0.2),
+          width: 1.0,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: levelColor.withOpacity(0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -69,17 +78,31 @@ class GamificationHeader extends StatelessWidget {
   }
 
   Widget _buildLevelChip(BuildContext context) {
-    final level = profile.level ?? 0;
-    final levelName = profile.levelName ?? 'Beginner';
+    // Profil sayfasındaki gibi backend'den gelen levelLabel'ı kullan
+    final levelLabel = profile.levelDisplay ?? profile.levelName ?? 'Beginner';
+    final currentXP = totalXP ?? profile.experiencePoints ?? 0;
+    
+    // CEFR seviyesine göre renk belirle
+    final cefrLevel = CefrLevel.fromXP(currentXP);
+    final levelColor = Color(int.parse(cefrLevel.color.replaceFirst('#', '0xff')));
+    
+    // Debug: XP ve seviye bilgilerini logla
+    print('🎯 [GamificationHeader] levelLabel: $levelLabel');
+    print('🎯 [GamificationHeader] currentXP: $currentXP');
+    print('🎯 [GamificationHeader] cefrLevel: ${cefrLevel.code}');
+    print('🎯 [GamificationHeader] profile.experiencePoints: ${profile.experiencePoints}');
+    print('🎯 [GamificationHeader] totalXP: $totalXP');
     
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary,
+        gradient: LinearGradient(
+          colors: [levelColor, levelColor.withOpacity(0.8)],
+        ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+            color: levelColor.withOpacity(0.3),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -88,14 +111,13 @@ class GamificationHeader extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.workspace_premium,
-            color: Colors.white,
-            size: 16,
+          Text(
+            cefrLevel.icon,
+            style: const TextStyle(fontSize: 16),
           ),
           const SizedBox(width: 6),
           Text(
-            'Level $level',
+            levelLabel,
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -144,10 +166,10 @@ class GamificationHeader extends StatelessWidget {
 
   Widget _buildXPProgress(BuildContext context) {
     final currentXP = totalXP ?? profile.experiencePoints ?? 0;
-    final weeklyXP = this.weeklyXP ?? 0;
-    
-    // XP progress calculation (simplified)
-    final progress = (currentXP % 1000) / 1000.0;
+    final cefrLevel = CefrLevel.fromXP(currentXP);
+    final progress = cefrLevel.getProgressInLevel(currentXP);
+    final xpToNext = cefrLevel.getXPToNextLevel(currentXP);
+    final levelColor = Color(int.parse(cefrLevel.color.replaceFirst('#', '0xff')));
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -168,7 +190,7 @@ class GamificationHeader extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
+                color: levelColor,
               ),
             ),
           ],
@@ -177,9 +199,7 @@ class GamificationHeader extends StatelessWidget {
         LinearProgressIndicator(
           value: progress,
           backgroundColor: Colors.grey[300],
-          valueColor: AlwaysStoppedAnimation<Color>(
-            Theme.of(context).colorScheme.primary,
-          ),
+          valueColor: AlwaysStoppedAnimation<Color>(levelColor),
           minHeight: 8,
         ),
         const SizedBox(height: 4),

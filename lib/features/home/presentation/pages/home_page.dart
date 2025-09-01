@@ -50,6 +50,48 @@ class _HomePageState extends State<HomePage> {
 
   // Removed: _extractCount helper for counters
 
+  Widget _buildPersonalizedGreeting(BuildContext context, UserProfile profile) {
+    final now = DateTime.now();
+    final hour = now.hour;
+    
+    String greeting;
+    if (hour < 12) {
+      greeting = 'Günaydın';
+    } else if (hour < 17) {
+      greeting = 'İyi günler';
+    } else if (hour < 21) {
+      greeting = 'İyi akşamlar';
+    } else {
+      greeting = 'İyi geceler';
+    }
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$greeting, ${profile.userName}!',
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Bugün ne okumak istersiniz?',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<int?> _fetchStreakDays() async {
     if (_cachedStreakDays != null) return _cachedStreakDays;
     try {
@@ -130,23 +172,7 @@ class _HomePageState extends State<HomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Gamification Header (Yeni)
-                  FutureBuilder<int?>(
-                    future: _fetchStreakDays(),
-                    builder: (context, snap) {
-                      final streak = snap.data ?? userProfile!.currentStreak;
-                      return GamificationHeader(
-                        profile: userProfile!,
-                        streakDays: streak,
-                        totalXP: userProfile!.experiencePoints,
-                        weeklyXP: 0, // TODO: Fetch from API
-                        dailyGoal: 30, // TODO: Fetch from user settings
-                        dailyProgress: 0, // TODO: Calculate from today's activities
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  // Profil Header (Tıklanabilir) - alt kısımda
+                  // 1. Profil Header (En üstte - kişisel odaklı)
                   GestureDetector(
                     onTap: () {
                       if (authState is AuthAuthenticated) {
@@ -167,28 +193,29 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // Time-based greeting personalized + test button (temporary)
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
-                    switchInCurve: Curves.fastOutSlowIn,
-                    switchOutCurve: Curves.fastOutSlowIn,
-                    child: Text(
-                      _personalizeGreeting(greeting, userProfile.userName),
-                      key: ValueKey<String>(_personalizeGreeting(greeting, userProfile.userName)),
-                      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
-                    ),
+                  
+                  // 2. Kişiselleştirilmiş Karşılama
+                  _buildPersonalizedGreeting(context, userProfile!),
+                  const SizedBox(height: 20),
+                  
+                  // 3. Gamification Header (Motivasyon için)
+                  FutureBuilder<int?>(
+                    future: _fetchStreakDays(),
+                    builder: (context, snap) {
+                      final streak = snap.data ?? userProfile!.currentStreak;
+                      return GamificationHeader(
+                        profile: userProfile!,
+                        streakDays: streak,
+                        totalXP: userProfile!.experiencePoints,
+                        weeklyXP: 0, // TODO: Fetch from API
+                        dailyGoal: 30, // TODO: Fetch from user settings
+                        dailyProgress: 0, // TODO: Calculate from today's activities
+                      );
+                    },
                   ),
-                  const SizedBox(height: 4),
-                  Text('Bugün ne okumak istersiniz?', style: TextStyle(color: Colors.grey[600])),
-                  // Removed: Okunan/Doğrulanan counters
-                  const SizedBox(height: 16),
-                  // Gamification header removed per UX
-
-                  // Hızlı erişim kaldırıldı
-
-                  // (Önerilen/Trend sekmeleri kaldırıldı)
-
-                  // Continue Reading
+                  const SizedBox(height: 20),
+                  
+                  // 4. Continue Reading Button
                   const SizedBox(height: 24),
                   _buildContinueReading(context),
                   const SizedBox(height: 24),
