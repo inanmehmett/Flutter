@@ -29,9 +29,11 @@ import '../../features/reader/domain/services/achievement_manager.dart'
     as _i689;
 import '../../features/reader/domain/services/auth_service.dart' as _i331;
 import '../../features/reader/domain/services/user_service.dart' as _i121;
+import '../analytics/event_service.dart' as _i859;
 import '../cache/cache_manager.dart' as _i326;
 import '../network/api_client.dart' as _i557;
 import '../network/network_manager.dart' as _i474;
+import '../realtime/signalr_service.dart' as _i550;
 import '../storage/last_read_manager.dart' as _i298;
 import '../storage/secure_storage_service.dart' as _i666;
 import '../storage/storage_manager.dart' as _i392;
@@ -87,6 +89,8 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i326.CacheManager>(),
           gh<_i666.SecureStorageService>(),
         ));
+    gh.lazySingleton<_i859.EventService>(
+        () => _i859.EventService(gh<_i557.ApiClient>()));
     gh.singleton<_i474.NetworkManager>(() => _i474.NetworkManager(
           gh<_i361.Dio>(),
           gh<_i666.SecureStorageService>(),
@@ -112,6 +116,10 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i361.Dio>(),
           gh<_i474.NetworkManager>(),
           gh<_i326.CacheManager>(),
+        ));
+    gh.singleton<_i550.SignalRService>(() => _i550.SignalRService(
+          gh<_i474.NetworkManager>(),
+          gh<_i666.SecureStorageService>(),
         ));
     gh.singleton<_i449.AuthService>(() => _i449.AuthService(
           gh<_i474.NetworkManager>(),

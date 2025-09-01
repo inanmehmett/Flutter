@@ -28,6 +28,7 @@ import '../analytics/event_service.dart';
 import 'injection.config.dart';
 import '../storage/last_read_manager.dart';
 import '../storage/storage_manager.dart';
+import '../realtime/signalr_service.dart';
 
 final getIt = GetIt.instance;
 

@@ -24,7 +24,7 @@ import 'features/reader/presentation/pages/book_preview_page.dart';
 import 'features/reader/presentation/pages/advanced_reader_page.dart';
 import 'features/reader/presentation/bloc/advanced_reader_bloc.dart';
 import 'features/user/presentation/pages/badges_page.dart';
-import 'core/realtime/realtime_service.dart';
+import 'core/realtime/signalr_service.dart';
 import 'core/widgets/toasts.dart';
 import 'core/network/api_client.dart';
 import 'core/network/network_manager.dart';
@@ -188,7 +188,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   late int _currentIndex;
-  late final RealtimeService _realtime;
+  late final SignalRService _signalRService;
 
   final _pages = const [
     HomePage(showBottomNav: false),
@@ -202,8 +202,12 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
-    _realtime = RealtimeService(getIt<ApiClient>(), getIt<NetworkManager>())..start();
-    _realtime.events.listen((evt) {
+    
+    // Use SignalR service instead of polling
+    _signalRService = getIt<SignalRService>();
+    _signalRService.start();
+    
+    _signalRService.events.listen((evt) {
       if (!mounted) return;
       final ctx = context;
       switch (evt.type) {
@@ -241,6 +245,12 @@ class _AppShellState extends State<AppShell> {
         onTap: (i) => setState(() => _currentIndex = i),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _signalRService.stop();
+    super.dispose();
   }
 }
 

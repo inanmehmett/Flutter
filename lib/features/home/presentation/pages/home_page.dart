@@ -8,6 +8,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/data/models/user_profile.dart';
 import '../../../../core/di/injection.dart';
 import '../../../home/presentation/widgets/profile_header.dart';
+import '../../../home/presentation/widgets/gamification_header.dart';
 import '../../../../core/storage/last_read_manager.dart';
 import '../../../../core/network/network_manager.dart';
 import '../../../../core/config/app_config.dart';
@@ -129,7 +130,23 @@ class _HomePageState extends State<HomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Profil Header (Tıklanabilir) - önce
+                  // Gamification Header (Yeni)
+                  FutureBuilder<int?>(
+                    future: _fetchStreakDays(),
+                    builder: (context, snap) {
+                      final streak = snap.data ?? userProfile!.currentStreak;
+                      return GamificationHeader(
+                        profile: userProfile!,
+                        streakDays: streak,
+                        totalXP: userProfile!.experiencePoints,
+                        weeklyXP: 0, // TODO: Fetch from API
+                        dailyGoal: 30, // TODO: Fetch from user settings
+                        dailyProgress: 0, // TODO: Calculate from today's activities
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  // Profil Header (Tıklanabilir) - alt kısımda
                   GestureDetector(
                     onTap: () {
                       if (authState is AuthAuthenticated) {
