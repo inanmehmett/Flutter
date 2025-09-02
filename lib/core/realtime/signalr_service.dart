@@ -55,7 +55,11 @@ class SignalRService {
 
       // Create connection with authentication
       _connection = HubConnectionBuilder()
-          .withUrl(hubUrl)
+          .withUrl(hubUrl, options: HttpConnectionOptions(
+            accessTokenFactory: () async => token,
+            skipNegotiation: false,
+            transport: HttpTransportType.webSockets,
+          ))
           .withAutomaticReconnect([0, 2000, 10000, 30000])
           .build();
 
