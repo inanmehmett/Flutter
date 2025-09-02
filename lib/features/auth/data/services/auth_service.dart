@@ -228,10 +228,50 @@ class AuthService implements AuthServiceProtocol {
   }
 
   @override
-  Future<UserProfile> fetchUserProfile() async {
+  Future<UserProfile> fetchUserProfile({bool forceRefresh = false}) async {
     print('🔐 [AuthService] ===== FETCH USER PROFILE START =====');
 
     try {
+      // Cache-first unless forceRefresh requested
+      if (!forceRefresh) {
+        final cached = await _cacheManager.getData<Map<String, dynamic>>('user/profile');
+        if (cached != null) {
+          print('🔐 [AuthService] Returning profile from cache');
+          final data = cached;
+          String? processProfileImageUrl(String? profileImageUrl) {
+            if (profileImageUrl == null || profileImageUrl.isEmpty) return null;
+            if (profileImageUrl.startsWith('http://') || profileImageUrl.startsWith('https://')) {
+              return profileImageUrl;
+            }
+            if (profileImageUrl.startsWith('file://')) {
+              return profileImageUrl.replaceFirst('file://', AppConfig.apiBaseUrl);
+            }
+            if (profileImageUrl.startsWith('/')) {
+              return '${AppConfig.apiBaseUrl}$profileImageUrl';
+            }
+            return '${AppConfig.apiBaseUrl}/$profileImageUrl';
+          }
+          return UserProfile(
+            id: data['id']?.toString() ?? '',
+            userName: data['userName']?.toString() ?? '',
+            email: data['email']?.toString() ?? '',
+            createdAt: DateTime.tryParse('${data['createdAt']}') ?? DateTime.now(),
+            updatedAt: DateTime.tryParse('${data['updatedAt']}') ?? DateTime.now(),
+            isActive: true,
+            profileImageUrl: processProfileImageUrl(data['profileImageUrl']?.toString()),
+            bio: data['bio']?.toString(),
+            level: (data['subLevel'] as num?)?.toInt(),
+            levelName: data['levelName']?.toString(),
+            levelDisplay: data['levelDisplay']?.toString(),
+            experiencePoints: (data['experiencePoints'] as num?)?.toInt(),
+            totalReadBooks: (data['totalReadBooks'] as num?)?.toInt(),
+            totalQuizScore: (data['totalQuizScore'] as num?)?.toInt(),
+            currentStreak: (data['currentStreak'] as num?)?.toInt(),
+            longestStreak: (data['longestStreak'] as num?)?.toInt(),
+          );
+        }
+      }
+
       print('🔐 [AuthService] Getting access token...');
       final token = await _getAccessToken();
       if (token == null) {
@@ -252,6 +292,11 @@ class AuthService implements AuthServiceProtocol {
       if (response.statusCode == 200) {
         print('🔐 [AuthService] ✅ Profile fetch successful!');
         final data = response.data as Map<String, dynamic>;
+
+        // cache raw json for TTL
+        try {
+          await _cacheManager.setData('user/profile', data, timeout: const Duration(minutes: 5));
+        } catch (_) {}
 
         String? processProfileImageUrl(String? profileImageUrl) {
           if (profileImageUrl == null || profileImageUrl.isEmpty) return null;

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
+import '../../../core/cache/cache_manager.dart';
 
 class UserProfileSummary {
   final int xp;
@@ -39,21 +40,47 @@ class UserProfileSummary {
 
 class GameService {
   final ApiClient _apiClient;
+  final CacheManager _cacheManager;
 
-  GameService(this._apiClient);
+  GameService(this._apiClient, this._cacheManager);
 
-  Future<UserProfileSummary> getProfileSummary() async {
-    final Response levelResp = await _apiClient.get(ApiEndpoints.level);
-    final Response streakResp = await _apiClient.get('/api/ApiProgressStats/streak');
-    final levelData = levelResp.data is Map<String, dynamic> ? levelResp.data as Map<String, dynamic> : <String, dynamic>{};
-    final streakData = streakResp.data is Map<String, dynamic> ? streakResp.data as Map<String, dynamic> : <String, dynamic>{};
-    return UserProfileSummary.fromLevelAndStreak(levelJson: levelData, streakJson: streakData);
+  Future<UserProfileSummary> getProfileSummary({bool forceRefresh = false}) async {
+    const levelKey = 'game/level';
+    const streakKey = 'game/streak';
+
+    Map<String, dynamic>? levelData;
+    Map<String, dynamic>? streakData;
+
+    if (!forceRefresh) {
+      levelData = await _cacheManager.getData<Map<String, dynamic>>(levelKey);
+      streakData = await _cacheManager.getData<Map<String, dynamic>>(streakKey);
+    }
+
+    if (levelData == null || streakData == null) {
+      final Response levelResp = await _apiClient.get(ApiEndpoints.level);
+      final Response streakResp = await _apiClient.get('/api/ApiProgressStats/streak');
+      levelData = levelResp.data is Map<String, dynamic> ? levelResp.data as Map<String, dynamic> : <String, dynamic>{};
+      streakData = streakResp.data is Map<String, dynamic> ? streakResp.data as Map<String, dynamic> : <String, dynamic>{};
+      try {
+        await _cacheManager.setData(levelKey, levelData, timeout: const Duration(minutes: 3));
+        await _cacheManager.setData(streakKey, streakData, timeout: const Duration(minutes: 3));
+      } catch (_) {}
+    }
+
+    return UserProfileSummary.fromLevelAndStreak(levelJson: levelData!, streakJson: streakData!);
   }
 
-  Future<List<dynamic>> getBadges() async {
+  Future<List<dynamic>> getBadges({bool forceRefresh = false}) async {
+    const cacheKey = 'game/badges';
+    if (!forceRefresh) {
+      final cached = await _cacheManager.getData<List<dynamic>>(cacheKey);
+      if (cached != null && cached.isNotEmpty) return cached;
+    }
     final Response response = await _apiClient.get(ApiEndpoints.badges);
     final data = response.data;
-    return (data is Map<String, dynamic> && data['data'] is List) ? data['data'] as List<dynamic> : [];
+    final list = (data is Map<String, dynamic> && data['data'] is List) ? data['data'] as List<dynamic> : [];
+    try { await _cacheManager.setData(cacheKey, list, timeout: const Duration(minutes: 10)); } catch (_) {}
+    return list;
   }
 
   Future<List<dynamic>> getLeaderboard() async {

@@ -39,6 +39,8 @@ class SignalRService {
     _isConnecting = true;
     
     try {
+      // Ensure we have a valid (non-expired) token. Try refresh if needed.
+      await _ensureValidToken();
       // Get authentication token
       final token = await _secureStorage.getAccessToken();
       if (token == null) {
@@ -55,11 +57,14 @@ class SignalRService {
 
       // Create connection with authentication
       _connection = HubConnectionBuilder()
-          .withUrl(hubUrl, options: HttpConnectionOptions(
-            accessTokenFactory: () async => token,
-            skipNegotiation: false,
-            transport: HttpTransportType.webSockets,
-          ))
+          .withUrl(
+            hubUrl,
+            HttpConnectionOptions(
+              accessTokenFactory: () async => token,
+              skipNegotiation: false,
+              transport: HttpTransportType.webSockets,
+            ),
+          )
           .withAutomaticReconnect([0, 2000, 10000, 30000])
           .build();
 
@@ -79,6 +84,15 @@ class SignalRService {
     } catch (e) {
       _isConnecting = false;
       print('❌ SignalR connection failed: $e');
+      // If unauthorized (expired token), try refresh once then retry immediately
+      final err = e.toString();
+      if (err.contains("401") || err.contains('Unauthorized') || err.contains('invalid_token')) {
+        final refreshed = await _refreshToken();
+        if (refreshed) {
+          print('🔄 Token refreshed after 401. Retrying SignalR connect...');
+          return start();
+        }
+      }
       
       // Fallback to polling after 5 seconds
       _scheduleReconnect();
@@ -218,6 +232,42 @@ class SignalRService {
       print('🔌 SignalR connection closed: $error');
       _scheduleReconnect();
     });
+  }
+
+  /// Ensure access token is valid; if not, attempt to refresh using refresh_token grant
+  Future<void> _ensureValidToken() async {
+    try {
+      final valid = await _secureStorage.isTokenValid();
+      if (valid) return;
+      await _refreshToken();
+    } catch (_) {}
+  }
+
+  /// Attempt to refresh tokens. Returns true if refreshed.
+  Future<bool> _refreshToken() async {
+    try {
+      final refreshToken = await _secureStorage.getRefreshToken();
+      if (refreshToken == null || refreshToken.isEmpty) return false;
+      final resp = await _networkManager.post('/connect/token', data: {
+        'grant_type': 'refresh_token',
+        'refresh_token': refreshToken,
+      });
+      if (resp.statusCode == 200 && resp.data is Map) {
+        final data = resp.data as Map;
+        final accessToken = (data['access_token'] ?? data['accessToken'])?.toString();
+        final newRefresh = (data['refresh_token'] ?? data['refreshToken'])?.toString();
+        final expiresInRaw = data['expires_in'] ?? 3600;
+        final expiresIn = expiresInRaw is int ? expiresInRaw : int.tryParse('$expiresInRaw') ?? 3600;
+        if (accessToken != null && newRefresh != null) {
+          await _secureStorage.saveTokens(accessToken: accessToken, refreshToken: newRefresh, expiresIn: expiresIn);
+          return true;
+        }
+      }
+      return false;
+    } catch (e) {
+      print('❌ SignalR token refresh failed: $e');
+      return false;
+    }
   }
 
   /// Schedule reconnection attempt

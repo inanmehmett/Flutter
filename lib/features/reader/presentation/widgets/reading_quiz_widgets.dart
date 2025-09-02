@@ -827,23 +827,9 @@ class _ReadingQuizResultViewState extends State<ReadingQuizResultView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _toastsShown) return;
       _toastsShown = true;
-      // 1) XP gain toast
-      ToastOverlay.show(context, XpToast(widget.result.xpEarned));
-      HapticFeedback.lightImpact();
-      // 2) Total XP animated toast (chain after ~1s)
-      final from = (widget.result.newTotalXP - widget.result.xpEarned).clamp(0, widget.result.newTotalXP);
-      Future.delayed(const Duration(milliseconds: 1000), () {
-        if (!mounted) return;
-        ToastOverlay.show(context, XpTotalToast(from: from, to: widget.result.newTotalXP));
-      });
-      // 3) Level up toast
-      if (widget.result.levelUp && widget.result.newLevel != null) {
-        Future.delayed(const Duration(milliseconds: 1900), () {
-          if (!mounted) return;
-          ToastOverlay.show(context, LevelUpToast(widget.result.newLevel!));
-          HapticFeedback.mediumImpact();
-        });
-      }
+      // Toastlar SignalR tarafından gerçek zamanlı tetikleniyor.
+      // Buradaki manuel toasts kaldırıldı ki çift gösterim olmasın.
+      HapticFeedback.selectionClick();
     });
   }
 

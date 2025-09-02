@@ -19,11 +19,17 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Daily English',
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.getTheme(AppTheme.light),
       darkTheme: AppTheme.getTheme(AppTheme.dark),
-      home: SplashScreen(onComplete: () {
-        Navigator.of(context).pushReplacementNamed('/home');
-      }),
+      home: Builder(
+        builder: (ctx) => SplashScreen(onComplete: () {
+          Navigator.of(ctx).pushReplacementNamed('/home');
+        }),
+      ),
+      routes: {
+        '/home': (_) => const Scaffold(body: Center(child: Text('Home Placeholder'))),
+      },
     );
   }
 }

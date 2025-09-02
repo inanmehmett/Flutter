@@ -9,6 +9,8 @@ import '../../../auth/data/models/user_profile.dart';
 import '../../../../core/di/injection.dart';
 import '../../../home/presentation/widgets/profile_header.dart';
 import '../../../home/presentation/widgets/gamification_header.dart';
+import '../../../game/widgets/leaderboard_preview.dart';
+import '../../../quests/presentation/widgets/quests_preview.dart';
 import '../../../../core/storage/last_read_manager.dart';
 import '../../../../core/network/network_manager.dart';
 import '../../../../core/config/app_config.dart';
@@ -213,6 +215,12 @@ class _HomePageState extends State<HomePage> {
                       );
                     },
                   ),
+                  const SizedBox(height: 20),
+                  // 3.2 Quests Preview
+                  const QuestsPreview(),
+                  const SizedBox(height: 20),
+                  // 3.1 Leaderboard Preview
+                  const LeaderboardPreview(),
                   const SizedBox(height: 20),
                   
                   // 4. Continue Reading Button

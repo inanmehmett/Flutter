@@ -28,6 +28,7 @@ import 'core/realtime/signalr_service.dart';
 import 'core/widgets/toasts.dart';
 import 'core/network/api_client.dart';
 import 'core/network/network_manager.dart';
+import 'features/game/pages/leaderboard_page.dart';
 
 void main() async {
   Logger.info('App starting...');
@@ -141,6 +142,7 @@ class MyApp extends StatelessWidget {
           '/profile': (context) => const AppShell(initialIndex: 3),
           '/profile-details': (context) => const ProfileDetailsPage(),
           '/badges': (context) => BadgesPage(),
+          '/leaderboard': (context) => const LeaderboardPage(),
           '/profile-sample': (context) => const ProfileSamplePage(),
           '/quiz': (context) => Scaffold(
                 body: Center(
@@ -212,16 +214,16 @@ class _AppShellState extends State<AppShell> {
       final ctx = context;
       switch (evt.type) {
         case RealtimeEventType.xpChanged:
-          ToastOverlay.show(ctx, XpToast((evt.payload['deltaXP'] ?? 0) as int));
+          ToastOverlay.show(ctx, XpToast((evt.payload['deltaXP'] ?? 0) as int), channel: 'xp');
           break;
         case RealtimeEventType.levelUp:
-          ToastOverlay.show(ctx, LevelUpToast((evt.payload['levelLabel'] ?? '') as String));
+          ToastOverlay.show(ctx, LevelUpToast((evt.payload['levelLabel'] ?? '') as String), channel: 'level');
           break;
         case RealtimeEventType.badgeEarned:
-          ToastOverlay.show(ctx, BadgeToast((evt.payload['name'] ?? '') as String));
+          ToastOverlay.show(ctx, BadgeToast((evt.payload['name'] ?? '') as String), channel: 'badge');
           break;
         case RealtimeEventType.streakUpdated:
-          ToastOverlay.show(ctx, StreakToast((evt.payload['currentStreak'] ?? 0) as int));
+          ToastOverlay.show(ctx, StreakToast((evt.payload['currentStreak'] ?? 0) as int), channel: 'streak');
           break;
       }
     });

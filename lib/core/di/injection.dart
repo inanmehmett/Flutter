@@ -116,7 +116,7 @@ Future<void> configureDependencies() async {
 
   // Register GameService
   if (!getIt.isRegistered<GameService>()) {
-    getIt.registerLazySingleton<GameService>(() => GameService(getIt<ApiClient>()));
+    getIt.registerLazySingleton<GameService>(() => GameService(getIt<ApiClient>(), getIt<CacheManager>()));
   }
   // Register EventService
   if (!getIt.isRegistered<EventService>()) {
