@@ -14,6 +14,7 @@ import '../../../quests/presentation/widgets/quests_preview.dart';
 import '../../../../core/storage/last_read_manager.dart';
 import '../../../../core/network/network_manager.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../game/services/game_service.dart';
 // import removed: ApiClient no longer used for home counters
 
 class HomePage extends StatefulWidget {
@@ -97,14 +98,10 @@ class _HomePageState extends State<HomePage> {
   Future<int?> _fetchStreakDays() async {
     if (_cachedStreakDays != null) return _cachedStreakDays;
     try {
-      final client = getIt<NetworkManager>();
-      final resp = await client.get('/api/ApiProgressStats/streak');
-      final root = resp.data is Map<String, dynamic> ? resp.data as Map<String, dynamic> : {};
-      final data = root['data'] is Map<String, dynamic> ? root['data'] as Map<String, dynamic> : {};
-      final val = (data['currentStreak'] ?? data['CurrentStreak'] ?? data['streak']);
-      final streak = (val is num) ? val.toInt() : (val is String ? int.tryParse(val) ?? 0 : 0);
-      _cachedStreakDays = streak;
-      return streak;
+      final service = getIt<GameService>();
+      final summary = await service.getProfileSummary();
+      _cachedStreakDays = summary.currentStreak;
+      return _cachedStreakDays;
     } catch (_) {
       return _cachedStreakDays;
     }

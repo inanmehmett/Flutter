@@ -25,6 +25,7 @@ import 'features/reader/presentation/pages/advanced_reader_page.dart';
 import 'features/reader/presentation/bloc/advanced_reader_bloc.dart';
 import 'features/user/presentation/pages/badges_page.dart';
 import 'core/realtime/signalr_service.dart';
+import 'core/cache/cache_manager.dart';
 import 'core/widgets/toasts.dart';
 import 'core/network/api_client.dart';
 import 'core/network/network_manager.dart';
@@ -212,18 +213,30 @@ class _AppShellState extends State<AppShell> {
     _signalRService.events.listen((evt) {
       if (!mounted) return;
       final ctx = context;
+      // Invalidate profile-related caches and refresh profile on realtime updates
+      void invalidateProfileCachesAndRefresh() {
+        final cache = getIt<CacheManager>();
+        cache.removeData('user/profile');
+        cache.removeData('game/level');
+        cache.removeData('game/streak');
+        // Trigger profile refresh
+        context.read<AuthBloc>().add(CheckAuthStatus());
+      }
       switch (evt.type) {
         case RealtimeEventType.xpChanged:
           ToastOverlay.show(ctx, XpToast((evt.payload['deltaXP'] ?? 0) as int), channel: 'xp');
+          invalidateProfileCachesAndRefresh();
           break;
         case RealtimeEventType.levelUp:
           ToastOverlay.show(ctx, LevelUpToast((evt.payload['levelLabel'] ?? '') as String), channel: 'level');
+          invalidateProfileCachesAndRefresh();
           break;
         case RealtimeEventType.badgeEarned:
           ToastOverlay.show(ctx, BadgeToast((evt.payload['name'] ?? '') as String), channel: 'badge');
           break;
         case RealtimeEventType.streakUpdated:
           ToastOverlay.show(ctx, StreakToast((evt.payload['currentStreak'] ?? 0) as int), channel: 'streak');
+          invalidateProfileCachesAndRefresh();
           break;
       }
     });
