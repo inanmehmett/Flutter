@@ -30,6 +30,9 @@ import 'core/widgets/toasts.dart';
 import 'core/network/api_client.dart';
 import 'core/network/network_manager.dart';
 import 'features/game/pages/leaderboard_page.dart';
+import 'features/quiz/presentation/pages/vocabulary_quiz_page.dart';
+import 'features/quiz/presentation/cubit/vocabulary_quiz_cubit.dart';
+import 'features/quiz/data/services/vocabulary_quiz_service.dart';
 
 void main() async {
   Logger.info('App starting...');
@@ -196,7 +199,7 @@ class _AppShellState extends State<AppShell> {
   final _pages = const [
     HomePage(showBottomNav: false),
     BookListPage(showBottomNav: false),
-    // Placeholder Quiz page
+    // Vocabulary Quiz page - will be replaced dynamically
     Scaffold(body: Center(child: Text('Quiz Page - Coming Soon!', style: TextStyle(fontSize: 24)))),
     ProfilePage(),
   ];
@@ -257,7 +260,21 @@ class _AppShellState extends State<AppShell> {
       ),
       bottomNavigationBar: _GlobalBottomNav(
         currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
+        onTap: (i) {
+          if (i == 2) {
+            // Navigate to vocabulary quiz instead of switching to quiz tab
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => BlocProvider(
+                  create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>()),
+                  child: const VocabularyQuizPage(),
+                ),
+              ),
+            );
+          } else {
+            setState(() => _currentIndex = i);
+          }
+        },
       ),
     );
   }
@@ -299,7 +316,15 @@ class _GlobalBottomNav extends StatelessWidget {
             Navigator.pushReplacementNamed(context, '/books');
             break;
           case 2:
-            Navigator.pushReplacementNamed(context, '/quiz');
+            // Navigate to vocabulary quiz instead of placeholder quiz page
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => BlocProvider(
+                  create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>()),
+                  child: const VocabularyQuizPage(),
+                ),
+              ),
+            );
             break;
           case 3:
             Navigator.pushReplacementNamed(context, '/profile');

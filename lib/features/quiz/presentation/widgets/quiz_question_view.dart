@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../domain/entities/quiz_models.dart';
 
-class QuizQuestionView extends StatelessWidget {
+class QuizQuestionView extends StatefulWidget {
   final QuizQuestion question;
   final QuizOption? selectedOption;
   final Function(QuizOption) onOptionSelected;
@@ -14,123 +14,291 @@ class QuizQuestionView extends StatelessWidget {
   });
 
   @override
+  State<QuizQuestionView> createState() => _QuizQuestionViewState();
+}
+
+class _QuizQuestionViewState extends State<QuizQuestionView> {
+  int _currentQuestionIndex = 1;
+  int _totalQuestions = 10;
+  int _timeRemaining = 26;
+
+  @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              // Üst bar
+              _buildTopBar(context),
+              const SizedBox(height: 16),
+              
+              // Progress ve istatistikler
+              _buildProgressSection(context),
+              const SizedBox(height: 24),
+              
+              // Ana soru kartı
+              _buildQuestionCard(context),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopBar(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.grey[100],
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(
-              question.text,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
-              textAlign: TextAlign.center,
+            child: IconButton(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.close, color: Colors.black87, size: 20),
+              padding: const EdgeInsets.all(8),
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             ),
           ),
-          const SizedBox(height: 16),
+          const Spacer(),
+          const Text(
+            'Kelime Quiz\'i',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const Spacer(),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              onPressed: () {
+                // Help action
+              },
+              icon: const Icon(Icons.help_outline, color: Colors.black87, size: 20),
+              padding: const EdgeInsets.all(8),
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressSection(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
           Row(
             children: [
-              _buildInfoChip(
-                context,
-                icon: Icons.tag,
-                label: question.category,
-                color: Colors.blue,
+              const Text(
+                'İlerleme',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
               ),
               const Spacer(),
-              _buildInfoChip(
-                context,
-                icon: Icons.star,
-                label: question.difficulty,
-                color: Colors.orange,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '$_currentQuestionIndex / $_totalQuestions',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.blue[700],
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: _currentQuestionIndex / _totalQuestions,
+              backgroundColor: Colors.grey[200],
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue[400]!),
+              minHeight: 8,
             ),
-            itemCount: question.options.length,
-            itemBuilder: (context, index) {
-              final option = question.options[index];
-              return _buildOptionButton(context, option);
-            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildInfoChip(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required Color color,
-  }) {
+
+
+  Widget _buildQuestionCard(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF4A90E2), Color(0xFF7B68EE)],
+        ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Difficulty ve süre etiketleri
+            Row(
+              children: [
+                _buildInfoChip('Orta', Colors.white.withOpacity(0.3)),
+                const Spacer(),
+                _buildInfoChip('${_timeRemaining}s', Colors.white.withOpacity(0.3)),
+              ],
+            ),
+            const SizedBox(height: 20),
+            
+            // Soru metni
+            Text(
+              'Kelime Çevirisi',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.white.withOpacity(0.8),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.question.text,
+              style: const TextStyle(
+                fontSize: 18,
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                height: 1.3,
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // Seçenekler
+            Column(
+              children: widget.question.options.asMap().entries.map((entry) {
+                int index = entry.key;
+                QuizOption option = entry.value;
+                String optionLetter = String.fromCharCode(65 + index); // A, B, C, D
+                
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _buildOptionButton(context, option, optionLetter),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoChip(String text, Color backgroundColor) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w500,
-                ),
-          ),
-        ],
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
 
-  Widget _buildOptionButton(BuildContext context, QuizOption option) {
-    final isSelected = option.id == selectedOption?.id;
-    Color backgroundColor;
-    Color textColor;
-
-    if (isSelected) {
-      backgroundColor = Theme.of(context).primaryColor;
-      textColor = Colors.white;
-    } else {
-      backgroundColor = Colors.grey[100]!;
-      textColor = Colors.black87;
-    }
-
-    return InkWell(
-      onTap: () => onOptionSelected(option),
-      borderRadius: BorderRadius.circular(8),
+  Widget _buildOptionButton(BuildContext context, QuizOption option, String optionLetter) {
+    final isSelected = option.id == widget.selectedOption?.id;
+    
+    return GestureDetector(
+      onTap: () => widget.onOptionSelected(option),
       child: Container(
+        width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(8),
+          color: isSelected 
+              ? Colors.white.withOpacity(0.9)
+              : Colors.white.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(12),
+          border: isSelected 
+              ? Border.all(color: Colors.white, width: 2)
+              : Border.all(color: Colors.white.withOpacity(0.3), width: 1),
         ),
-        child: Text(
-          option.text,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: textColor,
-                fontWeight: FontWeight.w500,
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.blue : Colors.white.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(8),
               ),
-          textAlign: TextAlign.center,
+              child: Center(
+                child: Text(
+                  optionLetter,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                option.text,
+                style: TextStyle(
+                  color: isSelected ? Colors.black : Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -14,47 +14,71 @@ class QuizPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Quiz App'),
-        centerTitle: true,
-      ),
-      body: BlocBuilder<QuizCubit, state_.QuizState>(
-        builder: (context, quizState) {
-          if (quizState is state_.QuizInitial) {
-            return const QuizStartView();
-          } else if (quizState is state_.QuizLoading) {
-            return const QuizLoadingView();
-          } else if (quizState is state_.QuizQuestionState) {
-            return QuizQuestionView(
-              question: quizState.question,
-              selectedOption: quizState.selectedOption,
-              onOptionSelected: (option) {
-                context.read<QuizCubit>().selectOption(option);
-                context.read<QuizCubit>().checkAnswer();
-              },
-            );
-          } else if (quizState is state_.QuizAnswered) {
-            return QuizAnsweredView(
+    return BlocBuilder<QuizCubit, state_.QuizState>(
+      builder: (context, quizState) {
+        if (quizState is state_.QuizInitial) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Quiz App'),
+              centerTitle: true,
+            ),
+            body: const QuizStartView(),
+          );
+        } else if (quizState is state_.QuizLoading) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Quiz App'),
+              centerTitle: true,
+            ),
+            body: const QuizLoadingView(),
+          );
+        } else if (quizState is state_.QuizQuestionState) {
+          return QuizQuestionView(
+            question: quizState.question,
+            selectedOption: quizState.selectedOption,
+            onOptionSelected: (option) {
+              context.read<QuizCubit>().selectOption(option);
+              context.read<QuizCubit>().checkAnswer();
+            },
+          );
+        } else if (quizState is state_.QuizAnswered) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Quiz App'),
+              centerTitle: true,
+            ),
+            body: QuizAnsweredView(
               question: quizState.question,
               selectedOption: quizState.selectedOption,
               result: quizState.result,
               onNext: () => context.read<QuizCubit>().nextQuestion(),
-            );
-          } else if (quizState is state_.QuizResultState) {
-            return QuizResultView(
+            ),
+          );
+        } else if (quizState is state_.QuizResultState) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Quiz App'),
+              centerTitle: true,
+            ),
+            body: QuizResultView(
               result: quizState.result,
               onRestart: () => context.read<QuizCubit>().restartQuiz(),
-            );
-          } else if (quizState is state_.QuizError) {
-            return QuizErrorView(
+            ),
+          );
+        } else if (quizState is state_.QuizError) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Quiz App'),
+              centerTitle: true,
+            ),
+            body: QuizErrorView(
               errorMessage: quizState.message,
               onRetry: () => context.read<QuizCubit>().startQuiz(),
-            );
-          }
-          return const SizedBox.shrink();
-        },
-      ),
+            ),
+          );
+        }
+        return const SizedBox.shrink();
+      },
     );
   }
 }

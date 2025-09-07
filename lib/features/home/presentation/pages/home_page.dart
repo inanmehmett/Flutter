@@ -15,6 +15,9 @@ import '../../../../core/storage/last_read_manager.dart';
 import '../../../../core/network/network_manager.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../game/services/game_service.dart';
+import '../../../quiz/presentation/pages/vocabulary_quiz_page.dart';
+import '../../../quiz/presentation/cubit/vocabulary_quiz_cubit.dart';
+import '../../../quiz/data/services/vocabulary_quiz_service.dart';
 // import removed: ApiClient no longer used for home counters
 
 class HomePage extends StatefulWidget {
@@ -120,6 +123,118 @@ class _HomePageState extends State<HomePage> {
     return name.isNotEmpty ? '$greeting, $name!' : '$greeting!';
   }
 
+  Widget _buildVocabularyQuizButton(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => BlocProvider(
+                  create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>()),
+                  child: const VocabularyQuizPage(),
+                ),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.blue.shade400,
+                  Colors.purple.shade600,
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                // Quiz icon
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: const Icon(
+                    Icons.quiz,
+                    color: Colors.white,
+                    size: 30,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                
+                // Quiz info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Kelime Quiz\'i',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'İngilizce kelimeleri test edin ve XP kazanın!',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.timer,
+                            color: Colors.white.withOpacity(0.8),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '10 soru • 10s/soru',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.8),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Arrow icon
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: Colors.white.withOpacity(0.8),
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final greeting = _greetingByTime();
@@ -216,6 +331,11 @@ class _HomePageState extends State<HomePage> {
                   // 3.2 Quests Preview
                   const QuestsPreview(),
                   const SizedBox(height: 20),
+                  
+                  // 3.3 Vocabulary Quiz Button
+                  _buildVocabularyQuizButton(context),
+                  const SizedBox(height: 20),
+                  
                   // 3.1 Leaderboard Preview
                   const LeaderboardPreview(),
                   const SizedBox(height: 20),
@@ -298,7 +418,15 @@ class _HomePageState extends State<HomePage> {
               Navigator.pushReplacementNamed(context, '/books');
               break;
             case 2:
-              Navigator.pushReplacementNamed(context, '/quiz');
+              // Navigate to vocabulary quiz instead of placeholder quiz page
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => BlocProvider(
+                    create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>()),
+                    child: const VocabularyQuizPage(),
+                  ),
+                ),
+              );
               break;
             case 3:
               final state = context.read<AuthBloc>().state;

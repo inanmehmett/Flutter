@@ -23,6 +23,7 @@ import '../../features/auth/data/services/auth_service.dart';
 import '../../features/reader/data/services/translation_service.dart';
 import '../../features/reader/data/services/reading_quiz_service.dart';
 import '../../features/game/services/game_service.dart';
+import '../../features/quiz/data/services/vocabulary_quiz_service.dart';
 import '../network/api_client.dart';
 import '../analytics/event_service.dart';
 import 'injection.config.dart';
@@ -118,6 +119,12 @@ Future<void> configureDependencies() async {
   if (!getIt.isRegistered<GameService>()) {
     getIt.registerLazySingleton<GameService>(() => GameService(getIt<ApiClient>(), getIt<CacheManager>()));
   }
+  
+  // Register VocabularyQuizService
+  if (!getIt.isRegistered<VocabularyQuizService>()) {
+    getIt.registerLazySingleton<VocabularyQuizService>(() => VocabularyQuizService(getIt<Dio>()));
+  }
+  
   // Register EventService
   if (!getIt.isRegistered<EventService>()) {
     getIt.registerLazySingleton<EventService>(() => EventService(getIt<ApiClient>()));
