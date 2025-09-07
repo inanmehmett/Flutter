@@ -157,6 +157,7 @@ class VocabularyQuizCompletionRequest extends Equatable {
   final List<VocabularyQuizAnswer> answers;
   final int completionTimeMinutes;
   final bool isFirstAttempt;
+  final String userId;
   final int vocabularyQuizScore;
   final int vocabularyCorrectAnswers;
   final int vocabularyTotalQuestions;
@@ -166,6 +167,7 @@ class VocabularyQuizCompletionRequest extends Equatable {
     required this.answers,
     required this.completionTimeMinutes,
     this.isFirstAttempt = true,
+    this.userId = '',
     required this.vocabularyQuizScore,
     required this.vocabularyCorrectAnswers,
     required this.vocabularyTotalQuestions,
@@ -174,12 +176,22 @@ class VocabularyQuizCompletionRequest extends Equatable {
   Map<String, dynamic> toJson() {
     return {
       'quizId': quizId,
-      'answers': answers.map((answer) => answer.toJson()).toList(),
+      'answers': answers.map((answer) => _convertToBackendFormat(answer)).toList(),
       'completionTimeMinutes': completionTimeMinutes,
       'isFirstAttempt': isFirstAttempt,
+      'userId': userId,
       'vocabularyQuizScore': vocabularyQuizScore,
       'vocabularyCorrectAnswers': vocabularyCorrectAnswers,
       'vocabularyTotalQuestions': vocabularyTotalQuestions,
+    };
+  }
+
+  Map<String, dynamic> _convertToBackendFormat(VocabularyQuizAnswer answer) {
+    return {
+      'questionId': answer.questionId,
+      'userAnswer': answer.userAnswer,
+      'isCorrect': answer.isCorrect,
+      'timeSpentSeconds': answer.timeSpentSeconds,
     };
   }
 
@@ -189,6 +201,7 @@ class VocabularyQuizCompletionRequest extends Equatable {
         answers,
         completionTimeMinutes,
         isFirstAttempt,
+        userId,
         vocabularyQuizScore,
         vocabularyCorrectAnswers,
         vocabularyTotalQuestions,
@@ -225,7 +238,7 @@ class VocabularyQuizResult extends Equatable {
       levelUp: json['levelUp'] as bool,
       newLevel: json['newLevel'] as String?,
       rewards: (json['rewards'] as List?)?.cast<String>() ?? [],
-      streak: VocabularyQuizStreak.fromJson(json['streak']),
+      streak: VocabularyQuizStreak.fromJson(json['streak'] ?? {}),
     );
   }
 
@@ -255,9 +268,9 @@ class VocabularyQuizStreak extends Equatable {
 
   factory VocabularyQuizStreak.fromJson(Map<String, dynamic> json) {
     return VocabularyQuizStreak(
-      currentStreak: json['currentStreak'] as int,
-      longestStreak: json['longestStreak'] as int,
-      streakBonus: json['streakBonus'] as int,
+      currentStreak: json['currentStreak'] as int? ?? 0,
+      longestStreak: json['longestStreak'] as int? ?? 0,
+      streakBonus: json['streakBonus'] as int? ?? 0,
     );
   }
 

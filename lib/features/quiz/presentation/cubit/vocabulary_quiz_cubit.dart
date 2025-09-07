@@ -115,7 +115,7 @@ class VocabularyQuizCubit extends Cubit<VocabularyQuizState> {
       _questions = await _quizService.getRandomQuiz();
       _answers = [];
       _currentQuestionIndex = 0;
-      _quizId = DateTime.now().millisecondsSinceEpoch; // Generate unique quiz ID
+      _quizId = DateTime.now().millisecondsSinceEpoch % 1000000; // Generate smaller unique quiz ID
       
       if (_questions.isEmpty) {
         emit(const VocabularyQuizError(message: 'Quiz soruları bulunamadı'));

@@ -125,6 +125,16 @@ class VocabularyQuizService {
         throw VocabularyQuizException('Authentication required');
       } else if (e.response?.statusCode == 400) {
         final errorData = e.response?.data;
+        final errors = errorData?['errors'];
+        if (errors != null) {
+          final errorMessages = <String>[];
+          errors.forEach((key, value) {
+            if (value is List) {
+              errorMessages.addAll(value.cast<String>());
+            }
+          });
+          throw VocabularyQuizException('Validation error: ${errorMessages.join(', ')}');
+        }
         throw VocabularyQuizException(errorData?['message'] ?? 'Invalid request');
       } else {
         throw VocabularyQuizException('Network error: ${e.message}');
