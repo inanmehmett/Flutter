@@ -143,7 +143,7 @@ class _VocabularyQuizCardState extends State<VocabularyQuizCard>
         return Transform.scale(
           scale: _cardScaleAnimation.value,
           child: Container(
-            margin: const EdgeInsets.all(16),
+            margin: const EdgeInsets.fromLTRB(16, 4, 16, 16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -163,25 +163,25 @@ class _VocabularyQuizCardState extends State<VocabularyQuizCard>
               ],
             ),
             child: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               child: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Question header
                     _buildQuestionHeader(),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     
                     // Question text
                     _buildQuestionText(),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
                     
                     // Answer options
                     _buildAnswerOptions(),
                     
                     // Next button (only when answered)
                     if (widget.isAnswered) ...[
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
                       _buildNextButton(),
                     ],
                   ],
@@ -257,7 +257,7 @@ class _VocabularyQuizCardState extends State<VocabularyQuizCard>
   Widget _buildQuestionText() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.1),
         borderRadius: BorderRadius.circular(15),
