@@ -6,6 +6,7 @@ class VocabularyQuizTimer extends StatefulWidget {
   final Function(int) onTimeUpdate;
   final Function() onTimeUp;
   final bool isActive;
+  final String? questionId; // Her yeni soru için timer'ı reset etmek için
 
   const VocabularyQuizTimer({
     super.key,
@@ -13,6 +14,7 @@ class VocabularyQuizTimer extends StatefulWidget {
     required this.onTimeUpdate,
     required this.onTimeUp,
     this.isActive = true,
+    this.questionId,
   });
 
   @override
@@ -30,6 +32,26 @@ class _VocabularyQuizTimerState extends State<VocabularyQuizTimer>
   @override
   void initState() {
     super.initState();
+    _initializeTimer();
+  }
+
+  @override
+  void didUpdateWidget(VocabularyQuizTimer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    
+    // Eğer soru değiştiyse timer'ı reset et
+    if (widget.questionId != oldWidget.questionId) {
+      _resetTimer();
+    }
+    
+    if (widget.isActive && !_isRunning) {
+      _startTimer();
+    } else if (!widget.isActive && _isRunning) {
+      _stopTimer();
+    }
+  }
+
+  void _initializeTimer() {
     _timeRemaining = widget.initialTime;
     
     _animationController = AnimationController(
@@ -50,14 +72,15 @@ class _VocabularyQuizTimerState extends State<VocabularyQuizTimer>
     }
   }
 
-  @override
-  void didUpdateWidget(VocabularyQuizTimer oldWidget) {
-    super.didUpdateWidget(oldWidget);
+  void _resetTimer() {
+    _stopTimer();
+    _timeRemaining = widget.initialTime;
     
-    if (widget.isActive && !_isRunning) {
+    _animationController.reset();
+    _animationController.duration = Duration(seconds: widget.initialTime);
+    
+    if (widget.isActive) {
       _startTimer();
-    } else if (!widget.isActive && _isRunning) {
-      _stopTimer();
     }
   }
 

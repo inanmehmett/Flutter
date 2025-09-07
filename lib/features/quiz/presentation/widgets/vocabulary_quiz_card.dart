@@ -83,9 +83,17 @@ class _VocabularyQuizCardState extends State<VocabularyQuizCard>
   void didUpdateWidget(VocabularyQuizCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     
-    // Update timer if time remaining changed
-    if (widget.timeRemaining != oldWidget.timeRemaining) {
+    // Eğer soru değiştiyse timer'ı reset et
+    if (widget.question.id != oldWidget.question.id) {
       _currentTimeRemaining = widget.timeRemaining;
+      if (!widget.isAnswered) {
+        _startTimer();
+      }
+    } else {
+      // Update timer if time remaining changed
+      if (widget.timeRemaining != oldWidget.timeRemaining) {
+        _currentTimeRemaining = widget.timeRemaining;
+      }
     }
     
     // Start timer if question changed and not answered
