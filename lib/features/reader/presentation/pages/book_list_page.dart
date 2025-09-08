@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../viewmodels/book_list_view_model.dart';
 import '../../domain/entities/book.dart';
 import '../widgets/category_picker.dart';
-import '../widgets/book_card.dart';
+import '../widgets/unified_book_card.dart';
 import '../widgets/loading_view.dart';
 import '../widgets/error_view.dart';
 import '../widgets/empty_state_view.dart';
@@ -148,129 +148,17 @@ class _BookListPageState extends State<BookListPage> {
                   onRefresh: () async {
                     await bookViewModel.refreshBooks();
                   },
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      // Adaptive grid: compute columns by a minimum tile width for responsiveness
-                      const double minTileWidth = 150; // keeps tiles readable on small phones
-                      final int crossAxisCount = (constraints.maxWidth / minTileWidth)
-                          .floor()
-                          .clamp(2, 8);
-                      const double childAspectRatio = 0.68; // visual balance for cover+meta
-
-                      return GridView.builder(
-                        padding: const EdgeInsets.all(16),
-                        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: crossAxisCount,
-                          childAspectRatio: childAspectRatio,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 10,
-                        ),
-                         itemCount: filteredBooks.length,
-                         itemBuilder: (context, index) {
-                           final book = filteredBooks[index];
-                           final coverUrl = (book.imageUrl?.isNotEmpty == true)
-                               ? book.imageUrl!
-                               : (book.iconUrl ?? '');
-                           final hasAudio = book.content.isNotEmpty;
-                           return InkWell(
-                             borderRadius: BorderRadius.circular(14),
-                             onTap: () {
-                               Navigator.pushNamed(
-                                 context,
-                                 '/book-preview',
-                                 arguments: BookModel.fromBook(book),
-                               );
-                             },
-                              child: Card(
-                               elevation: 1,
-                               shape: RoundedRectangleBorder(
-                                 borderRadius: BorderRadius.circular(14),
-                               ),
-                                child: Column(
-                                 crossAxisAlignment: CrossAxisAlignment.start,
-                                 children: [
-                                    // Görsel + başlık overlay (Expanded ile kalan yüksekliği kapla)
-                                    Expanded(
-                                      child: ClipRRect(
-                                        borderRadius: const BorderRadius.only(
-                                          topLeft: Radius.circular(14),
-                                          topRight: Radius.circular(14),
-                                        ),
-                                        child: Stack(
-                                          fit: StackFit.expand,
-                                          children: [
-                                            (coverUrl.isNotEmpty)
-                                                ? Image.network(coverUrl, fit: BoxFit.cover)
-                                                : Container(
-                                                    color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
-                                                    child: Icon(Icons.menu_book, size: 36, color: Theme.of(context).colorScheme.primary),
-                                                  ),
-                                            Positioned(
-                                              left: 0,
-                                              right: 0,
-                                              bottom: 0,
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                                decoration: const BoxDecoration(
-                                                  gradient: LinearGradient(
-                                                    begin: Alignment.bottomCenter,
-                                                    end: Alignment.topCenter,
-                                                    colors: [Color.fromARGB(180, 0, 0, 0), Color.fromARGB(0, 0, 0, 0)],
-                                                  ),
-                                                ),
-                                                child: Text(
-                                                  book.title,
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    // Çok kısa meta satırı (seviye, süre, sesli ikon)
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-                                      child: Wrap(
-                                        spacing: 6,
-                                        runSpacing: 4,
-                                        crossAxisAlignment: WrapCrossAlignment.center,
-                                        children: [
-                                          if ((book.textLevel ?? '').isNotEmpty)
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                              decoration: BoxDecoration(
-                                                color: Colors.grey[200],
-                                                borderRadius: BorderRadius.circular(6),
-                                              ),
-                                              child: Text('Sev. ${book.textLevel}', style: const TextStyle(fontSize: 9.5)),
-                                            ),
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(Icons.schedule, size: 11, color: Colors.grey[700]),
-                                              const SizedBox(width: 2),
-                                              Text(
-                                                '${book.estimatedReadingTimeInMinutes} dk',
-                                                style: TextStyle(fontSize: 9.0, color: Colors.grey[700]),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ],
-                                          ),
-                                          if (hasAudio)
-                                            const Icon(Icons.headset, size: 12, color: Colors.grey),
-                                        ],
-                                      ),
-                                    ),
-                                 ],
-                               ),
-                             ),
-                           );
-                         },
-                       );
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                    scrollDirection: Axis.horizontal,
+                    itemCount: filteredBooks.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 16),
+                    itemBuilder: (context, index) {
+                      final book = filteredBooks[index];
+                      return UnifiedBookCard(
+                        book: book,
+                      );
                     },
                   ),
                 ),

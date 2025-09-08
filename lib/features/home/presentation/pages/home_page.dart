@@ -18,6 +18,7 @@ import '../../../game/services/game_service.dart';
 import '../../../quiz/presentation/pages/vocabulary_quiz_page.dart';
 import '../../../quiz/presentation/cubit/vocabulary_quiz_cubit.dart';
 import '../../../quiz/data/services/vocabulary_quiz_service.dart';
+import '../../../reader/presentation/widgets/unified_book_card.dart';
 // import removed: ApiClient no longer used for home counters
 
 class HomePage extends StatefulWidget {
@@ -122,6 +123,7 @@ class _HomePageState extends State<HomePage> {
     final name = userName.trim();
     return name.isNotEmpty ? '$greeting, $name!' : '$greeting!';
   }
+
 
   Widget _buildVocabularyQuizButton(BuildContext context) {
     return Container(
@@ -312,7 +314,11 @@ class _HomePageState extends State<HomePage> {
                   _buildPersonalizedGreeting(context, userProfile!),
                   const SizedBox(height: 20),
                   
-                  // 3. Gamification Header (Motivasyon için)
+                  // 3. Continue Reading Button - Karşılama mesajının hemen altına taşındı
+                  _buildContinueReading(context),
+                  const SizedBox(height: 24),
+                  
+                  // 4. Gamification Header (Motivasyon için)
                   FutureBuilder<int?>(
                     future: _fetchStreakDays(),
                     builder: (context, snap) {
@@ -328,23 +334,15 @@ class _HomePageState extends State<HomePage> {
                     },
                   ),
                   const SizedBox(height: 20),
-                  // 3.2 Quests Preview
+                  // 4.2 Quests Preview
                   const QuestsPreview(),
                   const SizedBox(height: 20),
                   
-                  // 3.3 Vocabulary Quiz Button
+                  // 4.3 Vocabulary Quiz Button
                   _buildVocabularyQuizButton(context),
                   const SizedBox(height: 20),
                   
-                  // 3.1 Leaderboard Preview
-                  const LeaderboardPreview(),
-                  const SizedBox(height: 20),
-                  
-                  // 4. Continue Reading Button
-                  const SizedBox(height: 24),
-                  _buildContinueReading(context),
-                  const SizedBox(height: 24),
-                  // Sana Özel (önerilen)
+                  // 5. Sana Özel (önerilen) - Kitapları daha öne çıkar
                   const Text('Sana Özel', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   Consumer<BookListViewModel>(
@@ -361,7 +359,8 @@ class _HomePageState extends State<HomePage> {
                     },
                   ),
                   const SizedBox(height: 24),
-                  // Yeni Eklenenler
+                  
+                  // 6. Yeni Eklenenler
                   const Text('Yeni Eklenenler', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   Consumer<BookListViewModel>(
@@ -375,7 +374,8 @@ class _HomePageState extends State<HomePage> {
                     },
                   ),
                   const SizedBox(height: 24),
-                  // Trending Books - horizontal list
+                  
+                  // 7. Trending Books - horizontal list
                   const Text('Trend Kitaplar', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   Consumer<BookListViewModel>(
@@ -404,6 +404,10 @@ class _HomePageState extends State<HomePage> {
                     },
                   ),
                   const SizedBox(height: 32),
+                  
+                  // 8. Leaderboard Preview - En alta taşındı
+                  const LeaderboardPreview(),
+                  const SizedBox(height: 20),
                 ],
               ),
             );
@@ -469,128 +473,290 @@ class _HomePageState extends State<HomePage> {
           future: lastReadManager.getRecentReads(limit: 5),
           builder: (context, snapshot) {
             final items = snapshot.data ?? const <LastReadInfo>[];
+            
             if (snapshot.connectionState == ConnectionState.waiting && items.isEmpty) {
-              return Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Row(
-                  children: [
-                    SizedBox(width: 4),
-                    CircularProgressIndicator(strokeWidth: 2),
-                    SizedBox(width: 12),
-                    Expanded(child: Text('Yükleniyor...')),
-                  ],
-                ),
-              );
+              return _buildIOSLoadingCard();
             }
 
             if (items.isEmpty) {
-              return Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.play_circle_fill, size: 32),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text('Son okunan bulunamadı'),
-                    ),
-                  ],
-                ),
-              );
+              return _buildIOSEmptyCard();
             }
 
-            // Multiple recent items horizontal list
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(12),
+            // iOS 17 style continue reading section - single container
+            return Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.play_circle_fill, size: 32),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text('Okumaya devam et', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      ),
-                    ],
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
                   ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 92,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: items.length.clamp(0, 5),
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final info = items[index];
-                      return InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: () {
-                          Navigator.pushNamed(context, '/reader', arguments: info.book);
-                        },
-                        child: Container(
-                          width: 240,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              _RecentCoverThumb(info: info),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      info.book.title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontWeight: FontWeight.w600),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Sayfa ${info.pageIndex + 1}',
-                                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              const Icon(Icons.play_arrow),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Simple header - just title
+                  const Text(
+                    'Continue Reading',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 17,
+                      color: Color(0xFF1D1D1F), // iOS Black
+                      letterSpacing: -0.4,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  // iOS style book cards
+                  SizedBox(
+                    height: 88, // Daha da azaltıldı overflow için
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: items.length.clamp(0, 5),
+                      separatorBuilder: (_, __) => const SizedBox(width: 12),
+                      itemBuilder: (context, index) {
+                        final info = items[index];
+                        return _buildIOSBookCard(context, info);
+                      },
+                    ),
+                  ),
+                ],
+              ),
             );
           },
         );
       },
+    );
+  }
+
+  Widget _buildIOSLoadingCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF2F2F7), // iOS Light Gray
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF007AFF)),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          const Expanded(
+            child: Text(
+              'Loading...',
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                fontSize: 17,
+                color: Color(0xFF1D1D1F),
+                letterSpacing: -0.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIOSEmptyCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF2F2F7), // iOS Light Gray
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.book_outlined,
+              color: Color(0xFF8E8E93), // iOS Gray
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          const Expanded(
+            child: Text(
+              'No recent books',
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                fontSize: 17,
+                color: Color(0xFF1D1D1F),
+                letterSpacing: -0.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIOSBookCard(BuildContext context, LastReadInfo info) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () {
+        Navigator.pushNamed(context, '/reader', arguments: info.book);
+      },
+      child: Container(
+        width: 280,
+        padding: const EdgeInsets.all(8), // 12'den 8'e düşürüldü
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // iOS style book cover
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    height: 56, // Daha da azaltıldı overflow için
+                    width: 60,
+                    color: const Color(0xFFF2F2F7), // iOS Light Gray
+                    child: _RecentCoverThumb(info: info),
+                  ),
+                ),
+                // iOS style progress indicator
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5E5EA), // iOS Separator
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(8),
+                        bottomRight: Radius.circular(8),
+                      ),
+                    ),
+                    child: FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: (info.pageIndex + 1) / 50,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF007AFF), // iOS Blue
+                          borderRadius: BorderRadius.only(
+                            bottomLeft: Radius.circular(8),
+                            bottomRight: Radius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    info.book.title,
+                    maxLines: 1, // 2'den 1'e düşürüldü
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15, // 17'den 15'e düşürüldü
+                      height: 1.1, // 1.2'den 1.1'e düşürüldü
+                      color: Color(0xFF1D1D1F), // iOS Black
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                  const SizedBox(height: 4), // 8'den 4'e düşürüldü
+                  // iOS style secondary text
+                  Text(
+                    'Page ${info.pageIndex + 1} • ${info.book.estimatedReadingTimeInMinutes}m',
+                    style: const TextStyle(
+                      fontSize: 13, // 15'ten 13'e düşürüldü
+                      color: Color(0xFF8E8E93), // iOS Gray
+                      fontWeight: FontWeight.w400,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 4), // 8'den 4'e düşürüldü
+                  // iOS style level text
+                  Text(
+                    'Level ${info.book.textLevel ?? '1'}',
+                    style: const TextStyle(
+                      fontSize: 11, // 13'ten 11'e düşürüldü
+                      color: Color(0xFF34C759), // iOS Green
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            // iOS style chevron
+            Icon(
+              Icons.chevron_right_rounded,
+              color: const Color(0xFFC7C7CC), // iOS Light Gray
+              size: 20,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -642,14 +808,6 @@ class _HomePageState extends State<HomePage> {
 }
 
 Widget _buildBooksScroller(BuildContext context, List<Book> books) {
-  String resolveUrl(String? imageUrl, String? iconUrl) {
-    final url = (iconUrl != null && iconUrl.isNotEmpty) ? iconUrl : (imageUrl ?? '');
-    if (url.isEmpty) return '';
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    if (url.startsWith('/')) return '${AppConfig.apiBaseUrl}$url';
-    return '${AppConfig.apiBaseUrl}/$url';
-  }
-
   // Photo-like proportions from the reference: tall cover and compact texts
   const double cardWidth = 121; // ~+10%
   final double coverHeight = cardWidth * 1.30; // keep same aspect ratio
@@ -663,60 +821,8 @@ Widget _buildBooksScroller(BuildContext context, List<Book> books) {
       separatorBuilder: (_, __) => const SizedBox(width: 16),
       itemBuilder: (context, index) {
         final book = books[index];
-        final cover = resolveUrl(book.imageUrl, book.iconUrl);
-        return SizedBox(
-          width: cardWidth,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: () {
-              Navigator.pushNamed(
-                context,
-                '/book-preview',
-                arguments: BookModel.fromBook(book),
-              );
-            },
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    height: coverHeight,
-                    width: double.infinity,
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
-                    child: cover.isEmpty
-                        ? const Icon(Icons.menu_book, size: 40)
-                        : Image.network(
-                            cover,
-                            fit: BoxFit.cover,
-                            errorBuilder: (c, e, s) => const Icon(Icons.menu_book, size: 40),
-                          ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  book.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, height: 1.15),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Daily English',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.grey[700], fontSize: 13, height: 1.1),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${book.estimatedReadingTimeInMinutes} min • Lvl ${book.textLevel ?? '1'}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.grey[800], fontSize: 13, height: 1.1),
-                ),
-              ],
-            ),
-          ),
+        return UnifiedBookCard(
+          book: book,
         );
       },
     ),
@@ -750,3 +856,4 @@ class _RecentCoverThumb extends StatelessWidget {
 }
 
 // Removed: _StatChip (home counters UI)
+
