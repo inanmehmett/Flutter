@@ -89,7 +89,7 @@ class AuthInterceptor extends Interceptor {
         final refreshToken = await _secureStorage.getRefreshToken();
         print('🔐 [AuthInterceptor] Refresh token: ${refreshToken?.substring(0, 10)}...');
 
-        if (refreshToken != null) {
+        if (refreshToken != null && refreshToken.isNotEmpty) {
           print('🔐 [AuthInterceptor] 🔄 Attempting token refresh...');
 
           // Use a fresh Dio for token refresh only
@@ -150,12 +150,33 @@ class AuthInterceptor extends Interceptor {
             }
           } else {
             print('🔐 [AuthInterceptor] ❌ Refresh request failed with status: ${refreshResponse.statusCode}');
+            print('🔐 [AuthInterceptor] Clearing tokens due to refresh failure...');
+            try {
+              await _secureStorage.clearTokens();
+              print('🔐 [AuthInterceptor] ✅ Tokens cleared due to refresh failure');
+            } catch (e) {
+              print('🔐 [AuthInterceptor] ⚠️ Error clearing tokens: $e');
+            }
           }
         } else {
-          print('🔐 [AuthInterceptor] ❌ No refresh token found');
+          print('🔐 [AuthInterceptor] ❌ No refresh token found or refresh token is empty');
+          print('🔐 [AuthInterceptor] Clearing all tokens and redirecting to login...');
+          try {
+            await _secureStorage.clearTokens();
+            print('🔐 [AuthInterceptor] ✅ Tokens cleared due to missing refresh token');
+          } catch (e) {
+            print('🔐 [AuthInterceptor] ⚠️ Error clearing tokens: $e');
+          }
         }
       } catch (refreshError) {
         print('🔐 [AuthInterceptor] ❌ Token refresh failed: $refreshError');
+        print('🔐 [AuthInterceptor] Clearing tokens due to refresh error...');
+        try {
+          await _secureStorage.clearTokens();
+          print('🔐 [AuthInterceptor] ✅ Tokens cleared due to refresh error');
+        } catch (e) {
+          print('🔐 [AuthInterceptor] ⚠️ Error clearing tokens: $e');
+        }
       }
 
       // If refresh fails, just let the error propagate

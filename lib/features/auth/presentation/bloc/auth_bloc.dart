@@ -3,6 +3,8 @@ import 'package:equatable/equatable.dart';
 import '../../data/services/auth_service.dart';
 import '../../data/models/user_profile.dart';
 import '../../data/models/auth_models.dart';
+import '../../../../core/di/injection.dart';
+import '../../../../core/cache/cache_manager.dart';
 
 // Events
 abstract class AuthEvent extends Equatable {
@@ -254,6 +256,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       print('🔐 [AuthBloc] Calling _authService.logout()...');
       await _authService.logout();
       print('🔐 [AuthBloc] ✅ Logout successful');
+      
+      // Clear all caches after logout
+      print('🔐 [AuthBloc] Clearing all caches...');
+      try {
+        final cacheManager = getIt<CacheManager>();
+        await cacheManager.clearAll();
+        print('🔐 [AuthBloc] ✅ All caches cleared');
+      } catch (cacheError) {
+        print('🔐 [AuthBloc] ⚠️ Error clearing caches: $cacheError');
+      }
+      
       print('🔐 [AuthBloc] Emitting AuthUnauthenticated...');
       emit(AuthUnauthenticated());
       print('🔐 [AuthBloc] ✅ AuthUnauthenticated emitted');

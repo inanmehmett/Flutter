@@ -7,6 +7,7 @@ import '../../../../core/network/network_manager.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/widgets/badge_icon.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/cache/cache_manager.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -86,8 +87,23 @@ class _ProfilePageState extends State<ProfilePage> {
                 _badgesFuture = _fetchBadges();
               });
             } else if (state is AuthUnauthenticated && !_redirectedToLogin) {
-              // Auth yoksa login sayfasına yönlendir
+              // Auth yoksa cache'i temizle ve login sayfasına yönlendir
               _redirectedToLogin = true;
+              
+              // Clear all profile-related caches
+              try {
+                final cacheManager = getIt<CacheManager>();
+                cacheManager.removeData('user/profile');
+                cacheManager.removeData('game/level');
+                cacheManager.removeData('game/streak');
+                cacheManager.removeData('game/badges');
+                cacheManager.removeData('game/goals');
+                cacheManager.removeData('game/leaderboard');
+                print('🔐 [ProfilePage] ✅ All caches cleared on logout');
+              } catch (e) {
+                print('🔐 [ProfilePage] ⚠️ Error clearing caches: $e');
+              }
+              
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (!mounted) return;
                 Navigator.pushReplacementNamed(context, '/login');

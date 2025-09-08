@@ -195,6 +195,7 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   late int _currentIndex;
   late final SignalRService _signalRService;
+  bool _redirectedToLogin = false;
 
   final _pages = const [
     HomePage(showBottomNav: false),
@@ -247,34 +248,46 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        switchInCurve: Curves.fastOutSlowIn,
-        switchOutCurve: Curves.fastOutSlowIn,
-        child: IndexedStack(
-          key: ValueKey<int>(_currentIndex),
-          index: _currentIndex,
-          children: _pages,
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthUnauthenticated && !_redirectedToLogin) {
+          // Auth yoksa login sayfasına yönlendir
+          _redirectedToLogin = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            Navigator.pushReplacementNamed(context, '/login');
+          });
+        }
+      },
+      child: Scaffold(
+        body: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.fastOutSlowIn,
+          switchOutCurve: Curves.fastOutSlowIn,
+          child: IndexedStack(
+            key: ValueKey<int>(_currentIndex),
+            index: _currentIndex,
+            children: _pages,
+          ),
         ),
-      ),
-      bottomNavigationBar: _GlobalBottomNav(
-        currentIndex: _currentIndex,
-        onTap: (i) {
-          if (i == 2) {
-            // Navigate to vocabulary quiz instead of switching to quiz tab
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => BlocProvider(
-                  create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>()),
-                  child: const VocabularyQuizPage(),
+        bottomNavigationBar: _GlobalBottomNav(
+          currentIndex: _currentIndex,
+          onTap: (i) {
+            if (i == 2) {
+              // Navigate to vocabulary quiz instead of switching to quiz tab
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => BlocProvider(
+                    create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>()),
+                    child: const VocabularyQuizPage(),
+                  ),
                 ),
-              ),
-            );
-          } else {
-            setState(() => _currentIndex = i);
-          }
-        },
+              );
+            } else {
+              setState(() => _currentIndex = i);
+            }
+          },
+        ),
       ),
     );
   }

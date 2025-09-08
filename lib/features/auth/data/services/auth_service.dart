@@ -2,12 +2,12 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:injectable/injectable.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/auth_models.dart';
 import '../models/user_profile.dart';
 import '../../../../core/cache/cache_manager.dart';
 import '../../../../core/network/network_manager.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../../core/storage/secure_storage_service.dart';
 
 abstract class AuthServiceProtocol {
   Future<UserProfile> login(
@@ -25,7 +25,7 @@ abstract class AuthServiceProtocol {
 @singleton
 class AuthService implements AuthServiceProtocol {
   final NetworkManager _networkManager;
-  final FlutterSecureStorage _secureStorage;
+  final SecureStorageService _secureStorage;
   final CacheManager _cacheManager;
   final String _baseUrl;
 
@@ -46,6 +46,16 @@ class AuthService implements AuthServiceProtocol {
     print('🔐 [AuthService] Remember Me: $rememberMe');
     print('🔐 [AuthService] NetworkManager: ${_networkManager.runtimeType}');
     print('🔐 [AuthService] Base URL: $_baseUrl');
+
+    // Clear any existing tokens before login
+    print('🔐 [AuthService] Clearing existing tokens before login...');
+    try {
+      await _clearTokens();
+      print('🔐 [AuthService] ✅ Existing tokens cleared');
+    } catch (e) {
+      print('🔐 [AuthService] ⚠️ Warning: Could not clear existing tokens: $e');
+      // Continue with login anyway
+    }
 
     try {
       // OpenIddict password grant ile login
@@ -426,6 +436,18 @@ class AuthService implements AuthServiceProtocol {
 
   @override
   Future<UserProfile> googleLogin({required String idToken}) async {
+    print('🔐 [AuthService] ===== GOOGLE LOGIN START =====');
+    
+    // Clear any existing tokens before Google login
+    print('🔐 [AuthService] Clearing existing tokens before Google login...');
+    try {
+      await _clearTokens();
+      print('🔐 [AuthService] ✅ Existing tokens cleared');
+    } catch (e) {
+      print('🔐 [AuthService] ⚠️ Warning: Could not clear existing tokens: $e');
+      // Continue with login anyway
+    }
+
     try {
       final response = await _networkManager.post(
         '/connect/token',
@@ -460,43 +482,38 @@ class AuthService implements AuthServiceProtocol {
     required int expiresIn,
   }) async {
     print('🔐 [AuthService] ===== SAVE TOKENS START =====');
-    final expiresAt = DateTime.now().add(Duration(seconds: expiresIn));
     try {
-      await _secureStorage.write(key: 'access_token', value: accessToken);
-      await _secureStorage.write(key: 'refresh_token', value: refreshToken);
-      await _secureStorage.write(
-        key: 'token_expires_at',
-        value: expiresAt.toIso8601String(),
+      await _secureStorage.saveTokens(
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        expiresIn: expiresIn,
       );
+      print('🔐 [AuthService] ✅ Tokens saved using SecureStorageService');
     } catch (e) {
+      print('🔐 [AuthService] ❌ Error saving tokens: $e');
       throw e;
     }
   }
 
   Future<void> _clearTokens() async {
     try {
-      await _secureStorage.delete(key: 'access_token');
-      await _secureStorage.delete(key: 'refresh_token');
-      await _secureStorage.delete(key: 'token_expires_at');
+      print('🔐 [AuthService] Clearing all tokens from secure storage...');
+      await _secureStorage.clearTokens();
+      print('🔐 [AuthService] ✅ All tokens cleared from secure storage');
     } catch (e) {
-      throw e;
+      print('🔐 [AuthService] ❌ Error clearing tokens: $e');
+      // If clearTokens fails, we can't do much more since SecureStorageService
+      // doesn't expose individual delete methods
+      print('🔐 [AuthService] ⚠️ Token clearing failed, but continuing...');
+      // Don't throw the error, just log it and continue
     }
   }
 
   Future<String?> _getAccessToken() async {
     try {
-      final token = await _secureStorage.read(key: 'access_token');
-      if (token != null) {
-        final expiresAtString = await _secureStorage.read(key: 'token_expires_at');
-        if (expiresAtString != null) {
-          final expiresAt = DateTime.parse(expiresAtString);
-          if (DateTime.now().isAfter(expiresAt)) {
-            return null;
-          }
-        }
-      }
-      return token;
+      return await _secureStorage.getAccessToken();
     } catch (e) {
+      print('🔐 [AuthService] ❌ Error getting access token: $e');
       return null;
     }
   }

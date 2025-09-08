@@ -15,6 +15,7 @@ import 'package:hive/hive.dart' as _i979;
 import 'package:injectable/injectable.dart' as _i526;
 
 import '../../features/auth/data/services/auth_service.dart' as _i449;
+import '../../features/quests/data/services/quests_service.dart' as _i512;
 import '../../features/reader/data/datasources/book_local_data_source.dart'
     as _i386;
 import '../../features/reader/data/datasources/book_remote_data_source.dart'
@@ -108,9 +109,18 @@ extension GetItInjectableX on _i174.GetIt {
         ));
     gh.lazySingleton<_i696.TranslationService>(
         () => _i696.TranslationService(gh<_i474.NetworkManager>()));
+    gh.lazySingleton<_i512.QuestsService>(() => _i512.QuestsService(
+          gh<_i557.ApiClient>(),
+          gh<_i326.CacheManager>(),
+        ));
     gh.lazySingleton<_i298.LastReadManager>(() => _i298.LastReadManager(
           gh<_i392.StorageManager>(),
           gh<_i413.BookRepository>(),
+        ));
+    gh.singleton<_i449.AuthService>(() => _i449.AuthService(
+          gh<_i474.NetworkManager>(),
+          gh<_i666.SecureStorageService>(),
+          gh<_i326.CacheManager>(),
         ));
     gh.singleton<_i689.AchievementManager>(() => _i689.AchievementManager(
           gh<_i361.Dio>(),
@@ -120,11 +130,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i550.SignalRService>(() => _i550.SignalRService(
           gh<_i474.NetworkManager>(),
           gh<_i666.SecureStorageService>(),
-        ));
-    gh.singleton<_i449.AuthService>(() => _i449.AuthService(
-          gh<_i474.NetworkManager>(),
-          gh<_i558.FlutterSecureStorage>(),
-          gh<_i326.CacheManager>(),
         ));
     gh.singleton<_i417.SyncManager>(() => _i417.SyncManager(
           gh<_i392.StorageManager>(),
