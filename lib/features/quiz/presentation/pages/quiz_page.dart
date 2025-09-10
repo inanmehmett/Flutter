@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../cubit/quiz_cubit.dart';
 import '../cubit/quiz_state.dart' as state_;
 import '../widgets/quiz_start_view.dart';
@@ -18,17 +19,23 @@ class QuizPage extends StatelessWidget {
       builder: (context, quizState) {
         if (quizState is state_.QuizInitial) {
           return Scaffold(
+            backgroundColor: AppColors.background,
             appBar: AppBar(
               title: const Text('Quiz App'),
               centerTitle: true,
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
             ),
             body: const QuizStartView(),
           );
         } else if (quizState is state_.QuizLoading) {
           return Scaffold(
+            backgroundColor: AppColors.background,
             appBar: AppBar(
               title: const Text('Quiz App'),
               centerTitle: true,
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
             ),
             body: const QuizLoadingView(),
           );
@@ -43,9 +50,12 @@ class QuizPage extends StatelessWidget {
           );
         } else if (quizState is state_.QuizAnswered) {
           return Scaffold(
+            backgroundColor: AppColors.background,
             appBar: AppBar(
               title: const Text('Quiz App'),
               centerTitle: true,
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
             ),
             body: QuizAnsweredView(
               question: quizState.question,
@@ -56,9 +66,12 @@ class QuizPage extends StatelessWidget {
           );
         } else if (quizState is state_.QuizResultState) {
           return Scaffold(
+            backgroundColor: AppColors.background,
             appBar: AppBar(
               title: const Text('Quiz App'),
               centerTitle: true,
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
             ),
             body: QuizResultView(
               result: quizState.result,
@@ -67,9 +80,12 @@ class QuizPage extends StatelessWidget {
           );
         } else if (quizState is state_.QuizError) {
           return Scaffold(
+            backgroundColor: AppColors.background,
             appBar: AppBar(
               title: const Text('Quiz App'),
               centerTitle: true,
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
             ),
             body: QuizErrorView(
               errorMessage: quizState.message,

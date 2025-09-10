@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../cubit/vocabulary_quiz_cubit.dart';
 import '../widgets/vocabulary_quiz_card.dart';
 import '../widgets/vocabulary_quiz_progress.dart';
@@ -11,7 +12,7 @@ class VocabularyQuizPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -21,8 +22,8 @@ class VocabularyQuizPage extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    Colors.blue.shade400,
-                    Colors.purple.shade600,
+                    AppColors.primary,
+                    AppColors.primaryLight,
                   ],
                 ),
                 borderRadius: BorderRadius.circular(8),
@@ -39,12 +40,13 @@ class VocabularyQuizPage extends StatelessWidget {
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 18,
+                color: AppColors.textPrimary,
               ),
             ),
           ],
         ),
         centerTitle: true,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close),

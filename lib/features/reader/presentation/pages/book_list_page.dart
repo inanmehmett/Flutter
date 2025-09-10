@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../viewmodels/book_list_view_model.dart';
 import '../../domain/entities/book.dart';
 import '../widgets/category_picker.dart';
@@ -40,14 +41,16 @@ class _BookListPageState extends State<BookListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        title: Text(
+        backgroundColor: AppColors.primary,
+        title: const Text(
           'Books',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
         ),
         actions: [
           if (kDebugMode)
@@ -122,18 +125,18 @@ class _BookListPageState extends State<BookListPage> {
                   margin: const EdgeInsets.all(16),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.orange[100],
+                    color: AppColors.warningContainer,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange),
+                    border: Border.all(color: AppColors.warning),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.warning, color: Colors.orange[700]),
+                      const Icon(Icons.warning, color: AppColors.warning),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           bookViewModel.errorMessage!,
-                          style: TextStyle(color: Colors.orange[700]),
+                          style: const TextStyle(color: AppColors.warning),
                         ),
                       ),
                       TextButton(

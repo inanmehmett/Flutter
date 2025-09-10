@@ -2,23 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../reader/presentation/viewmodels/book_list_view_model.dart';
-import '../../../reader/data/models/book_model.dart';
 import '../../../reader/domain/entities/book.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/data/models/user_profile.dart';
 import '../../../../core/di/injection.dart';
-import '../../../../core/theme/app_design_system.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../home/presentation/widgets/profile_header.dart';
-import '../../../home/presentation/widgets/gamification_header.dart';
 import '../../../game/widgets/leaderboard_preview.dart';
-import '../../../quests/presentation/widgets/quests_preview.dart';
 import '../../../../core/storage/last_read_manager.dart';
-import '../../../../core/network/network_manager.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../game/services/game_service.dart';
 import '../../../quiz/presentation/pages/vocabulary_quiz_page.dart';
@@ -49,11 +44,9 @@ class _HomePageState extends State<HomePage> {
   // Design system colors (Orange-focused for English learning)
   static const Color _primaryOrange = AppColors.primary;
   static const Color _secondaryOrange = AppColors.primaryLight;
-  static const Color _accentGreen = AppColors.secondary;
   static const Color _textPrimary = AppColors.textPrimary;
   static const Color _textSecondary = AppColors.textSecondary;
   static const Color _backgroundWhite = AppColors.surface;
-  static const Color _cardBackground = AppColors.surfaceSecondary;
   static const Color _borderColor = AppColors.border;
   @override
   void initState() {
@@ -176,10 +169,6 @@ class _HomePageState extends State<HomePage> {
     return 'İyi akşamlar';
   }
 
-  String _personalizeGreeting(String greeting, String userName) {
-    final name = userName.trim();
-    return name.isNotEmpty ? '$greeting, $name!' : '$greeting!';
-  }
 
   Widget _buildSectionTitle(String title, [String? subtitle]) {
     return LayoutBuilder(
@@ -1001,51 +990,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildQuickActionCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              Icon(
-                icon,
-                size: 32,
-                color: color,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 Widget _buildBooksScroller(BuildContext context, List<Book> books) {

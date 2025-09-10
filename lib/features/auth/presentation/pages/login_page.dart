@@ -3,14 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'dart:io' show Platform;
 import '../../../../core/config/app_config.dart';
-import '../../../../core/theme/app_design_system.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_typography.dart';
-import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/theme/app_radius.dart';
 import '../bloc/auth_bloc.dart';
-import '../widgets/loading_overlay.dart';
-import 'registration_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
