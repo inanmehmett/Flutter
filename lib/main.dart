@@ -5,6 +5,7 @@ import 'core/utils/logger.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'core/theme/theme_manager.dart';
+import 'core/theme/app_design_system.dart';
 import 'features/user/presentation/pages/profile_page.dart';
 import 'features/user/presentation/pages/profile_page_sample.dart';
 import 'features/user/presentation/pages/profile_details_page.dart';
@@ -99,11 +100,7 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Daily English',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Color(0xFF3B82F6),
-            brightness: Brightness.light,
-          ),
+        theme: AppDesignSystem.lightTheme.copyWith(
           pageTransitionsTheme: const PageTransitionsTheme(
             builders: {
               TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
@@ -113,26 +110,11 @@ class MyApp extends StatelessWidget {
               TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
             },
           ),
-          scaffoldBackgroundColor: Colors.white,
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
-            elevation: 0,
-            centerTitle: true,
-          ),
-          bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-            backgroundColor: Colors.white,
-            selectedItemColor: Colors.black87,
-            unselectedItemColor: Colors.black54,
-            showUnselectedLabels: true,
-            type: BottomNavigationBarType.fixed,
-            elevation: 8,
-          ),
           snackBarTheme: const SnackBarThemeData(
             behavior: SnackBarBehavior.floating,
           ),
-          useMaterial3: true,
         ),
+        darkTheme: AppDesignSystem.darkTheme,
         home: Builder(
           builder: (context) => SplashScreen(onComplete: () {
             Navigator.of(context).pushReplacementNamed('/home');

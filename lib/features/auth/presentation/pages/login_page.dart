@@ -3,6 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'dart:io' show Platform;
 import '../../../../core/config/app_config.dart';
+import '../../../../core/theme/app_design_system.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_radius.dart';
 import '../bloc/auth_bloc.dart';
 import '../widgets/loading_overlay.dart';
 import 'registration_page.dart';
@@ -90,7 +95,7 @@ class _LoginPageState extends State<LoginPage> {
         }
       },
       child: Scaffold(
-        backgroundColor: Color(0xFFF8F8FA),
+        backgroundColor: AppColors.background,
         body: SafeArea(
           child: Column(
             children: [
@@ -98,7 +103,7 @@ class _LoginPageState extends State<LoginPage> {
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Colors.orange,
+                  color: AppColors.primary,
                   borderRadius: BorderRadius.only(
                     bottomLeft: Radius.circular(40),
                     bottomRight: Radius.circular(40),
@@ -277,18 +282,18 @@ class _RoundedInputField extends StatelessWidget {
       validator: validator,
       decoration: InputDecoration(
         hintText: hintText,
-        prefixIcon: Icon(icon, color: Colors.orange),
+        prefixIcon: Icon(icon, color: AppColors.primary),
         suffixIcon: isPassword
             ? IconButton(
                 icon: Icon(
                   obscureText ? Icons.visibility : Icons.visibility_off,
-                  color: Colors.orange,
+                  color: AppColors.primary,
                 ),
                 onPressed: onTogglePassword,
               )
             : suffix,
         filled: true,
-        fillColor: Color(0xFFF3F3F7),
+        fillColor: AppColors.surfaceSecondary,
         contentPadding: EdgeInsets.symmetric(vertical: 18, horizontal: 20),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(30),

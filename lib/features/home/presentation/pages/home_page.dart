@@ -7,6 +7,12 @@ import '../../../reader/domain/entities/book.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/data/models/user_profile.dart';
 import '../../../../core/di/injection.dart';
+import '../../../../core/theme/app_design_system.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_shadows.dart';
+import '../../../../core/theme/app_radius.dart';
 import '../../../home/presentation/widgets/profile_header.dart';
 import '../../../home/presentation/widgets/gamification_header.dart';
 import '../../../game/widgets/leaderboard_preview.dart';
@@ -33,22 +39,22 @@ class _HomePageState extends State<HomePage> {
   int? _cachedStreakDays;
   bool _isLoadingStreak = false;
   
-  // Spacing constants for consistent layout
-  static const double _smallSpacing = 12.0;
-  static const double _mediumSpacing = 16.0;
-  static const double _largeSpacing = 20.0;
-  static const double _extraLargeSpacing = 24.0;
-  static const double _sectionSpacing = 32.0;
+  // Design system spacing
+  static const double _smallSpacing = AppSpacing.spacing3;
+  static const double _mediumSpacing = AppSpacing.spacing4;
+  static const double _largeSpacing = AppSpacing.spacing5;
+  static const double _extraLargeSpacing = AppSpacing.spacing6;
+  static const double _sectionSpacing = AppSpacing.spacing8;
   
-  // Color palette for consistent design
-  static const Color _primaryBlue = Color(0xFF007AFF);
-  static const Color _secondaryBlue = Color(0xFF5AC8FA);
-  static const Color _accentBlue = Color(0xFF34C759);
-  static const Color _textPrimary = Color(0xFF1D1D1F);
-  static const Color _textSecondary = Color(0xFF8E8E93);
-  static const Color _backgroundWhite = Color(0xFFFFFFFF);
-  static const Color _cardBackground = Color(0xFFF2F2F7);
-  static const Color _borderColor = Color(0xFFE5E5EA);
+  // Design system colors (Orange-focused for English learning)
+  static const Color _primaryOrange = AppColors.primary;
+  static const Color _secondaryOrange = AppColors.primaryLight;
+  static const Color _accentGreen = AppColors.secondary;
+  static const Color _textPrimary = AppColors.textPrimary;
+  static const Color _textSecondary = AppColors.textSecondary;
+  static const Color _backgroundWhite = AppColors.surface;
+  static const Color _cardBackground = AppColors.surfaceSecondary;
+  static const Color _borderColor = AppColors.border;
   @override
   void initState() {
     super.initState();
@@ -187,22 +193,18 @@ class _HomePageState extends State<HomePage> {
           children: [
             Text(
               title,
-              style: TextStyle(
+              style: AppTypography.title2.copyWith(
                 fontSize: fontSize,
-                fontWeight: FontWeight.bold,
                 color: _textPrimary,
-                letterSpacing: -0.4,
               ),
             ),
             if (subtitle != null) ...[
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: TextStyle(
+                style: AppTypography.subhead.copyWith(
                   fontSize: subtitleFontSize,
-                  fontWeight: FontWeight.w500,
                   color: _textSecondary,
-                  letterSpacing: -0.2,
                 ),
               ),
             ],
@@ -214,21 +216,15 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildDailyProgressCard(BuildContext context, UserProfile profile) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.paddingL),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [_primaryBlue, _secondaryBlue],
+          colors: [_primaryOrange, _secondaryOrange],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: _primaryBlue.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(AppRadius.cardRadius),
+        boxShadow: AppShadows.cardShadowElevated,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -243,10 +239,8 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(width: 12),
               Text(
                 'Günlük İlerleme',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                style: AppTypography.title3.copyWith(
+                  color: AppColors.surface,
                 ),
               ),
             ],
@@ -313,21 +307,15 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildQuizAdvertisementSection(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.paddingL),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [_primaryBlue, _secondaryBlue],
+          colors: [_primaryOrange, _secondaryOrange],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: _primaryBlue.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(AppRadius.cardRadius),
+        boxShadow: AppShadows.cardShadowElevated,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -388,20 +376,17 @@ class _HomePageState extends State<HomePage> {
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: _primaryBlue,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor: AppColors.surface,
+                foregroundColor: _primaryOrange,
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingM),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppRadius.buttonRadius),
                 ),
                 elevation: 0,
               ),
               child: const Text(
                 'Quiz\'e Başla',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: AppTypography.buttonMedium,
               ),
             ),
           ),
@@ -431,7 +416,7 @@ class _HomePageState extends State<HomePage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(_primaryBlue),
+              valueColor: AlwaysStoppedAnimation<Color>(_primaryOrange),
             ),
             const SizedBox(height: 16),
             Text(
