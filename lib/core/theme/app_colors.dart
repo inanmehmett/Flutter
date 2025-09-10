@@ -48,11 +48,23 @@ class AppColors {
   static const Color surface = Color(0xFFFFFFFF);
   static const Color surfaceSecondary = Color(0xFFF2F2F7);
 
+  // Dark Mode Colors
+  static const Color backgroundDark = Color(0xFF000000);
+  static const Color backgroundSecondaryDark = Color(0xFF1C1C1E);
+  static const Color surfaceDark = Color(0xFF1C1C1E);
+  static const Color surfaceSecondaryDark = Color(0xFF2C2C2E);
+
   // Text Colors (iOS Style)
   static const Color textPrimary = Color(0xFF1D1D1F);
   static const Color textSecondary = Color(0xFF8E8E93);
   static const Color textTertiary = Color(0xFFC7C7CC);
   static const Color textQuaternary = Color(0xFFF2F2F7);
+
+  // Dark Mode Text Colors
+  static const Color textPrimaryDark = Color(0xFFFFFFFF);
+  static const Color textSecondaryDark = Color(0xFF8E8E93);
+  static const Color textTertiaryDark = Color(0xFF48484A);
+  static const Color textQuaternaryDark = Color(0xFF1C1C1E);
 
   // Border and Separator Colors (iOS Style)
   static const Color separator = Color(0xFFE5E5EA);
@@ -60,19 +72,18 @@ class AppColors {
   static const Color border = Color(0xFFE5E5EA);
   static const Color borderLight = Color(0xFFF2F2F7);
 
+  // Dark Mode Border Colors
+  static const Color separatorDark = Color(0xFF38383A);
+  static const Color separatorOpaqueDark = Color(0xFF48484A);
+  static const Color borderDark = Color(0xFF38383A);
+  static const Color borderLightDark = Color(0xFF2C2C2E);
+
   // Legacy colors for backward compatibility
   static const Color white = Color(0xFFFFFFFF);
   static const Color black = Color(0xFF000000);
   static const Color grey = Color(0xFF8E8E93);
   static const Color greyDark = Color(0xFF1D1D1F);
   static const Color greyLight = Color(0xFFE5E5EA);
-
-  // Dark mode colors
-  static const Color backgroundDark = Color(0xFF000000);
-  static const Color surfaceDark = Color(0xFF1C1C1E);
-  static const Color textPrimaryDark = Color(0xFFFFFFFF);
-  static const Color textSecondaryDark = Color(0xFF8E8E93);
-  static const Color separatorDark = Color(0xFF38383A);
   static const Color sepia = Color(0xFFD4B483);
   static const Color sepiaBackground = Color(0xFFFAF0E6);
   static const Color sepiaText = Color(0xFF5D4E37);

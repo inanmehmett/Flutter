@@ -204,7 +204,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildDailyProgressCard(BuildContext context, UserProfile profile) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
       padding: const EdgeInsets.all(AppSpacing.paddingL),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -295,7 +297,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildQuizAdvertisementSection(BuildContext context) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
       padding: const EdgeInsets.all(AppSpacing.paddingL),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -353,17 +357,21 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => BlocProvider(
-                      create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>()),
-                      child: const VocabularyQuizPage(),
+            child: Semantics(
+              label: 'Kelime Quiz\'ini Başlat',
+              hint: 'İngilizce kelime bilginizi test etmek için dokunun',
+              button: true,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => BlocProvider(
+                        create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>()),
+                        child: const VocabularyQuizPage(),
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.surface,
                 foregroundColor: _primaryOrange,
@@ -379,6 +387,7 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           ),
+        ),
         ],
       ),
     );

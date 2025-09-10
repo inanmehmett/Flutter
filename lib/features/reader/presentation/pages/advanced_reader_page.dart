@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_manager.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../../core/di/injection.dart';
 import '../bloc/advanced_reader_bloc.dart';
@@ -178,22 +179,34 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
   }
 
   Widget _buildInitialView() {
-    return const Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(),
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+        ),
       ),
     );
   }
 
   Widget _buildLoadingView() {
-    return const Scaffold(
-      body: Center(
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(),
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+            ),
             SizedBox(height: 16),
-            Text('Kitap yükleniyor...'),
+            Text(
+              'Kitap yükleniyor...',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 16,
+              ),
+            ),
           ],
         ),
       ),
@@ -202,8 +215,11 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
 
   Widget _buildErrorView(String message) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Hata'),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
@@ -216,7 +232,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
             const Icon(
               Icons.error_outline,
               size: 64,
-              color: Colors.red,
+              color: AppColors.error,
             ),
             const SizedBox(height: 16),
             Text(

@@ -6,6 +6,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'core/theme/theme_manager.dart';
 import 'core/theme/app_design_system.dart';
+import 'core/theme/app_colors.dart';
 import 'features/user/presentation/pages/profile_page.dart';
 import 'features/user/presentation/pages/profile_page_sample.dart';
 import 'features/user/presentation/pages/profile_details_page.dart';
@@ -291,6 +292,17 @@ class _GlobalBottomNav extends StatelessWidget {
     return BottomNavigationBar(
       currentIndex: currentIndex,
       type: BottomNavigationBarType.fixed,
+      backgroundColor: AppColors.surface,
+      selectedItemColor: AppColors.primary,
+      unselectedItemColor: AppColors.textSecondary,
+      selectedLabelStyle: const TextStyle(
+        fontWeight: FontWeight.w600,
+        fontSize: 12,
+      ),
+      unselectedLabelStyle: const TextStyle(
+        fontWeight: FontWeight.w400,
+        fontSize: 12,
+      ),
       items: const [
         BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
         BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'Books'),

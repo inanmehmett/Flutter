@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../data/models/book_model.dart';
 
 class BookPreviewPage extends StatelessWidget {
@@ -21,7 +22,7 @@ class BookPreviewPage extends StatelessWidget {
     final double coverHeight = (size.height * 0.35).clamp(220.0, 360.0);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
