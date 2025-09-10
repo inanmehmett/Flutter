@@ -31,6 +31,24 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int? _cachedStreakDays;
+  bool _isLoadingStreak = false;
+  
+  // Spacing constants for consistent layout
+  static const double _smallSpacing = 12.0;
+  static const double _mediumSpacing = 16.0;
+  static const double _largeSpacing = 20.0;
+  static const double _extraLargeSpacing = 24.0;
+  static const double _sectionSpacing = 32.0;
+  
+  // Color palette for consistent design
+  static const Color _primaryBlue = Color(0xFF007AFF);
+  static const Color _secondaryBlue = Color(0xFF5AC8FA);
+  static const Color _accentBlue = Color(0xFF34C759);
+  static const Color _textPrimary = Color(0xFF1D1D1F);
+  static const Color _textSecondary = Color(0xFF8E8E93);
+  static const Color _backgroundWhite = Color(0xFFFFFFFF);
+  static const Color _cardBackground = Color(0xFFF2F2F7);
+  static const Color _borderColor = Color(0xFFE5E5EA);
   @override
   void initState() {
     super.initState();
@@ -42,7 +60,31 @@ class _HomePageState extends State<HomePage> {
     Future.microtask(() =>
         context.read<AuthBloc>().add(CheckAuthStatus()));
 
-    // Removed: prefetch of finished/validated counters
+    // Prefetch all data to prevent multiple API calls
+    _prefetchAllData();
+  }
+
+  Future<void> _prefetchAllData() async {
+    try {
+      // Fetch streak data once
+      await _fetchStreakDays();
+      
+      // Prefetch other data that widgets might need
+      final authState = context.read<AuthBloc>().state;
+      if (authState is AuthAuthenticated) {
+        // Prefetch gamification data
+        final gameService = getIt<GameService>();
+        await gameService.getProfileSummary();
+      }
+    } catch (e) {
+      print('Error prefetching data: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    // Clean up any resources
+    super.dispose();
   }
 
   String _resolveImageUrl(String? imageUrl, String? iconUrl) {
@@ -100,14 +142,23 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<int?> _fetchStreakDays() async {
-    if (_cachedStreakDays != null) return _cachedStreakDays;
+    if (_cachedStreakDays != null || _isLoadingStreak) return _cachedStreakDays;
+    
     try {
+      _isLoadingStreak = true;
       final service = getIt<GameService>();
       final summary = await service.getProfileSummary();
-      _cachedStreakDays = summary.currentStreak;
+      if (mounted) {
+        setState(() {
+          _cachedStreakDays = summary.currentStreak;
+        });
+      }
       return _cachedStreakDays;
-    } catch (_) {
+    } catch (e) {
+      print('Error fetching streak days: $e');
       return _cachedStreakDays;
+    } finally {
+      _isLoadingStreak = false;
     }
   }
 
@@ -124,118 +175,320 @@ class _HomePageState extends State<HomePage> {
     return name.isNotEmpty ? '$greeting, $name!' : '$greeting!';
   }
 
-
-  Widget _buildVocabularyQuizButton(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => BlocProvider(
-                  create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>()),
-                  child: const VocabularyQuizPage(),
-                ),
+  Widget _buildSectionTitle(String title, [String? subtitle]) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final fontSize = screenWidth < 400 ? 18.0 : 20.0;
+        final subtitleFontSize = screenWidth < 400 ? 14.0 : 16.0;
+        
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: fontSize,
+                fontWeight: FontWeight.bold,
+                color: _textPrimary,
+                letterSpacing: -0.4,
               ),
-            );
-          },
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.blue.shade400,
-                  Colors.purple.shade600,
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.blue.withOpacity(0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
             ),
-            child: Row(
-              children: [
-                // Quiz icon
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: const Icon(
-                    Icons.quiz,
-                    color: Colors.white,
-                    size: 30,
-                  ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: subtitleFontSize,
+                  fontWeight: FontWeight.w500,
+                  color: _textSecondary,
+                  letterSpacing: -0.2,
                 ),
-                const SizedBox(width: 16),
-                
-                // Quiz info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Kelime Quiz\'i',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildDailyProgressCard(BuildContext context, UserProfile profile) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [_primaryBlue, _secondaryBlue],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: _primaryBlue.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.trending_up,
+                color: Colors.white,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Günlük İlerleme',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildProgressItem(
+                  'Günlük Hedef',
+                  '${profile.experiencePoints} XP',
+                  Icons.flag,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildProgressItem(
+                  'Streak',
+                  '${_cachedStreakDays ?? profile.currentStreak} gün',
+                  Icons.local_fire_department,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressItem(String label, String value, IconData icon) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              icon,
+              color: Colors.white.withOpacity(0.8),
+              size: 16,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white.withOpacity(0.8),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuizAdvertisementSection(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [_primaryBlue, _secondaryBlue],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: _primaryBlue.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.quiz,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Kelime Quiz\'e Başla',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'İngilizce kelimeleri test edin ve XP kazanın!',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
-                          fontSize: 14,
-                        ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Yeni kelimeler öğren ve seviyeni yükselt!',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withOpacity(0.9),
+                        fontWeight: FontWeight.w500,
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.timer,
-                            color: Colors.white.withOpacity(0.8),
-                            size: 16,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '10 soru • 10s/soru',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.8),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => BlocProvider(
+                      create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>()),
+                      child: const VocabularyQuizPage(),
+                    ),
                   ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: _primaryBlue,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                
-                // Arrow icon
-                Icon(
-                  Icons.arrow_forward_ios,
-                  color: Colors.white.withOpacity(0.8),
-                  size: 20,
+                elevation: 0,
+              ),
+              child: const Text(
+                'Quiz\'e Başla',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
-              ],
+              ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _buildLoadingSection() {
+    return Container(
+      height: 200,
+      decoration: BoxDecoration(
+        color: _backgroundWhite,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(_primaryBlue),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Yükleniyor...',
+              style: TextStyle(
+                color: _textSecondary,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+
+  Widget _buildEmptySection(String message) {
+    return Container(
+      height: 200,
+      decoration: BoxDecoration(
+        color: _backgroundWhite,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.menu_book_outlined,
+              size: 48,
+              color: _textSecondary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              style: TextStyle(
+                color: _textSecondary,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -282,9 +535,20 @@ class _HomePageState extends State<HomePage> {
               );
             }
 
-            return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16,16,16,80),
-              child: Column(
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final screenWidth = MediaQuery.of(context).size.width;
+                final horizontalPadding = screenWidth < 400 ? 12.0 : 16.0;
+                final bottomPadding = widget.showBottomNav ? 80.0 : 20.0;
+                
+                return SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding, 
+                    16, 
+                    horizontalPadding, 
+                    bottomPadding
+                  ),
+                  child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -297,119 +561,90 @@ class _HomePageState extends State<HomePage> {
                         Navigator.pushNamed(context, '/login');
                       }
                     },
-                    child: FutureBuilder<int?>(
-                      future: _fetchStreakDays(),
-                      builder: (context, snap) {
-                        final streak = snap.data ?? userProfile!.currentStreak;
-                        return ProfileHeader(
-                          profile: userProfile!,
-                          streakDays: streak,
-                        );
-                      },
+                    child: ProfileHeader(
+                      profile: userProfile!,
+                      streakDays: _cachedStreakDays ?? userProfile!.currentStreak,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: _mediumSpacing),
                   
                   // 2. Kişiselleştirilmiş Karşılama
                   _buildPersonalizedGreeting(context, userProfile!),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: _largeSpacing),
                   
-                  // 3. Continue Reading Button - Karşılama mesajının hemen altına taşındı
+                  // 3. EĞİTİM ODAKLI BÖLÜMLER - Öğrenme hiyerarşisi
+                  
+                  // 3.1 Günlük İlerleme (En önemli - motivasyon)
+                  _buildDailyProgressCard(context, userProfile!),
+                  const SizedBox(height: _largeSpacing),
+                  
+                  // 3.2 Devam Eden Okuma
                   _buildContinueReading(context),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: _extraLargeSpacing),
                   
-                  // 4. Gamification Header (Motivasyon için)
-                  FutureBuilder<int?>(
-                    future: _fetchStreakDays(),
-                    builder: (context, snap) {
-                      final streak = snap.data ?? userProfile!.currentStreak;
-                      return GamificationHeader(
-                        profile: userProfile!,
-                        streakDays: streak,
-                        totalXP: userProfile!.experiencePoints,
-                        weeklyXP: 0, // TODO: Fetch from API
-                        dailyGoal: 30, // TODO: Fetch from user settings
-                        dailyProgress: 0, // TODO: Calculate from today's activities
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  // 4.2 Quests Preview
-                  const QuestsPreview(),
-                  const SizedBox(height: 20),
+                  // 4. KİTAP ÖNERİLERİ - Öğrenme seviyesine göre
                   
-                  // 4.3 Vocabulary Quiz Button
-                  _buildVocabularyQuizButton(context),
-                  const SizedBox(height: 20),
-                  
-                  // 5. Sana Özel (önerilen) - Kitapları daha öne çıkar
-                  const Text('Sana Özel', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
+                  // 4.1 Sana Özel (önerilen) - Kişiselleştirilmiş
+                  _buildSectionTitle('Sana Özel', 'Seviyene uygun kitaplar'),
+                  const SizedBox(height: _smallSpacing),
                   Consumer<BookListViewModel>(
                     builder: (context, bookViewModel, child) {
                       if (bookViewModel.isLoading) {
-                        return const Center(child: CircularProgressIndicator());
+                        return _buildLoadingSection();
                       }
                       final userLevel = (userProfile?.levelName ?? userProfile?.levelDisplay ?? '')
                           .toString()
                           .trim();
-                      final books = bookViewModel.getRecommendedBooks(limit: 8, userLevel: userLevel);
-                      if (books.isEmpty) return const SizedBox.shrink();
+                      final books = bookViewModel.getRecommendedBooks(limit: 6, userLevel: userLevel);
+                      if (books.isEmpty) return _buildEmptySection('Henüz önerilen kitap yok');
                       return _buildBooksScroller(context, books);
                     },
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: _extraLargeSpacing),
                   
-                  // 6. Yeni Eklenenler
-                  const Text('Yeni Eklenenler', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
+                  // 4.2 Yeni Eklenenler
+                  _buildSectionTitle('Yeni Eklenenler', 'Son eklenen kitaplar'),
+                  const SizedBox(height: _smallSpacing),
                   Consumer<BookListViewModel>(
                     builder: (context, bookViewModel, child) {
                       if (bookViewModel.isLoading) {
-                        return const Center(child: CircularProgressIndicator());
+                        return _buildLoadingSection();
                       }
-                      final books = bookViewModel.getRecentlyAddedBooks(limit: 8);
-                      if (books.isEmpty) return const SizedBox.shrink();
+                      final books = bookViewModel.getRecentlyAddedBooks(limit: 6);
+                      if (books.isEmpty) return _buildEmptySection('Henüz yeni kitap eklenmemiş');
                       return _buildBooksScroller(context, books);
                     },
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: _extraLargeSpacing),
                   
-                  // 7. Trending Books - horizontal list
-                  const Text('Trend Kitaplar', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
+                  // 4.3 Trend Kitaplar
+                  _buildSectionTitle('Trend Kitaplar', 'Popüler kitaplar'),
+                  const SizedBox(height: _smallSpacing),
                   Consumer<BookListViewModel>(
                     builder: (context, bookViewModel, child) {
                       if (bookViewModel.isLoading) {
-                        return const Center(
-                          child: CircularProgressIndicator(),
-                        );
+                        return _buildLoadingSection();
                       }
-
                       final books = bookViewModel.getTrendingBooks();
-
-                      if (books.isEmpty) {
-                        return Container(
-                          height: 200,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Center(
-                            child: Text('Henüz kitap bulunamadı'),
-                          ),
-                        );
-                      }
+                      if (books.isEmpty) return _buildEmptySection('Henüz trend kitap yok');
                       return _buildBooksScroller(context, books);
                     },
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: _sectionSpacing),
                   
-                  // 8. Leaderboard Preview - En alta taşındı
+                  // 5. QUIZ REKLAMI - Liderlik tablosundan önce
+                  _buildQuizAdvertisementSection(context),
+                  const SizedBox(height: _largeSpacing),
+                  
+                  // 6. SOSYAL VE MOTİVASYON - En altta
+                  
+                  // 6.1 Leaderboard Preview
                   const LeaderboardPreview(),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: _largeSpacing),
                 ],
               ),
+            );
+              },
             );
           },
         ),
@@ -515,18 +750,25 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // iOS style book cards
-                  SizedBox(
-                    height: 88, // Daha da azaltıldı overflow için
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: items.length.clamp(0, 5),
-                      separatorBuilder: (_, __) => const SizedBox(width: 12),
-                      itemBuilder: (context, index) {
-                        final info = items[index];
-                        return _buildIOSBookCard(context, info);
-                      },
-                    ),
+                  // iOS style book cards - responsive height
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final screenWidth = MediaQuery.of(context).size.width;
+                      final cardHeight = screenWidth < 400 ? 80.0 : 88.0;
+                      
+                      return SizedBox(
+                        height: cardHeight,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: items.length.clamp(0, 5),
+                          separatorBuilder: (_, __) => const SizedBox(width: 12),
+                          itemBuilder: (context, index) {
+                            final info = items[index];
+                            return _buildIOSBookCard(context, info, cardHeight);
+                          },
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -634,15 +876,20 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildIOSBookCard(BuildContext context, LastReadInfo info) {
+  Widget _buildIOSBookCard(BuildContext context, LastReadInfo info, double cardHeight) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final cardWidth = screenWidth < 400 ? 260.0 : 280.0;
+    final coverHeight = cardHeight - 32; // Padding için alan bırak
+    final coverWidth = coverHeight * 0.6; // Oran koru
+    
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: () {
         Navigator.pushNamed(context, '/reader', arguments: info.book);
       },
       child: Container(
-        width: 280,
-        padding: const EdgeInsets.all(8), // 12'den 8'e düşürüldü
+        width: cardWidth,
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -661,14 +908,14 @@ class _HomePageState extends State<HomePage> {
         ),
         child: Row(
           children: [
-            // iOS style book cover
+            // iOS style book cover - responsive
             Stack(
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
-                    height: 56, // Daha da azaltıldı overflow için
-                    width: 60,
+                    height: coverHeight,
+                    width: coverWidth,
                     color: const Color(0xFFF2F2F7), // iOS Light Gray
                     child: _RecentCoverThumb(info: info),
                   ),
@@ -704,42 +951,51 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    info.book.title,
-                    maxLines: 1, // 2'den 1'e düşürüldü
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15, // 17'den 15'e düşürüldü
-                      height: 1.1, // 1.2'den 1.1'e düşürüldü
-                      color: Color(0xFF1D1D1F), // iOS Black
-                      letterSpacing: -0.4,
+                  // Book title with better overflow handling
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      info.book.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: screenWidth < 400 ? 14 : 15,
+                        height: 1.2,
+                        color: const Color(0xFF1D1D1F), // iOS Black
+                        letterSpacing: -0.4,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 4), // 8'den 4'e düşürüldü
-                  // iOS style secondary text
+                  const SizedBox(height: 4),
+                  // iOS style secondary text with overflow protection
                   Text(
                     'Page ${info.pageIndex + 1} • ${info.book.estimatedReadingTimeInMinutes}m',
-                    style: const TextStyle(
-                      fontSize: 13, // 15'ten 13'e düşürüldü
-                      color: Color(0xFF8E8E93), // iOS Gray
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: screenWidth < 400 ? 12 : 13,
+                      color: const Color(0xFF8E8E93), // iOS Gray
                       fontWeight: FontWeight.w400,
                       letterSpacing: -0.2,
                     ),
                   ),
-                  const SizedBox(height: 4), // 8'den 4'e düşürüldü
+                  const SizedBox(height: 4),
                   // iOS style level text
                   Text(
                     'Level ${info.book.textLevel ?? '1'}',
-                    style: const TextStyle(
-                      fontSize: 11, // 13'ten 11'e düşürüldü
-                      color: Color(0xFF34C759), // iOS Green
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: screenWidth < 400 ? 10 : 11,
+                      color: const Color(0xFF34C759), // iOS Green
                       fontWeight: FontWeight.w600,
                       letterSpacing: -0.1,
                     ),
@@ -752,7 +1008,7 @@ class _HomePageState extends State<HomePage> {
             Icon(
               Icons.chevron_right_rounded,
               color: const Color(0xFFC7C7CC), // iOS Light Gray
-              size: 20,
+              size: 18,
             ),
           ],
         ),
@@ -808,24 +1064,39 @@ class _HomePageState extends State<HomePage> {
 }
 
 Widget _buildBooksScroller(BuildContext context, List<Book> books) {
-  // Photo-like proportions from the reference: tall cover and compact texts
-  const double cardWidth = 121; // ~+10%
-  final double coverHeight = cardWidth * 1.30; // keep same aspect ratio
-  final double listHeight = coverHeight + 82; // slight slack for larger text box
-
-  return SizedBox(
-    height: listHeight,
-    child: ListView.separated(
-      scrollDirection: Axis.horizontal,
-      itemCount: books.length.clamp(0, 8),
-      separatorBuilder: (_, __) => const SizedBox(width: 16),
-      itemBuilder: (context, index) {
-        final book = books[index];
-        return UnifiedBookCard(
-          book: book,
-        );
-      },
-    ),
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      final screenWidth = MediaQuery.of(context).size.width;
+      final screenHeight = MediaQuery.of(context).size.height;
+      
+      // Responsive card width based on screen size
+      double cardWidth;
+      if (screenWidth < 400) {
+        cardWidth = 110; // Smaller screens
+      } else if (screenWidth < 600) {
+        cardWidth = 121; // Medium screens
+      } else {
+        cardWidth = 135; // Larger screens
+      }
+      
+      final double coverHeight = cardWidth * 1.30; // Keep aspect ratio
+      final double listHeight = coverHeight + (screenHeight < 600 ? 70 : 82); // Responsive text area
+      
+      return SizedBox(
+        height: listHeight,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: books.length.clamp(0, 8),
+          separatorBuilder: (_, __) => SizedBox(width: screenWidth < 400 ? 12 : 16),
+          itemBuilder: (context, index) {
+            final book = books[index];
+            return UnifiedBookCard(
+              book: book,
+            );
+          },
+        ),
+      );
+    },
   );
 }
 
