@@ -45,6 +45,15 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
   final Map<int, GlobalKey> _textKeys = {};
   bool _suppressOnPageChanged = false;
   final Map<int, ScrollController> _scrollControllers = {};
+  
+  // Word detection variables
+  int? _wordStart;
+  int? _wordEnd;
+  int? _wordPageIndex;
+  String? _selectedWord;
+  String? _wordTranslation;
+  bool _isLoadingTranslation = false;
+  OverlayEntry? _wordOverlay;
 
   @override
   void initState() {
@@ -471,6 +480,8 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                           // Sayfa içeriği (dokunulan cümleyi bul)
                            GestureDetector(
                             behavior: HitTestBehavior.opaque,
+                            onLongPressStart: (details) => _onWordLongPressStart(details, pageContent, constraints, themeManager),
+                            onLongPressEnd: (details) => _onWordLongPressEnd(),
                             onTapUp: (details) async {
                                HapticFeedback.selectionClick();
                               final textStyle = TextStyle(
@@ -541,6 +552,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                                  ),
                                  index,
                                  state,
+                                 themeManager,
                                ),
                              ),
                           ),
@@ -666,46 +678,81 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     });
   }
 
-  Widget _buildRichTextWithHighlight(String text, TextStyle style, int pageIndex, ReaderLoaded state) {
-    // If autoplay is running and we have a playing sentence index belonging to this page, compute its local range via bloc
+  Widget _buildRichTextWithHighlight(String text, TextStyle style, int pageIndex, ReaderLoaded state, ThemeManager themeManager) {
+    List<TextSpan> spans = [];
+    int currentIndex = 0;
+    
+    // Collect all highlight ranges
+    List<Map<String, dynamic>> highlights = [];
+    
+    // Playing sentence highlight
     if (state.playingSentenceIndex != null) {
       final range = context.read<AdvancedReaderBloc>().computeLocalRangeForSentence(text, state.playingSentenceIndex!);
       if (range != null) {
-        // If segment-level range is provided by state, prefer it
         final start = state.playingRangeStart ?? range[0];
         final end = state.playingRangeEnd ?? range[1];
-        final before = text.substring(0, start);
-        final mid = text.substring(start, end);
-        final after = text.substring(end);
-        return RichText(
-          text: TextSpan(
-            style: style,
-            children: [
-              TextSpan(text: before),
-              TextSpan(text: mid, style: style.copyWith(backgroundColor: Colors.yellow.withValues(alpha: 0.35))),
-              TextSpan(text: after),
-            ],
-          ),
-        );
+        highlights.add({
+          'start': start,
+          'end': end,
+          'color': Colors.yellow.withValues(alpha: 0.35),
+          'priority': 1
+        });
       }
     }
-    if (_highlightPageIndex != pageIndex || _highlightStart == null || _highlightEnd == null) {
+    
+    // Sentence highlight (tap)
+    if (_highlightPageIndex == pageIndex && _highlightStart != null && _highlightEnd != null) {
+      highlights.add({
+        'start': _highlightStart!,
+        'end': _highlightEnd!,
+        'color': Colors.yellow.withValues(alpha: 0.4),
+        'priority': 2
+      });
+    }
+    
+    // Word highlight (long press)
+    if (_wordPageIndex == pageIndex && _wordStart != null && _wordEnd != null) {
+      highlights.add({
+        'start': _wordStart!,
+        'end': _wordEnd!,
+        'color': _getThemePrimaryColor(themeManager).withValues(alpha: 0.3),
+        'priority': 3
+      });
+    }
+    
+    // Sort highlights by start position
+    highlights.sort((a, b) => a['start'].compareTo(b['start']));
+    
+    // Build text spans
+    for (var highlight in highlights) {
+      final start = highlight['start'] as int;
+      final end = highlight['end'] as int;
+      
+      // Add text before highlight
+      if (start > currentIndex) {
+        spans.add(TextSpan(text: text.substring(currentIndex, start)));
+      }
+      
+      // Add highlighted text
+      spans.add(TextSpan(
+        text: text.substring(start, end),
+        style: style.copyWith(backgroundColor: highlight['color']),
+      ));
+      
+      currentIndex = end;
+    }
+    
+    // Add remaining text
+    if (currentIndex < text.length) {
+      spans.add(TextSpan(text: text.substring(currentIndex)));
+    }
+    
+    if (spans.isEmpty) {
       return Text(text, style: style);
     }
-    final start = _highlightStart!;
-    final end = _highlightEnd!;
-    final before = text.substring(0, start);
-    final mid = text.substring(start, end);
-    final after = text.substring(end);
+    
     return RichText(
-      text: TextSpan(
-        style: style,
-        children: [
-          TextSpan(text: before),
-          TextSpan(text: mid, style: style.copyWith(backgroundColor: Colors.yellow.withValues(alpha: 0.4))),
-          TextSpan(text: after),
-        ],
-      ),
+      text: TextSpan(style: style, children: spans),
     );
   }
 
@@ -1270,6 +1317,227 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     return sentence;
   }
 
+  // Dokunulan pozisyona göre kelimeyi çıkar
+  Map<String, dynamic> _extractWordAtOffset(
+    String fullText,
+    TextStyle style,
+    double maxWidth,
+    Offset localPos,
+  ) {
+    if (fullText.isEmpty || maxWidth <= 0) {
+      return {'word': '', 'start': 0, 'end': 0};
+    }
+
+    final textSpan = TextSpan(text: fullText, style: style);
+    final tp = TextPainter(
+      text: textSpan,
+      textDirection: TextDirection.ltr,
+      maxLines: null,
+    );
+    tp.layout(maxWidth: maxWidth);
+
+    final pos = tp.getPositionForOffset(localPos);
+    final idx = pos.offset.clamp(0, fullText.length);
+
+    // Kelime sınırları: boşluk, noktalama işaretleri
+    final wordBoundaryRegex = RegExp(r'[\s\.,!?;:"\x27\-]');
+
+    // Solda kelime başlangıcını bul
+    int start = idx;
+    for (int i = idx - 1; i >= 0; i--) {
+      if (wordBoundaryRegex.hasMatch(fullText[i])) {
+        start = i + 1;
+        break;
+      }
+      if (i == 0) {
+        start = 0;
+      }
+    }
+
+    // Sağda kelime sonunu bul
+    int end = idx;
+    for (int i = idx; i < fullText.length; i++) {
+      if (wordBoundaryRegex.hasMatch(fullText[i])) {
+        end = i;
+        break;
+      }
+      if (i == fullText.length - 1) {
+        end = fullText.length;
+      }
+    }
+
+    final word = fullText.substring(start, end).trim();
+    
+    // Kelime boşsa veya çok kısaysa (2 karakterden az) geçersiz kabul et
+    if (word.isEmpty || word.length < 2) {
+      return {'word': '', 'start': 0, 'end': 0};
+    }
+
+    return {'word': word, 'start': start, 'end': end};
+  }
+
+  // Long press başlangıcı
+  void _onWordLongPressStart(LongPressStartDetails details, String pageContent, BoxConstraints constraints, ThemeManager themeManager) {
+    HapticFeedback.mediumImpact();
+    
+    // Get current page index from the context
+    final currentPageIndex = _readerBloc.state is ReaderLoaded ? (_readerBloc.state as ReaderLoaded).currentPage : 0;
+    
+    final textStyle = TextStyle(
+      fontSize: 16, // Default font size for word detection
+      color: _getThemeTextColor(themeManager),
+      height: 1.6,
+      letterSpacing: 0.1,
+    );
+    
+    final maxTextWidth = (constraints.maxWidth - 40).clamp(0, double.infinity);
+    final box = _textKeys[currentPageIndex]?.currentContext?.findRenderObject() as RenderBox?;
+    final localPos = box != null
+        ? box.globalToLocal(details.globalPosition)
+        : details.localPosition;
+    
+    final wordInfo = _extractWordAtOffset(
+      pageContent,
+      textStyle,
+      maxTextWidth.toDouble(),
+      localPos,
+    );
+    
+    if (wordInfo['word'].toString().isNotEmpty) {
+      setState(() {
+        _wordStart = wordInfo['start'];
+        _wordEnd = wordInfo['end'];
+        _wordPageIndex = currentPageIndex;
+        _selectedWord = wordInfo['word'];
+      });
+      
+      // Show word popup overlay
+      _showWordOverlay(details.globalPosition, wordInfo['word'], themeManager);
+      
+      // Get translation
+      _translateWord(wordInfo['word']);
+    }
+  }
+
+  // Long press sonu
+  void _onWordLongPressEnd() {
+    _hideWordOverlay();
+    setState(() {
+      _wordStart = null;
+      _wordEnd = null;
+      _wordPageIndex = null;
+      _selectedWord = null;
+      _wordTranslation = null;
+      _isLoadingTranslation = false;
+    });
+  }
+
+  // Kelime çevirisi
+  Future<void> _translateWord(String word) async {
+    if (word.isEmpty) return;
+    
+    setState(() {
+      _isLoadingTranslation = true;
+    });
+    
+    try {
+      final bloc = context.read<AdvancedReaderBloc>();
+      final translation = await bloc.translateSentence(word);
+      
+      if (mounted) {
+        setState(() {
+          _wordTranslation = translation;
+          _isLoadingTranslation = false;
+        });
+        
+        // Update overlay with translation
+        _updateWordOverlay();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingTranslation = false;
+        });
+      }
+    }
+  }
+
+  // Kelime popup overlay göster
+  void _showWordOverlay(Offset globalPosition, String word, ThemeManager themeManager) {
+    _hideWordOverlay();
+    
+    _wordOverlay = OverlayEntry(
+      builder: (context) => Positioned(
+        left: globalPosition.dx - 50,
+        top: globalPosition.dy - 80,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: _getThemeSurfaceColor(themeManager),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+              border: Border.all(
+                color: _getThemePrimaryColor(themeManager),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  word,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: _getThemeOnSurfaceColor(themeManager),
+                  ),
+                ),
+                if (_isLoadingTranslation)
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else if (_wordTranslation != null && _wordTranslation!.isNotEmpty)
+                  Text(
+                    _wordTranslation!,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: _getThemeOnSurfaceVariantColor(themeManager),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    
+    Overlay.of(context).insert(_wordOverlay!);
+  }
+
+  // Kelime popup overlay güncelle
+  void _updateWordOverlay() {
+    if (_wordOverlay != null && _selectedWord != null) {
+      _wordOverlay!.markNeedsBuild();
+    }
+  }
+
+  // Kelime popup overlay gizle
+  void _hideWordOverlay() {
+    _wordOverlay?.remove();
+    _wordOverlay = null;
+  }
+
   void _navigateToQuiz(ReaderLoaded state) {
     Navigator.push(
       context,
@@ -1288,6 +1556,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
   @override
   void dispose() {
     _highlightTimer?.cancel();
+    _hideWordOverlay();
     _pageController.dispose();
     super.dispose();
   }

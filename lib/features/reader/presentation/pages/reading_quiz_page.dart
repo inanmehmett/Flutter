@@ -26,12 +26,12 @@ class ReadingQuizPage extends StatelessWidget {
       body: BlocBuilder<ReadingQuizCubit, ReadingQuizState>(
         builder: (context, state) {
           if (state is ReadingQuizInitial) {
-            return ReadingQuizStartView(
-              bookTitle: bookTitle,
-              onStartQuiz: () {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) {
                 context.read<ReadingQuizCubit>().startQuiz(readingTextId);
-              },
-            );
+              }
+            });
+            return const ReadingQuizLoadingView();
           } else if (state is ReadingQuizLoading) {
             return const ReadingQuizLoadingView();
           } else if (state is ReadingQuizStarted) {

@@ -368,6 +368,7 @@ class _ReadingQuizQuestionViewState extends State<ReadingQuizQuestionView>
   @override
   void initState() {
     super.initState();
+    selectedAnswerId = null; // Her yeni soru için seçimi sıfırla
     _timerController = AnimationController(
       duration: Duration(seconds: widget.remainingTime),
       vsync: this,
@@ -381,6 +382,17 @@ class _ReadingQuizQuestionViewState extends State<ReadingQuizQuestionView>
     );
     _questionController.forward();
     _startTimer();
+  }
+
+  @override
+  void didUpdateWidget(ReadingQuizQuestionView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Soru değiştiğinde seçimi sıfırla
+    if (oldWidget.currentQuestion.id != widget.currentQuestion.id) {
+      selectedAnswerId = null;
+      _questionController.reset();
+      _questionController.forward();
+    }
   }
 
   void _startTimer() {
@@ -475,12 +487,15 @@ class _ReadingQuizQuestionViewState extends State<ReadingQuizQuestionView>
                 ),
               ),
             ),
-            const SizedBox(width: 16),
-            Text(
-              '${widget.currentQuestionIndex + 1}/$widget.totalQuestions',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).primaryColor,
+            const SizedBox(width: 12),
+            Flexible(
+              child: Text(
+                '${widget.currentQuestionIndex + 1}/$widget.totalQuestions',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).primaryColor,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -493,21 +508,24 @@ class _ReadingQuizQuestionViewState extends State<ReadingQuizQuestionView>
           children: [
             Icon(Icons.timer, color: Colors.orange.shade600, size: 20),
             const SizedBox(width: 8),
-            AnimatedBuilder(
-              animation: _timerController,
-              builder: (context, child) {
-                final remainingSeconds = (widget.remainingTime * _timerController.value).round();
-                final minutes = remainingSeconds ~/ 60;
-                final seconds = remainingSeconds % 60;
-                
-                return Text(
-                  '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: remainingSeconds < 30 ? Colors.red.shade600 : Colors.orange.shade600,
-                  ),
-                );
-              },
+            Flexible(
+              child: AnimatedBuilder(
+                animation: _timerController,
+                builder: (context, child) {
+                  final remainingSeconds = (widget.remainingTime * _timerController.value).round();
+                  final minutes = remainingSeconds ~/ 60;
+                  final seconds = remainingSeconds % 60;
+                  
+                  return Text(
+                    '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: remainingSeconds < 30 ? Colors.red.shade600 : Colors.orange.shade600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -564,11 +582,18 @@ class _ReadingQuizQuestionViewState extends State<ReadingQuizQuestionView>
                     itemBuilder: (context, index) {
                       final answer = widget.currentQuestion.answers[index];
                       final isSelected = selectedAnswerId == answer.id;
+                      final bool showResult = selectedAnswerId != null;
+                      final bool selectedIsCorrect = selectedAnswerId == null
+                          ? false
+                          : (widget.currentQuestion.answers.firstWhere((a) => a.id == selectedAnswerId!, orElse: () => ReadingQuizAnswer(id: -1, answerText: '', isCorrect: false)).isCorrect);
+                      final bool highlightCorrect = showResult && answer.isCorrect && !selectedIsCorrect;
                       
                       return _buildAnswerOption(
                         context,
                         answer,
                         isSelected,
+                        showResult,
+                        highlightCorrect,
                         () {
                           Logger.debug('UI select answer questionId=${widget.currentQuestion.id} answerId=${answer.id}');
                           setState(() {
@@ -591,8 +616,52 @@ class _ReadingQuizQuestionViewState extends State<ReadingQuizQuestionView>
     BuildContext context,
     ReadingQuizAnswer answer,
     bool isSelected,
+    bool showResult,
+    bool highlightCorrect,
     VoidCallback onTap,
   ) {
+    // Renk mantığı
+    Color backgroundColor = Colors.grey.shade50;
+    Color borderColor = Colors.grey.shade200;
+    Color indicatorColor = Colors.grey.shade300;
+    Color textColor = Colors.grey.shade700;
+    IconData? indicatorIcon;
+    Color? indicatorIconColor;
+
+    if (showResult) {
+      if (isSelected && answer.isCorrect) {
+        backgroundColor = Colors.green.shade50;
+        borderColor = Colors.green;
+        indicatorColor = Colors.green;
+        textColor = Colors.green.shade800;
+        indicatorIcon = Icons.check;
+        indicatorIconColor = Colors.white;
+      } else if (isSelected && !answer.isCorrect) {
+        backgroundColor = Colors.red.shade50;
+        borderColor = Colors.red;
+        indicatorColor = Colors.red;
+        textColor = Colors.red.shade700;
+        indicatorIcon = Icons.close;
+        indicatorIconColor = Colors.white;
+      } else if (highlightCorrect) {
+        backgroundColor = Colors.green.shade50;
+        borderColor = Colors.green;
+        indicatorColor = Colors.green;
+        textColor = Colors.green.shade800;
+        indicatorIcon = Icons.check;
+        indicatorIconColor = Colors.white;
+      }
+    } else {
+      if (isSelected) {
+        backgroundColor = Theme.of(context).primaryColor.withOpacity(0.1);
+        borderColor = Theme.of(context).primaryColor;
+        indicatorColor = Theme.of(context).primaryColor;
+        textColor = Theme.of(context).primaryColor;
+        indicatorIcon = Icons.check;
+        indicatorIconColor = Colors.white;
+      }
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
@@ -603,15 +672,11 @@ class _ReadingQuizQuestionViewState extends State<ReadingQuizQuestionView>
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: isSelected 
-                ? Theme.of(context).primaryColor.withOpacity(0.1)
-                : Colors.grey.shade50,
+              color: backgroundColor,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: isSelected 
-                  ? Theme.of(context).primaryColor
-                  : Colors.grey.shade200,
-                width: isSelected ? 2 : 1,
+                color: borderColor,
+                width: (showResult && (isSelected || highlightCorrect)) || (!showResult && isSelected) ? 2 : 1,
               ),
             ),
             child: Row(
@@ -621,12 +686,10 @@ class _ReadingQuizQuestionViewState extends State<ReadingQuizQuestionView>
                   height: 24,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isSelected 
-                      ? Theme.of(context).primaryColor
-                      : Colors.grey.shade300,
+                    color: indicatorColor,
                   ),
-                  child: isSelected
-                    ? Icon(Icons.check, color: Colors.white, size: 16)
+                  child: (isSelected || highlightCorrect)
+                    ? Icon(indicatorIcon ?? Icons.check, color: indicatorIconColor ?? Colors.white, size: 16)
                     : null,
                 ),
                 const SizedBox(width: 16),
@@ -634,11 +697,11 @@ class _ReadingQuizQuestionViewState extends State<ReadingQuizQuestionView>
                   child: Text(
                     answer.answerText,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                      color: isSelected 
-                        ? Theme.of(context).primaryColor
-                        : Colors.grey.shade700,
+                      fontWeight: (isSelected || highlightCorrect) ? FontWeight.w600 : FontWeight.w500,
+                      color: textColor,
                     ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 3,
                   ),
                 ),
               ],
