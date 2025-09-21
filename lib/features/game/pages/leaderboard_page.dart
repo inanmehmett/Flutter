@@ -21,7 +21,7 @@ class PodiumCard extends StatelessWidget {
     required this.xpValue,
   });
 
-ddaki  @override
+  @override
   Widget build(BuildContext context) {
     final rankColor = _getRankColor(rank);
     

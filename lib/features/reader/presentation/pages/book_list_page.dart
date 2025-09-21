@@ -314,7 +314,7 @@ class _BookListPageState extends State<BookListPage> {
         padding: const EdgeInsets.all(20),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: _getCrossAxisCount(),
-          childAspectRatio: 0.7,
+          childAspectRatio: 0.85, // Daha kareye yakın - fotoğraflar dikey görünür
           crossAxisSpacing: 16,
           mainAxisSpacing: 20,
         ),
@@ -323,7 +323,7 @@ class _BookListPageState extends State<BookListPage> {
           final book = books[index];
           return UnifiedBookCard(
             book: book,
-            isGridLayout: true,
+            isGridLayout: false,
           );
         },
       ),

@@ -120,31 +120,27 @@ class UnifiedBookCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              flex: 3,
-              child: ClipRRect(
+            ClipRRect(
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(16),
                   topRight: Radius.circular(16),
                 ),
                 child: Container(
+                  height: 110, // Biraz daha yüksek - daha dengeli görünüm
                   width: double.infinity,
                   color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
                   child: cover.isEmpty
-                      ? const Icon(Icons.menu_book, size: 40)
+                      ? const Icon(Icons.menu_book, size: 36)
                       : Image.network(
                           cover,
                           fit: BoxFit.cover,
-                          errorBuilder: (c, e, s) => const Icon(Icons.menu_book, size: 40),
+                          errorBuilder: (c, e, s) => const Icon(Icons.menu_book, size: 36),
                         ),
                 ),
               ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
+            Padding(
+              padding: const EdgeInsets.all(8), // Daha az padding
+              child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
@@ -152,9 +148,9 @@ class UnifiedBookCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 12, // Daha küçük font
                         fontWeight: FontWeight.w600,
-                        height: 1.2,
+                        height: 1.1,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -194,7 +190,6 @@ class UnifiedBookCard extends StatelessWidget {
                   ],
                 ),
               ),
-            ),
           ],
         ),
       ),
