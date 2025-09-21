@@ -480,7 +480,15 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                           // Sayfa içeriği (dokunulan cümleyi bul)
                            GestureDetector(
                             behavior: HitTestBehavior.opaque,
-                            onLongPressStart: (details) => _onWordLongPressStart(details, pageContent, constraints, themeManager),
+                            onLongPressStart: (details) {
+                              final textStyle = TextStyle(
+                                fontSize: state.fontSize,
+                                color: _getThemeTextColor(themeManager),
+                                height: 1.6,
+                                letterSpacing: 0.1,
+                              );
+                              _onWordLongPressStart(details, pageContent, constraints, themeManager, textStyle);
+                            },
                             onLongPressEnd: (details) => _onWordLongPressEnd(),
                             onTapUp: (details) async {
                                HapticFeedback.selectionClick();
@@ -1410,7 +1418,14 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     double maxWidth,
     Offset localPos,
   ) {
+    print('🔍 [Extract Word] ===== EXTRACT WORD START =====');
+    print('🔍 [Extract Word] Input Local Position: $localPos');
+    print('🔍 [Extract Word] Max Width: $maxWidth');
+    print('🔍 [Extract Word] Font Size: ${style.fontSize}');
+    print('🔍 [Extract Word] Text Length: ${fullText.length}');
+    
     if (fullText.isEmpty || maxWidth <= 0) {
+      print('🔍 [Extract Word] ❌ Empty text or invalid maxWidth');
       return {'word': '', 'start': 0, 'end': 0};
     }
 
@@ -1421,16 +1436,30 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
       maxLines: null,
     );
     tp.layout(maxWidth: maxWidth);
+    
+    print('🔍 [Extract Word] TextPainter Size: ${tp.size}');
+    print('🔍 [Extract Word] TextPainter Line Count: ${tp.computeLineMetrics().length}');
 
+    // Pozisyonu daha hassas hesapla
     final pos = tp.getPositionForOffset(localPos);
-    final idx = pos.offset.clamp(0, fullText.length);
+    final idx = pos.offset.clamp(0, fullText.length - 1);
+    
+    print('🔍 [Extract Word] TextPainter Position: $pos');
+    print('🔍 [Extract Word] Character Index: $idx');
+    print('🔍 [Extract Word] Character at Index: "${idx < fullText.length ? fullText[idx] : 'EOF'}"');
+    
+    // Çevredeki karakterleri göster
+    final contextStart = (idx - 10).clamp(0, fullText.length);
+    final contextEnd = (idx + 10).clamp(0, fullText.length);
+    print('🔍 [Extract Word] Context: "${fullText.substring(contextStart, contextEnd)}"');
+    print('🔍 [Extract Word] Context Index: $contextStart-$contextEnd, Target: $idx');
 
-    // Kelime sınırları: boşluk, noktalama işaretleri
-    final wordBoundaryRegex = RegExp(r'[\s\.,!?;:"\x27\-]');
+    // Kelime sınırları: boşluk, noktalama işaretleri ve özel karakterler
+    final wordBoundaryRegex = RegExp(r'[\s\.,!?;:"\x27\-\(\)\[\]{}]');
 
     // Solda kelime başlangıcını bul
     int start = idx;
-    for (int i = idx - 1; i >= 0; i--) {
+    for (int i = idx; i >= 0; i--) {
       if (wordBoundaryRegex.hasMatch(fullText[i])) {
         start = i + 1;
         break;
@@ -1451,43 +1480,71 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
         end = fullText.length;
       }
     }
+    
+    print('🔍 [Extract Word] Word Boundaries: start=$start, end=$end');
 
     final word = fullText.substring(start, end).trim();
     
-    // Kelime boşsa veya çok kısaysa (2 karakterden az) geçersiz kabul et
-    if (word.isEmpty || word.length < 2) {
+    print('🔍 [Extract Word] Extracted Word: "$word"');
+    
+    // Kelime boşsa veya çok kısaysa (1 karakterden az) geçersiz kabul et
+    if (word.isEmpty || word.length < 1) {
+      print('🔍 [Extract Word] ❌ Word too short or empty');
       return {'word': '', 'start': 0, 'end': 0};
     }
 
+    // Kelime sadece noktalama işaretlerinden oluşuyorsa geçersiz
+    if (wordBoundaryRegex.hasMatch(word)) {
+      print('🔍 [Extract Word] ❌ Word contains only punctuation');
+      return {'word': '', 'start': 0, 'end': 0};
+    }
+
+    print('🔍 [Extract Word] ✅ Valid word: "$word"');
+    print('🔍 [Extract Word] ===== EXTRACT WORD END =====');
+    
     return {'word': word, 'start': start, 'end': end};
   }
 
   // Long press başlangıcı
-  void _onWordLongPressStart(LongPressStartDetails details, String pageContent, BoxConstraints constraints, ThemeManager themeManager) {
+  void _onWordLongPressStart(LongPressStartDetails details, String pageContent, BoxConstraints constraints, ThemeManager themeManager, TextStyle actualTextStyle) {
     HapticFeedback.mediumImpact();
     
     // Get current page index from the context
     final currentPageIndex = _readerBloc.state is ReaderLoaded ? (_readerBloc.state as ReaderLoaded).currentPage : 0;
     
-    final textStyle = TextStyle(
-      fontSize: 16, // Default font size for word detection
-      color: _getThemeTextColor(themeManager),
-      height: 1.6,
-      letterSpacing: 0.1,
-    );
+    // Gerçek metin genişliğini hesapla - padding ve margin'leri çıkar
+    final maxTextWidth = (constraints.maxWidth - 32.0).clamp(0.0, double.infinity); // 16px padding her iki tarafta
     
-    final maxTextWidth = (constraints.maxWidth - 40).clamp(0, double.infinity);
+    // RenderBox'ı bul ve pozisyonu doğru hesapla
     final box = _textKeys[currentPageIndex]?.currentContext?.findRenderObject() as RenderBox?;
-    final localPos = box != null
-        ? box.globalToLocal(details.globalPosition)
-        : details.localPosition;
+    if (box == null) {
+      print('🔍 [Word Detection] RenderBox bulunamadı! PageIndex: $currentPageIndex');
+      return;
+    }
+    
+    final localPos = box.globalToLocal(details.globalPosition);
+    
+    // Detaylı loglar
+    print('🔍 [Word Detection] ===== LONG PRESS START =====');
+    print('🔍 [Word Detection] Page Index: $currentPageIndex');
+    print('🔍 [Word Detection] Global Position: ${details.globalPosition}');
+    print('🔍 [Word Detection] Local Position: $localPos');
+    print('🔍 [Word Detection] Box Size: ${box.size}');
+    print('🔍 [Word Detection] Max Text Width: $maxTextWidth');
+    print('🔍 [Word Detection] Font Size: ${actualTextStyle.fontSize}');
+    print('🔍 [Word Detection] Page Content Length: ${pageContent.length}');
+    print('🔍 [Word Detection] Page Content Preview: ${pageContent.substring(0, 100)}...');
     
     final wordInfo = _extractWordAtOffset(
       pageContent,
-      textStyle,
-      maxTextWidth.toDouble(),
+      actualTextStyle, // Gerçek text style kullan
+      maxTextWidth,
       localPos,
     );
+    
+    print('🔍 [Word Detection] Detected Word: "${wordInfo['word']}"');
+    print('🔍 [Word Detection] Word Start: ${wordInfo['start']}');
+    print('🔍 [Word Detection] Word End: ${wordInfo['end']}');
     
     if (wordInfo['word'].toString().isNotEmpty) {
       setState(() {
@@ -1497,12 +1554,18 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
         _selectedWord = wordInfo['word'];
       });
       
+      print('🔍 [Word Detection] ✅ Word selected: "${wordInfo['word']}"');
+      
       // Show word popup overlay
       _showWordOverlay(details.globalPosition, wordInfo['word'], themeManager);
       
       // Get translation
       _translateWord(wordInfo['word']);
+    } else {
+      print('🔍 [Word Detection] ❌ No word detected');
     }
+    
+    print('🔍 [Word Detection] ===== LONG PRESS START END =====');
   }
 
   // Long press sonu
@@ -1554,51 +1617,89 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     
     _wordOverlay = OverlayEntry(
       builder: (context) => Positioned(
-        left: globalPosition.dx - 50,
-        top: globalPosition.dy - 80,
+        left: globalPosition.dx - 75, // Tooltip'i daha iyi konumlandır
+        top: globalPosition.dy - 100, // Üstte göster
         child: Material(
           color: Colors.transparent,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            constraints: const BoxConstraints(
+              maxWidth: 200, // Maksimum genişlik
+              minWidth: 100, // Minimum genişlik
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: _getThemeSurfaceColor(themeManager),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+                  color: Colors.black.withValues(alpha: 0.25),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
                 ),
               ],
               border: Border.all(
-                color: _getThemePrimaryColor(themeManager),
-                width: 1,
+                color: _getThemePrimaryColor(themeManager).withValues(alpha: 0.3),
+                width: 1.5,
               ),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  word,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: _getThemeOnSurfaceColor(themeManager),
+                // Kelime başlığı
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _getThemePrimaryColor(themeManager).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    word,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: _getThemePrimaryColor(themeManager),
+                    ),
                   ),
                 ),
+                const SizedBox(height: 8),
+                // Çeviri veya loading
                 if (_isLoadingTranslation)
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Çeviriliyor...',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: _getThemeOnSurfaceVariantColor(themeManager),
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
                   )
                 else if (_wordTranslation != null && _wordTranslation!.isNotEmpty)
                   Text(
                     _wordTranslation!,
                     style: TextStyle(
                       fontSize: 14,
+                      color: _getThemeOnSurfaceColor(themeManager),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  )
+                else
+                  Text(
+                    'Çeviri yükleniyor...',
+                    style: TextStyle(
+                      fontSize: 13,
                       color: _getThemeOnSurfaceVariantColor(themeManager),
+                      fontStyle: FontStyle.italic,
                     ),
                   ),
               ],
