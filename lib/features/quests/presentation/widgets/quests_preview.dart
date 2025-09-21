@@ -172,4 +172,3 @@ class _QuestsPreviewState extends State<QuestsPreview> {
     );
   }
 }
-

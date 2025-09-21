@@ -8,7 +8,6 @@ import 'core/theme/theme_manager.dart';
 import 'core/theme/app_design_system.dart';
 import 'core/theme/app_colors.dart';
 import 'features/user/presentation/pages/profile_page.dart';
-import 'features/user/presentation/pages/profile_page_sample.dart';
 import 'features/user/presentation/pages/profile_details_page.dart';
 import 'core/di/injection.dart';
 import 'features/reader/data/models/book_model.dart';
@@ -35,6 +34,9 @@ import 'features/game/pages/leaderboard_page.dart';
 import 'features/quiz/presentation/pages/vocabulary_quiz_page.dart';
 import 'features/quiz/presentation/cubit/vocabulary_quiz_cubit.dart';
 import 'features/quiz/data/services/vocabulary_quiz_service.dart';
+import 'features/vocabulary_notebook/presentation/pages/vocabulary_notebook_page.dart';
+import 'features/vocabulary_notebook/presentation/bloc/vocabulary_bloc.dart';
+import 'features/vocabulary_notebook/data/repositories/vocabulary_repository_impl.dart';
 
 void main() async {
   Logger.info('App starting...');
@@ -97,6 +99,9 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider<ThemeManager>(
           create: (context) => ThemeManager(),
         ),
+        BlocProvider<VocabularyBloc>(
+          create: (context) => VocabularyBloc(repository: VocabularyRepositoryImpl()),
+        ),
       ],
       child: MaterialApp(
         title: 'Daily English',
@@ -126,11 +131,10 @@ class MyApp extends StatelessWidget {
           '/register': (context) => const RegistrationPage(),
           '/home': (context) => const AppShell(initialIndex: 0),
           '/books': (context) => const AppShell(initialIndex: 1),
-          '/profile': (context) => const AppShell(initialIndex: 3),
+          '/profile': (context) => const AppShell(initialIndex: 4),
           '/profile-details': (context) => const ProfileDetailsPage(),
           '/badges': (context) => BadgesPage(),
           '/leaderboard': (context) => const LeaderboardPage(),
-          '/profile-sample': (context) => const ProfileSamplePage(),
           '/quiz': (context) => Scaffold(
                 body: Center(
                   child: Text('Quiz Page - Coming Soon!', style: TextStyle(fontSize: 24)),
@@ -161,6 +165,7 @@ class MyApp extends StatelessWidget {
               return Scaffold(body: Center(child: Text('No book data!')));
             }
           },
+          '/vocabulary': (context) => const VocabularyNotebookPage(),
         },
       ),
     );
@@ -183,7 +188,9 @@ class _AppShellState extends State<AppShell> {
   final _pages = const [
     HomePage(showBottomNav: false),
     BookListPage(showBottomNav: false),
-    // Vocabulary Quiz page - will be replaced dynamically
+    // Vocabulary page - will be replaced dynamically
+    Scaffold(body: Center(child: Text('Vocabulary Page - Coming Soon!', style: TextStyle(fontSize: 24)))),
+    // Quiz page - will be replaced dynamically  
     Scaffold(body: Center(child: Text('Quiz Page - Coming Soon!', style: TextStyle(fontSize: 24)))),
     ProfilePage(),
   ];
@@ -255,24 +262,33 @@ class _AppShellState extends State<AppShell> {
         ),
         bottomNavigationBar: _GlobalBottomNav(
           currentIndex: _currentIndex,
-          onTap: (i) {
-            if (i == 2) {
-              // Navigate to vocabulary quiz instead of switching to quiz tab
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => BlocProvider(
-                    create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>()),
-                    child: const VocabularyQuizPage(),
-                  ),
-                ),
-              );
-            } else {
-              setState(() => _currentIndex = i);
-            }
-          },
+          onTap: (index) => _handleBottomNavTap(context, index),
         ),
       ),
     );
+  }
+
+  void _handleBottomNavTap(BuildContext context, int index) {
+    switch (index) {
+      case 0:
+      case 1:
+      case 4: // Home, Books, Profile
+        setState(() => _currentIndex = index);
+        break;
+      case 2: // Vocabulary Notebook
+        Navigator.of(context).pushNamed('/vocabulary');
+        break;
+      case 3: // Quiz
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => BlocProvider(
+              create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>()),
+              child: const VocabularyQuizPage(),
+            ),
+          ),
+        );
+        break;
+    }
   }
 
   @override
@@ -286,6 +302,14 @@ class _GlobalBottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int>? onTap;
   const _GlobalBottomNav({required this.currentIndex, this.onTap});
+
+  static const List<_NavItem> _navItems = [
+    _NavItem(icon: Icons.home, label: 'Home', route: '/home'),
+    _NavItem(icon: Icons.menu_book, label: 'Books', route: '/books'),
+    _NavItem(icon: Icons.book_outlined, label: 'Kelime', route: '/vocabulary'),
+    _NavItem(icon: Icons.quiz, label: 'Quiz', route: null), // Special handling
+    _NavItem(icon: Icons.person, label: 'Profile', route: '/profile'),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -303,41 +327,50 @@ class _GlobalBottomNav extends StatelessWidget {
         fontWeight: FontWeight.w400,
         fontSize: 12,
       ),
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-        BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'Books'),
-        BottomNavigationBarItem(icon: Icon(Icons.quiz), label: 'Quiz'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-      ],
-      onTap: (index) {
-        if (onTap != null) {
-          onTap!(index);
-          return;
-        }
-        // Fallback route navigation
-        switch (index) {
-          case 0:
-            Navigator.pushReplacementNamed(context, '/home');
-            break;
-          case 1:
-            Navigator.pushReplacementNamed(context, '/books');
-            break;
-          case 2:
-            // Navigate to vocabulary quiz instead of placeholder quiz page
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => BlocProvider(
-                  create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>()),
-                  child: const VocabularyQuizPage(),
-                ),
-              ),
-            );
-            break;
-          case 3:
-            Navigator.pushReplacementNamed(context, '/profile');
-            break;
-        }
-      },
+      items: _navItems.map((item) => BottomNavigationBarItem(
+        icon: Icon(item.icon),
+        label: item.label,
+      )).toList(),
+      onTap: (index) => _handleNavigation(context, index),
     );
   }
+
+  void _handleNavigation(BuildContext context, int index) {
+    if (onTap != null) {
+      onTap!(index);
+      return;
+    }
+
+    final item = _navItems[index];
+    
+    if (item.route == null) {
+      // Special case for Quiz - navigate to vocabulary quiz
+      _navigateToVocabularyQuiz(context);
+    } else {
+      Navigator.pushReplacementNamed(context, item.route!);
+    }
+  }
+
+  void _navigateToVocabularyQuiz(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => BlocProvider(
+          create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>()),
+          child: const VocabularyQuizPage(),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem {
+  final IconData icon;
+  final String label;
+  final String? route;
+
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.route,
+  });
 }

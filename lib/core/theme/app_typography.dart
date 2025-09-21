@@ -111,6 +111,9 @@ class AppTypography {
     letterSpacing: 0.0,
   );
 
+  // Alias for caption (commonly used)
+  static const TextStyle caption = caption1;
+
   // Button Text Styles
   static const TextStyle buttonLarge = TextStyle(
     fontSize: fontSizeHeadline,

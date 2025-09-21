@@ -29,15 +29,22 @@ extension ViewModifiers on Widget {
       children: [
         this,
         if (error.value != null)
-          AlertDialog(
-            title: const Text('Error'),
-            content: Text(error.value?.toString() ?? 'Unknown error occurred'),
-            actions: [
-              TextButton(
-                onPressed: () => error.value = null,
-                child: const Text('OK'),
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withOpacity(0.5),
+              child: Center(
+                child: AlertDialog(
+                  title: const Text('Error'),
+                  content: Text(error.value?.toString() ?? 'Unknown error occurred'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => error.value = null,
+                      child: const Text('OK'),
+                    ),
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
       ],
     );
@@ -48,10 +55,12 @@ extension ViewModifiers on Widget {
       children: [
         this,
         if (isLoading)
-          Container(
-            color: Colors.black.withOpacity(0.4),
-            child: const Center(
-              child: CircularProgressIndicator(),
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withOpacity(0.4),
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
             ),
           ),
       ],

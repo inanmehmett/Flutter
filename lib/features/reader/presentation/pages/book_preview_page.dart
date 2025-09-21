@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/models/book_model.dart';
+import '../../../../main.dart';
 
 class BookPreviewPage extends StatelessWidget {
   final BookModel? book;
@@ -254,7 +255,13 @@ class BookPreviewPage extends StatelessWidget {
             Navigator.pushReplacementNamed(context, '/books');
             break;
           case 2:
+            Navigator.pushReplacementNamed(context, '/vocabulary');
+            break;
+          case 3:
             Navigator.pushReplacementNamed(context, '/quiz');
+            break;
+          case 4:
+            Navigator.pushReplacementNamed(context, '/profile');
             break;
         }
       },
@@ -268,8 +275,16 @@ class BookPreviewPage extends StatelessWidget {
           label: 'Books',
         ),
         BottomNavigationBarItem(
+          icon: Icon(Icons.book_outlined),
+          label: 'Kelime',
+        ),
+        BottomNavigationBarItem(
           icon: Icon(Icons.quiz),
           label: 'Quiz',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.person),
+          label: 'Profile',
         ),
       ],
     );

@@ -29,7 +29,11 @@ class BadgeCelebration {
               fit: StackFit.expand,
               children: [
                 // Confetti across entire screen, non-blocking
-                IgnorePointer(child: Stack(children: _buildStars(theme, controller.value, MediaQuery.of(context).size))),
+                IgnorePointer(
+                  child: Stack(
+                    children: _buildStars(theme, controller.value, MediaQuery.of(context).size),
+                  ),
+                ),
                 // Center spotlight badge with glow + closer labels just beneath the badge
                 Center(
                   child: Opacity(
@@ -130,6 +134,12 @@ class BadgeCelebration {
   static List<Widget> _buildStars(ThemeData theme, double t, Size screenSize) {
     final rnd = Random(12);
     final stars = <Widget>[];
+    
+    // Ensure we have valid screen size
+    if (screenSize.width <= 0 || screenSize.height <= 0) {
+      return stars;
+    }
+    
     for (int i = 0; i < 42; i++) {
       final dx = rnd.nextDouble();
       final delay = (i % 6) * 0.05;
@@ -147,21 +157,25 @@ class BadgeCelebration {
         4: theme.colorScheme.primary,
       }[colorPick]!
           .withValues(alpha: colorPick == 4 ? 0.85 : 0.95);
-      stars.add(Positioned(
-        top: top,
-        left: left,
-        child: Opacity(
-          opacity: alpha,
-          child: Transform.rotate(
-            angle: angle,
-            child: Icon(
-              i % 3 == 0 ? Icons.auto_awesome : Icons.star_rounded,
-              color: color,
-              size: 16 + rnd.nextInt(22).toDouble(),
+      
+      // Only add star if alpha is greater than 0 (visible)
+      if (alpha > 0) {
+        stars.add(Positioned(
+          top: top,
+          left: left,
+          child: Opacity(
+            opacity: alpha,
+            child: Transform.rotate(
+              angle: angle,
+              child: Icon(
+                i % 3 == 0 ? Icons.auto_awesome : Icons.star_rounded,
+                color: color,
+                size: 16 + rnd.nextInt(22).toDouble(),
+              ),
             ),
           ),
-        ),
-      ));
+        ));
+      }
     }
     return stars;
   }

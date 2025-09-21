@@ -340,7 +340,6 @@ class ReadingQuizQuestionView extends StatefulWidget {
   final double progress;
   final int remainingTime;
   final Function(int, int?, String?) onAnswerSelected;
-  final VoidCallback? onPreviousQuestion;
 
   const ReadingQuizQuestionView({
     Key? key,
@@ -351,7 +350,6 @@ class ReadingQuizQuestionView extends StatefulWidget {
     required this.progress,
     required this.remainingTime,
     required this.onAnswerSelected,
-    this.onPreviousQuestion,
   }) : super(key: key);
 
   @override
@@ -361,7 +359,6 @@ class ReadingQuizQuestionView extends StatefulWidget {
 class _ReadingQuizQuestionViewState extends State<ReadingQuizQuestionView>
     with TickerProviderStateMixin {
   int? selectedAnswerId;
-  late AnimationController _timerController;
   late AnimationController _questionController;
   late Animation<double> _questionAnimation;
 
@@ -369,10 +366,6 @@ class _ReadingQuizQuestionViewState extends State<ReadingQuizQuestionView>
   void initState() {
     super.initState();
     selectedAnswerId = null; // Her yeni soru için seçimi sıfırla
-    _timerController = AnimationController(
-      duration: Duration(seconds: widget.remainingTime),
-      vsync: this,
-    );
     _questionController = AnimationController(
       duration: const Duration(milliseconds: 500),
       vsync: this,
@@ -381,7 +374,6 @@ class _ReadingQuizQuestionViewState extends State<ReadingQuizQuestionView>
       CurvedAnimation(parent: _questionController, curve: Curves.easeInOut),
     );
     _questionController.forward();
-    _startTimer();
   }
 
   @override
@@ -395,29 +387,26 @@ class _ReadingQuizQuestionViewState extends State<ReadingQuizQuestionView>
     }
   }
 
-  void _startTimer() {
-    _timerController.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        // Zaman doldu, otomatik cevap gönder
-        _submitAnswer();
-      }
-    });
-  }
 
   void _submitAnswer() {
     if (selectedAnswerId != null) {
       Logger.debug('UI submit answer questionId=${widget.currentQuestion.id} selected=$selectedAnswerId');
-      widget.onAnswerSelected(
-        widget.currentQuestion.id,
-        selectedAnswerId,
-        null,
-      );
+      
+      // 0.5 saniye bekle, sonra otomatik geç
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          widget.onAnswerSelected(
+            widget.currentQuestion.id,
+            selectedAnswerId,
+            null,
+          );
+        }
+      });
     }
   }
 
   @override
   void dispose() {
-    _timerController.dispose();
     _questionController.dispose();
     super.dispose();
   }
@@ -451,9 +440,6 @@ class _ReadingQuizQuestionViewState extends State<ReadingQuizQuestionView>
                 Expanded(
                   child: _buildQuestionCard(context),
                 ),
-                
-                // Aksiyon Butonları
-                _buildActionButtons(context),
               ],
             ),
           ),
@@ -465,69 +451,56 @@ class _ReadingQuizQuestionViewState extends State<ReadingQuizQuestionView>
   Widget _buildHeader(BuildContext context) {
     return Column(
       children: [
-        // Progress Bar
-        Row(
-          children: [
-            Expanded(
-              child: Container(
-                height: 8,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: FractionallySizedBox(
-                  alignment: Alignment.centerLeft,
-                  widthFactor: widget.progress,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor,
-                      borderRadius: BorderRadius.circular(4),
+        // Modern Progress Section
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Progress Steps
+              Row(
+                children: List.generate(widget.totalQuestions, (index) {
+                  final isCompleted = index < widget.currentQuestionIndex;
+                  final isCurrent = index == widget.currentQuestionIndex;
+                  
+                  return Expanded(
+                    child: Container(
+                      margin: EdgeInsets.only(right: index < widget.totalQuestions - 1 ? 8 : 0),
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: isCompleted || isCurrent 
+                          ? Colors.green 
+                          : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 12),
+              
+              // Progress Percentage
+              Center(
+                child: Text(
+                  '${(widget.progress * 100).round()}%',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green.shade600,
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Flexible(
-              child: Text(
-                '${widget.currentQuestionIndex + 1}/$widget.totalQuestions',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).primaryColor,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        
-        // Timer
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.timer, color: Colors.orange.shade600, size: 20),
-            const SizedBox(width: 8),
-            Flexible(
-              child: AnimatedBuilder(
-                animation: _timerController,
-                builder: (context, child) {
-                  final remainingSeconds = (widget.remainingTime * _timerController.value).round();
-                  final minutes = remainingSeconds ~/ 60;
-                  final seconds = remainingSeconds % 60;
-                  
-                  return Text(
-                    '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: remainingSeconds < 30 ? Colors.red.shade600 : Colors.orange.shade600,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  );
-                },
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -557,15 +530,6 @@ class _ReadingQuizQuestionViewState extends State<ReadingQuizQuestionView>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Soru Metni
-                Text(
-                  'Soru ${widget.currentQuestionIndex + 1}',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                
                 Text(
                   widget.currentQuestion.questionText,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -599,6 +563,8 @@ class _ReadingQuizQuestionViewState extends State<ReadingQuizQuestionView>
                           setState(() {
                             selectedAnswerId = answer.id;
                           });
+                          // Seçim yapıldıktan sonra otomatik gönder
+                          _submitAnswer();
                         },
                       );
                     },
@@ -712,66 +678,6 @@ class _ReadingQuizQuestionViewState extends State<ReadingQuizQuestionView>
     );
   }
 
-  Widget _buildActionButtons(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        // Önceki Soru Butonu
-        if (widget.onPreviousQuestion != null) ...[
-          Expanded(
-            child: OutlinedButton(
-              onPressed: widget.onPreviousQuestion,
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: theme.primaryColor),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.arrow_back, size: 20),
-                  const SizedBox(width: 8),
-                  Text('Önceki'),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-        ],
-        
-        // Cevabı Gönder Butonu
-        Expanded(
-          flex: widget.onPreviousQuestion != null ? 1 : 2,
-          child: ElevatedButton(
-            onPressed: selectedAnswerId != null ? _submitAnswer : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).primaryColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: selectedAnswerId != null ? 4 : 0,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.send, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  widget.currentQuestionIndex == widget.totalQuestions - 1 
-                    ? 'Bitir' 
-                    : 'Sonraki',
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 /// Quiz tamamlandı ekranı
@@ -883,6 +789,7 @@ class ReadingQuizResultView extends StatefulWidget {
 
 class _ReadingQuizResultViewState extends State<ReadingQuizResultView> {
   bool _toastsShown = false;
+  int _countdown = 3;
 
   @override
   void initState() {
@@ -893,6 +800,24 @@ class _ReadingQuizResultViewState extends State<ReadingQuizResultView> {
       // Toastlar SignalR tarafından gerçek zamanlı tetikleniyor.
       // Buradaki manuel toasts kaldırıldı ki çift gösterim olmasın.
       HapticFeedback.selectionClick();
+      
+      // Geri sayım başlat
+      _startCountdown();
+    });
+  }
+
+  void _startCountdown() {
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) {
+        setState(() {
+          _countdown--;
+        });
+        if (_countdown > 0) {
+          _startCountdown();
+        } else {
+          widget.onBackToBook();
+        }
+      }
     });
   }
 
@@ -902,95 +827,72 @@ class _ReadingQuizResultViewState extends State<ReadingQuizResultView> {
     final theme = Theme.of(context);
     
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: isPassed 
-              ? [Colors.green.shade50, Colors.white]
-              : [Colors.orange.shade50, Colors.white],
-          ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              children: [
-                // Header - Başarı/Kutlama
-                _buildHeader(context, isPassed),
-                const SizedBox(height: 32),
-                
-                // Ana Sonuç Kartı
-                _buildMainResultCard(context),
-                const SizedBox(height: 24),
-                
-                // Detaylı İstatistikler
-                _buildDetailedStats(context),
-                const SizedBox(height: 24),
-                
-                // XP ve Seviye Bilgileri
-                _buildXPAndLevelInfo(context),
-                const SizedBox(height: 24),
-                
-                // Premium Özellikler (Monetization)
-                _buildPremiumFeatures(context),
-                const SizedBox(height: 32),
-                
-                // Aksiyon Butonları
-                _buildActionButtons(context),
-              ],
-            ),
+      backgroundColor: Colors.grey.shade50,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            children: [
+              // Header - iOS tarzı minimal
+              _buildIOSHeader(context, isPassed),
+              const SizedBox(height: 40),
+              
+              // Ana Sonuç - iOS tarzı büyük kart
+              _buildIOSMainResult(context, isPassed),
+              const SizedBox(height: 32),
+              
+              // İstatistik - iOS tarzı kompakt
+              _buildIOSStats(context),
+              const SizedBox(height: 40),
+              
+              // Geri sayım ve butonlar - iOS tarzı
+              _buildIOSActions(context),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context, bool isPassed) {
-    final theme = Theme.of(context);
+  Widget _buildIOSHeader(BuildContext context, bool isPassed) {
     return Column(
       children: [
-        // Ana İkon
+        // iOS tarzı büyük ikon
         Container(
-          width: 120,
-          height: 120,
+          width: 80,
+          height: 80,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: isPassed ? Colors.green.shade100 : Colors.orange.shade100,
-            boxShadow: [
-              BoxShadow(
-                color: (isPassed ? Colors.green : Colors.orange).withOpacity(0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
           ),
           child: Icon(
-            isPassed ? Icons.celebration : Icons.sentiment_satisfied,
-            size: 60,
+            isPassed ? Icons.check_circle : Icons.refresh,
+            size: 40,
             color: isPassed ? Colors.green.shade600 : Colors.orange.shade600,
           ),
         ),
         const SizedBox(height: 24),
         
-        // Başlık
+        // iOS tarzı başlık
         Text(
-          isPassed ? 'Tebrikler!' : 'İyi Çaba!',
-          style: theme.textTheme.headlineLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: isPassed ? Colors.green.shade700 : Colors.orange.shade700,
+          isPassed ? 'Tebrikler!' : 'Tekrar Deneyin',
+          style: const TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
           ),
         ),
         const SizedBox(height: 8),
         
-        // Alt başlık
+        // iOS tarzı alt başlık
         Text(
           isPassed 
-            ? 'Quiz\'i başarıyla tamamladınız!'
-            : 'Biraz daha çalışarak başarabilirsiniz.',
-          style: theme.textTheme.titleMedium?.copyWith(
+            ? 'Quiz\'i başarıyla tamamladınız'
+            : 'Biraz daha çalışarak başarabilirsiniz',
+          style: TextStyle(
+            fontSize: 16,
             color: Colors.grey.shade600,
+            fontWeight: FontWeight.w400,
           ),
           textAlign: TextAlign.center,
         ),
@@ -998,40 +900,41 @@ class _ReadingQuizResultViewState extends State<ReadingQuizResultView> {
     );
   }
 
-  Widget _buildMainResultCard(BuildContext context) {
-    final theme = Theme.of(context);
+  Widget _buildIOSMainResult(BuildContext context, bool isPassed) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Column(
         children: [
-          // Puan alanı kaldırıldı
-          const SizedBox(height: 0),
-          
-          // Yüzde
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            decoration: BoxDecoration(
-              color: widget.result.percentage >= 70 ? Colors.green.shade100 : Colors.orange.shade100,
-              borderRadius: BorderRadius.circular(20),
+          // iOS tarzı büyük yüzde
+          Text(
+            '${widget.result.percentage.toStringAsFixed(0)}%',
+            style: TextStyle(
+              fontSize: 48,
+              fontWeight: FontWeight.w700,
+              color: isPassed ? Colors.green.shade600 : Colors.orange.shade600,
             ),
-            child: Text(
-              '${widget.result.percentage.toStringAsFixed(1)}%',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: widget.result.percentage >= 70 ? Colors.green.shade700 : Colors.orange.shade700,
-              ),
+          ),
+          const SizedBox(height: 8),
+          
+          // iOS tarzı durum
+          Text(
+            isPassed ? 'Başarılı' : 'Gelişim Gerekli',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade700,
             ),
           ),
         ],
@@ -1039,31 +942,80 @@ class _ReadingQuizResultViewState extends State<ReadingQuizResultView> {
     );
   }
 
-  Widget _buildDetailedStats(BuildContext context) {
-    final theme = Theme.of(context);
+  Widget _buildIOSStats(BuildContext context) {
     final total = widget.result.correctAnswers + widget.result.wrongAnswers;
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatCard(
-            context,
-            'Doğru',
-            '${widget.result.correctAnswers}/$total',
-            Icons.check_circle,
-            Colors.green,
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
-            context,
-            'Süre',
-            '${(widget.result.timeSpent / 60).round()}dk',
-            Icons.timer,
-            Colors.blue,
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          // Doğru cevaplar
+          Column(
+            children: [
+              Text(
+                '${widget.result.correctAnswers}',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Doğru',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
+          
+          // Ayırıcı çizgi
+          Container(
+            height: 40,
+            width: 1,
+            color: Colors.grey.shade300,
+          ),
+          
+          // Toplam sorular
+          Column(
+            children: [
+              Text(
+                '$total',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Toplam',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -1209,48 +1161,77 @@ class _ReadingQuizResultViewState extends State<ReadingQuizResultView> {
     return const SizedBox.shrink();
   }
 
-  Widget _buildActionButtons(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
+  Widget _buildIOSActions(BuildContext context) {
+    return Column(
       children: [
-        Expanded(
-          child: OutlinedButton(
-            onPressed: widget.onRetakeQuiz,
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: theme.primaryColor),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: Text(
-              'Tekrar Çöz',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+        // Geri sayım göstergesi - iOS tarzı
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            '$_countdown',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.blue.shade700,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: ElevatedButton(
-            onPressed: widget.onBackToBook,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: theme.primaryColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+        const SizedBox(height: 24),
+        
+        // iOS tarzı butonlar
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 50,
+                child: OutlinedButton(
+                  onPressed: widget.onRetakeQuiz,
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: Colors.grey.shade300),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Tekrar Çöz',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
               ),
             ),
-            child: Text(
-              'Kitaba Dön',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Container(
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: widget.onBackToBook,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'Kapat',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
+          ],
         ),
       ],
     );

@@ -45,6 +45,7 @@ class AppShadows {
   static const List<BoxShadow> appBarShadow = shadowSmall;
   static const List<BoxShadow> modalShadow = shadowLarge;
   static const List<BoxShadow> floatingActionShadow = shadowMedium;
+  static const List<BoxShadow> inputShadow = shadowSmall;
 
   // Dark mode shadows
   static const List<BoxShadow> shadowSmallDark = [

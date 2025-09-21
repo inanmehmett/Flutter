@@ -322,24 +322,29 @@ class _VocabularyQuizResultState extends State<VocabularyQuizResultWidget>
                       ),
                     ),
                   ),
-                  Column(
-                    children: [
-                      Text(
-                        '${widget.result.quizScore}',
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: _getScoreColor(widget.result.quizScore),
-                        ),
+                  Positioned.fill(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '${widget.result.quizScore}',
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: _getScoreColor(widget.result.quizScore),
+                            ),
+                          ),
+                          Text(
+                            'Puan',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        'Puan',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ],
               );

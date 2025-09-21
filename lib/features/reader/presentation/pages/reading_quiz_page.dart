@@ -22,6 +22,10 @@ class ReadingQuizPage extends StatelessWidget {
         title: Text('Quiz: $bookTitle'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
       ),
       body: BlocBuilder<ReadingQuizCubit, ReadingQuizState>(
         builder: (context, state) {
@@ -49,9 +53,6 @@ class ReadingQuizPage extends StatelessWidget {
                   userAnswerText,
                 );
               },
-              onPreviousQuestion: state.currentQuestionIndex > 0 
-                ? () => context.read<ReadingQuizCubit>().goToPreviousQuestion()
-                : null,
             );
           } else if (state is ReadingQuizCompleted) {
             // Ara ekrana gerek yok; otomatik gönderim yapılır, burada yükleniyor göster

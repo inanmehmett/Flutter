@@ -296,6 +296,96 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildVocabularyNotebookSection(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+      padding: const EdgeInsets.all(AppSpacing.paddingL),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.purple.shade400, Colors.purple.shade300],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(AppRadius.cardRadius),
+        boxShadow: AppShadows.cardShadowElevated,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.book_outlined,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '📚 Kelime Defterim',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Öğrendiğin kelimeleri kaydet ve tekrar et!',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withOpacity(0.9),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: Semantics(
+              label: 'Kelime Defterini Aç',
+              hint: 'Kaydettiğin kelimeleri görüntülemek için dokunun',
+              button: true,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pushNamed('/vocabulary');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.surface,
+                  foregroundColor: Colors.purple.shade400,
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingM),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.buttonRadius),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Text(
+                  'Defterimi Aç',
+                  style: AppTypography.buttonMedium,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildQuizAdvertisementSection(BuildContext context) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 400),
@@ -619,6 +709,10 @@ class _HomePageState extends State<HomePage> {
                   _buildQuizAdvertisementSection(context),
                   const SizedBox(height: _largeSpacing),
                   
+                  // 5.1 KELİME DEFTERİ - Quiz'den sonra
+                  _buildVocabularyNotebookSection(context),
+                  const SizedBox(height: _largeSpacing),
+                  
                   // 6. SOSYAL VE MOTİVASYON - En altta
                   
                   // 6.1 Leaderboard Preview
@@ -632,53 +726,6 @@ class _HomePageState extends State<HomePage> {
           },
         ),
       ),
-      bottomNavigationBar: widget.showBottomNav ? BottomNavigationBar(
-        currentIndex: 0,
-        onTap: (index) {
-          switch (index) {
-            case 1:
-              Navigator.pushReplacementNamed(context, '/books');
-              break;
-            case 2:
-              // Navigate to vocabulary quiz instead of placeholder quiz page
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => BlocProvider(
-                    create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>()),
-                    child: const VocabularyQuizPage(),
-                  ),
-                ),
-              );
-              break;
-            case 3:
-              final state = context.read<AuthBloc>().state;
-              if (state is AuthAuthenticated) {
-                Navigator.pushReplacementNamed(context, '/profile');
-              } else {
-                Navigator.pushReplacementNamed(context, '/login');
-              }
-              break;
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.menu_book),
-            label: 'Books',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.quiz),
-            label: 'Quiz',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-      ) : null,
     );
   }
 

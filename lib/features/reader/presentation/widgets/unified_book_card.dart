@@ -6,16 +6,18 @@ import '../../../../core/config/app_config.dart';
 class UnifiedBookCard extends StatelessWidget {
   final Book book;
   final VoidCallback? onTap;
+  final bool isGridLayout;
 
   const UnifiedBookCard({
     super.key,
     required this.book,
     this.onTap,
+    this.isGridLayout = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return _buildHorizontalCard(context);
+    return isGridLayout ? _buildGridCard(context) : _buildHorizontalCard(context);
   }
 
   Widget _buildHorizontalCard(BuildContext context) {
@@ -91,6 +93,113 @@ class UnifiedBookCard extends StatelessWidget {
     );
   }
 
+  Widget _buildGridCard(BuildContext context) {
+    final cover = _resolveImageUrl(book.imageUrl, book.iconUrl);
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap ?? () {
+          Navigator.pushNamed(
+            context,
+            '/book-preview',
+            arguments: BookModel.fromBook(book),
+          );
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 3,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                ),
+                child: Container(
+                  width: double.infinity,
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                  child: cover.isEmpty
+                      ? const Icon(Icons.menu_book, size: 40)
+                      : Image.network(
+                          cover,
+                          fit: BoxFit.cover,
+                          errorBuilder: (c, e, s) => const Icon(Icons.menu_book, size: 40),
+                        ),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      book.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Lvl ${book.textLevel ?? '1'}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(
+                          Icons.access_time_rounded,
+                          size: 12,
+                          color: Colors.grey[600],
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          '${book.estimatedReadingTimeInMinutes}dk',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   String _resolveImageUrl(String? imageUrl, String? iconUrl) {
     final url = (iconUrl != null && iconUrl.isNotEmpty) ? iconUrl : (imageUrl ?? '');

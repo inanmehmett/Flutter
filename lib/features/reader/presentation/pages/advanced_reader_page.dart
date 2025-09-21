@@ -766,147 +766,233 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
 
   Widget _buildControls(ReaderLoaded state, ThemeManager themeManager) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _getThemeSurfaceColor(themeManager),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Progress slider
-          Slider(
-            value: (state.currentPage + 1) / state.totalPages,
-            onChanged: (value) {
-              final targetPage = (value * state.totalPages).round() - 1;
-              if (targetPage >= 0 && targetPage < state.totalPages) {
-                _readerBloc.add(GoToPage(targetPage));
-              }
-            },
-            activeColor: _getThemePrimaryColor(themeManager),
-            inactiveColor: _getThemePrimaryColor(themeManager).withValues(alpha: 0.3),
-          ),
+          // Spotify tarzı progress bar
+          _buildSpotifyProgressBar(state, themeManager),
           
-          // Page info
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Sayfa ${state.currentPage + 1}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: _getThemeOnSurfaceColor(themeManager),
-                  ),
-                ),
-                Text(
-                  '/ ${state.totalPages}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: _getThemeOnSurfaceColor(themeManager).withValues(alpha: 0.6),
-                  ),
-                ),
-                Text(
-                  '${(((state.currentPage + 1) / state.totalPages) * 100).toStringAsFixed(0)}%',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: _getThemePrimaryColor(themeManager),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          const SizedBox(height: 20),
           
-          const SizedBox(height: 16),
+          // Spotify tarzı kontrol butonları
+          _buildSpotifyControls(state, themeManager),
           
-          // Control buttons
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              // Previous page
-              IconButton(
-                icon: const Icon(Icons.skip_previous),
-                onPressed: _goToPreviousPage,
-                iconSize: 32,
-                color: _getThemeOnSurfaceColor(themeManager),
-              ),
-              
-              // Play/Pause button
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _getThemePrimaryColor(themeManager),
-                ),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  switchInCurve: Curves.easeOut,
-                  switchOutCurve: Curves.easeIn,
-                  transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
-                  child: IconButton(
-                    key: ValueKey(
-                      state.isSpeaking ? (state.isPaused ? 'play' : 'pause') : 'play',
-                    ),
-                    icon: Icon(
-                      state.isSpeaking
-                          ? (state.isPaused ? Icons.play_arrow : Icons.pause)
-                          : Icons.play_arrow,
-                      color: Colors.white,
-                    ),
-                    onPressed: () => _readerBloc.add(TogglePlayPause()),
-                    iconSize: 32,
-                  ),
-                ),
-              ),
-              
-              // Stop button
-              IconButton(
-                icon: const Icon(Icons.stop),
-                onPressed: () => _readerBloc.add(StopSpeech()),
-                iconSize: 32,
-                color: _getThemeOnSurfaceColor(themeManager),
-              ),
-              
-              // Next page
-              IconButton(
-                icon: const Icon(Icons.skip_next),
-                onPressed: _goToNextPage,
-                iconSize: 32,
-                color: _getThemeOnSurfaceColor(themeManager),
-              ),
-            ],
-          ),
+          const SizedBox(height: 20),
           
           // Quiz button - Son sayfada görünür
           if (state.currentPage == state.totalPages - 1) ...[
-            const SizedBox(height: 16),
             Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ElevatedButton.icon(
-                onPressed: () => _navigateToQuiz(state),
-                icon: const Icon(Icons.quiz_outlined),
-                label: const Text('Kitap Quiz\'ini Çöz'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _getThemePrimaryColor(themeManager),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              child: _buildSpotifyQuizButton(state, themeManager),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpotifyProgressBar(ReaderLoaded state, ThemeManager themeManager) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      child: Column(
+        children: [
+          // Progress bar
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: Colors.black,
+              inactiveTrackColor: Colors.grey.shade300,
+              thumbColor: Colors.black,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              trackHeight: 3,
+            ),
+            child: Slider(
+              value: (state.currentPage + 1) / state.totalPages,
+              onChanged: (value) {
+                final targetPage = (value * state.totalPages).round() - 1;
+                if (targetPage >= 0 && targetPage < state.totalPages) {
+                  _readerBloc.add(GoToPage(targetPage));
+                }
+              },
+            ),
+          ),
+          
+          // Page info - Spotify tarzı
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${state.currentPage + 1}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              Text(
+                '${state.totalPages}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpotifyControls(ReaderLoaded state, ThemeManager themeManager) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          // Previous page - Spotify tarzı
+          _buildSpotifyControlButton(
+            icon: Icons.skip_previous,
+            onPressed: _goToPreviousPage,
+            size: 24,
+          ),
+          
+          // Play/Pause button - Spotify tarzı büyük
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.green.shade600,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.green.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(28),
+                onTap: () => _readerBloc.add(TogglePlayPause()),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    state.isSpeaking
+                        ? (state.isPaused ? Icons.play_arrow : Icons.pause)
+                        : Icons.play_arrow,
+                    key: ValueKey(
+                      state.isSpeaking ? (state.isPaused ? 'play' : 'pause') : 'play',
+                    ),
+                    color: Colors.white,
+                    size: 28,
                   ),
                 ),
               ),
             ),
-          ],
+          ),
+          
+          // Stop button - Spotify tarzı
+          _buildSpotifyControlButton(
+            icon: Icons.stop,
+            onPressed: () => _readerBloc.add(StopSpeech()),
+            size: 24,
+          ),
+          
+          // Next page - Spotify tarzı
+          _buildSpotifyControlButton(
+            icon: Icons.skip_next,
+            onPressed: _goToNextPage,
+            size: 24,
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSpotifyControlButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+    required double size,
+  }) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.grey.shade100,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onPressed,
+          child: Icon(
+            icon,
+            color: Colors.grey.shade700,
+            size: size,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSpotifyQuizButton(ReaderLoaded state, ThemeManager themeManager) {
+    return Container(
+      width: double.infinity,
+      height: 50,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.green.shade400, Colors.green.shade600],
+        ),
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(25),
+          onTap: () => _navigateToQuiz(state),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.quiz_outlined,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Quiz\'i Çöz',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1539,14 +1625,24 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
   }
 
   void _navigateToQuiz(ReaderLoaded state) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => BlocProvider(
-          create: (context) => ReadingQuizCubit(getIt<ReadingQuizService>()),
-          child: ReadingQuizPage(
-            readingTextId: int.tryParse(state.book.id) ?? 0,
-            bookTitle: state.book.title,
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        child: Container(
+          width: double.infinity,
+          height: MediaQuery.of(context).size.height * 0.9,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: Colors.white,
+          ),
+          child: BlocProvider(
+            create: (context) => ReadingQuizCubit(getIt<ReadingQuizService>()),
+            child: ReadingQuizPage(
+              readingTextId: int.tryParse(state.book.id) ?? 0,
+              bookTitle: state.book.title,
+            ),
           ),
         ),
       ),

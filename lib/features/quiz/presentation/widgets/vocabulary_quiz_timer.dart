@@ -142,26 +142,28 @@ class _VocabularyQuizTimerState extends State<VocabularyQuizTimer>
           ),
           
           // Time text
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  '$_timeRemaining',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: color,
+          Positioned.fill(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '$_timeRemaining',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
                   ),
-                ),
-                Text(
-                  'saniye',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: color.withOpacity(0.7),
+                  Text(
+                    'saniye',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: color.withOpacity(0.7),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
