@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
@@ -55,6 +57,8 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
   String? _wordTranslation;
   bool _isLoadingTranslation = false;
   OverlayEntry? _wordOverlay;
+  ScrollController? _activeOverlayScrollController;
+  VoidCallback? _overlayScrollListener;
   
   // TTS instance
   FlutterTts? _flutterTts;
@@ -1635,16 +1639,8 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
 
   // Long press sonu
   void _onWordLongPressEnd() {
-    // Tooltip'i kapatma - kalıcı olması için
+    // Tooltip kalıcı; seçim korunur ki çentik ve konum tekrar hesaplanabilsin
     print('🔍 [Word Detection] Long press ended - tooltip remains visible');
-    
-    // Sadece highlight'ları temizle, tooltip'i açık bırak
-    setState(() {
-      _wordStart = null;
-      _wordEnd = null;
-      _wordPageIndex = null;
-      // _selectedWord ve _wordTranslation'ı koruyalım ki tooltip açık kalsın
-    });
   }
 
   // Kelime çevirisi
@@ -1686,7 +1682,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     }
   }
 
-  // Kelime popup overlay göster
+  // Minimal Tooltip - Inspired by the image
   void _showWordOverlay(Offset globalPosition, String word, ThemeManager themeManager) {
     _hideWordOverlay();
     
@@ -1696,198 +1692,278 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     });
     
     _wordOverlay = OverlayEntry(
-      builder: (context) => GestureDetector(
-        onTap: () {
-          // Tooltip dışına tıklanırsa kapat
-          _hideWordOverlay();
-        },
-        child: Container(
-          color: Colors.transparent,
-          child: Stack(
-            children: [
-              // Arka plan overlay (tıklanabilir alan)
-              Positioned.fill(
-                child: Container(
-                  color: Colors.black.withValues(alpha: 0.1),
-                ),
-              ),
-              // Tooltip
-              Center(
-                child: Material(
-                  color: Colors.transparent,
+      builder: (context) => AnimatedOpacity(
+        opacity: _isTooltipVisible ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 150),
+        child: GestureDetector(
+          onTap: () => _hideWordOverlay(),
+          child: Container(
+            color: Colors.transparent,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Minimal backdrop
+                Positioned.fill(
                   child: Container(
-                    constraints: const BoxConstraints(
-                      maxWidth: 280,
-                      minWidth: 200,
-                    ),
-                    margin: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: _getThemeSurfaceColor(themeManager),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.3),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                      border: Border.all(
-                        color: _getThemePrimaryColor(themeManager).withValues(alpha: 0.2),
-                        width: 1,
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Header with close button
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: _getThemePrimaryColor(themeManager).withValues(alpha: 0.05),
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(16),
-                              topRight: Radius.circular(16),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              // Kelime
-                              Expanded(
-                                child: Text(
-                                  word,
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: _getThemePrimaryColor(themeManager),
-                                  ),
-                                ),
-                              ),
-                              // Kapatma butonu
-                              GestureDetector(
-                                onTap: () => _hideWordOverlay(),
-                                child: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: _getThemeOnSurfaceVariantColor(themeManager).withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                    Icons.close,
-                                    size: 18,
-                                    color: _getThemeOnSurfaceVariantColor(themeManager),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Content
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            children: [
-                              // Çeviri
-                              if (_isLoadingTranslation)
-                                Row(
-                                  children: [
-                                    const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      'Çeviriliyor...',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: _getThemeOnSurfaceVariantColor(themeManager),
-                                        fontStyle: FontStyle.italic,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              else if (_wordTranslation != null && _wordTranslation!.isNotEmpty)
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: _getThemeOnSurfaceVariantColor(themeManager).withValues(alpha: 0.05),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    _wordTranslation!,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: _getThemeOnSurfaceColor(themeManager),
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                )
-                              else
-                                Text(
-                                  'Çeviri yükleniyor...',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: _getThemeOnSurfaceVariantColor(themeManager),
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                              const SizedBox(height: 16),
-                              // Action buttons
-                              Row(
-                                children: [
-                                  // Seslendirme butonu
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: () => _speakWord(word),
-                                      icon: const Icon(Icons.volume_up, size: 18),
-                                      label: const Text('Dinle'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: _getThemePrimaryColor(themeManager).withValues(alpha: 0.1),
-                                        foregroundColor: _getThemePrimaryColor(themeManager),
-                                        elevation: 0,
-                                        padding: const EdgeInsets.symmetric(vertical: 12),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  // Kelime defterine ekle butonu
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: () => _addToVocabulary(word),
-                                      icon: const Icon(Icons.bookmark_add, size: 18),
-                                      label: const Text('Kaydet'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.green.withValues(alpha: 0.1),
-                                        foregroundColor: Colors.green.shade700,
-                                        elevation: 0,
-                                        padding: const EdgeInsets.symmetric(vertical: 12),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                    color: Colors.black.withValues(alpha: 0.05),
                   ),
                 ),
-              ),
-            ],
+                // Minimal Tooltip - anchored near tapped word
+                Positioned(
+                  left: (() {
+                    final size = MediaQuery.of(context).size;
+                    const tooltipWidth = 240.0;
+                    const margin = 16.0;
+                    final tap = _lastTooltipPosition ?? Offset(size.width / 2, size.height / 2);
+                    final rawLeft = tap.dx - tooltipWidth / 2;
+                    final clamped = rawLeft.clamp(margin, size.width - tooltipWidth - margin);
+                    return (clamped is double) ? clamped : (clamped as num).toDouble();
+                  })(),
+                  top: (() {
+                    final size = MediaQuery.of(context).size;
+                    const margin = 16.0;
+                    final tap = _lastTooltipPosition ?? Offset(size.width / 2, size.height / 2);
+                    final rawTop = tap.dy - 120.0; // prefer above the tap
+                    final clamped = rawTop.clamp(margin, size.height - 180.0);
+                    return (clamped is double) ? clamped : (clamped as num).toDouble();
+                  })(),
+                  child: TweenAnimationBuilder<double>(
+                    duration: const Duration(milliseconds: 200),
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    curve: Curves.easeOut,
+                    builder: (context, value, child) {
+                      return Transform.scale(
+                        scale: 0.98 + (0.02 * value),
+                        child: Transform.translate(
+                          offset: Offset(0, (1 - value) * 10),
+                          child: Container(
+                            width: 240,
+                            margin: const EdgeInsets.all(40),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.06),
+                                  blurRadius: 14,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                // Dynamic arrow + premium word pill aligned with tapped word
+                                Builder(builder: (context) {
+                                  final size = MediaQuery.of(context).size;
+                                  const tooltipWidth = 240.0;
+                                  const notchSize = 14.0;
+                                  const sidePadding = 12.0;
+                                  const margin = 16.0;
+                                  final tap = _lastTooltipPosition ?? Offset(size.width / 2, size.height / 2);
+                                  final left = (tap.dx - tooltipWidth / 2).clamp(margin, size.width - tooltipWidth - margin);
+                                  final leftDouble = (left is double) ? left : (left as num).toDouble();
+                                  double notchLeft = (tap.dx - leftDouble) - (notchSize / 2);
+                                  final minLeft = sidePadding;
+                                  final maxLeft = tooltipWidth - sidePadding - notchSize;
+                                  notchLeft = notchLeft.clamp(minLeft, maxLeft);
+                                  const double labelWidth = 120.0;
+                                  final double rawLabelLeft = notchLeft - (labelWidth / 2);
+                                  final double labelLeft = rawLabelLeft.clamp(4.0, tooltipWidth - labelWidth - 4.0);
+                                  return Positioned(
+                                    left: 0,
+                                    top: 0,
+                                    width: tooltipWidth,
+                                    height: 0,
+                                    child: Stack(
+                                      clipBehavior: Clip.none,
+                                      children: [
+                                        Positioned(
+                                          top: -7,
+                                          left: notchLeft,
+                                          child: Transform.rotate(
+                                            angle: 0.785398,
+                                            child: Container(
+                                              width: notchSize,
+                                              height: notchSize,
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black.withValues(alpha: 0.06),
+                                                    blurRadius: 6,
+                                                    offset: const Offset(0, 2),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        // Premium word pill over the notch (remove duplicate display)
+                                        // Positioned(
+                                        //   top: -34,
+                                        //   left: labelLeft,
+                                        //   child: ...
+                                        // ),
+                                      ],
+                                    ),
+                                  );
+                                }),
+                                // Close button - Positioned outside the tooltip like in the image
+                                Positioned(
+                                  top: -10,
+                                  right: -10,
+                                  child: GestureDetector(
+                                    onTap: () => _hideWordOverlay(),
+                                    child: Container(
+                                      width: 28,
+                                      height: 28,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.12),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 3),
+                                          ),
+                                        ],
+                                      ),
+                                      child: const Icon(
+                                        CupertinoIcons.xmark,
+                                        size: 14,
+                                        color: Color(0xFF666666),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // Main content
+                                Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      // Top row - Word + Icons (like the image)
+                                      Row(
+                                        children: [
+                                          // Word - iOS style capsule inside header
+                                          Expanded(
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFE6F0FF),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                word,
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Colors.black,
+                                                  decoration: TextDecoration.none,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          // Icons row - Smaller and more subtle
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              // Star icon (favorite)
+                                              GestureDetector(
+                                                onTap: () => _addToVocabulary(word),
+                                                child: Container(
+                                                  padding: const EdgeInsets.all(6),
+                                                  child: Icon(
+                                                    CupertinoIcons.star,
+                                                    size: 18,
+                                                    color: Colors.amber,
+                                                  ),
+                                                ),
+                                              ),
+                                              // Speaker icon
+                                              GestureDetector(
+                                                onTap: () => _speakWord(word),
+                                                child: Container(
+                                                  padding: const EdgeInsets.all(6),
+                                                  child: Icon(
+                                                    CupertinoIcons.speaker_2_fill,
+                                                    size: 18,
+                                                    color: CupertinoColors.activeBlue,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                      Container(
+                                        margin: const EdgeInsets.symmetric(vertical: 8),
+                                        height: 1,
+                                        color: Colors.black.withValues(alpha: 0.06),
+                                      ),
+                                      // Translation - Smaller and more subtle
+                                      if (_isLoadingTranslation)
+                                        Row(
+                                          children: [
+                                            const SizedBox(
+                                              width: 14,
+                                              height: 14,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 1.5,
+                                                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'Translating...',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.grey[600],
+                                                decoration: TextDecoration.none,
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      else if (_wordTranslation != null && _wordTranslation!.isNotEmpty)
+                                        Text(
+                                          _wordTranslation!,
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            color: Colors.black,
+                                            fontWeight: FontWeight.w600,
+                                            decoration: TextDecoration.none,
+                                          ),
+                                        )
+                                      else
+                                        Text(
+                                          'Loading...',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey[600],
+                                            decoration: TextDecoration.none,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
     
     Overlay.of(context).insert(_wordOverlay!);
+    _attachOverlayRepositionListener(themeManager);
   }
 
   // Kelime popup overlay güncelle
@@ -1900,10 +1976,64 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     }
   }
 
+  // Overlay konumunu seçili kelimeye göre tekrar hesapla (scroll/pan sonrasında)
+  void _repositionOverlayToSelectedWord(ThemeManager themeManager) {
+    if (_wordPageIndex == null || _wordStart == null || _wordEnd == null) return;
+    final textKey = _textKeys[_wordPageIndex!];
+    final renderBox = textKey?.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final pageContent = _getPageContent(_wordPageIndex!);
+    if (pageContent.isEmpty) return;
+
+    // Font style current
+    final currentState = _readerBloc.state;
+    double fontSize = 20;
+    if (currentState is ReaderLoaded) {
+      fontSize = currentState.fontSize;
+    }
+    final style = TextStyle(
+      fontSize: fontSize,
+      height: 1.6,
+      letterSpacing: 0.1,
+      color: _getThemeTextColor(themeManager),
+    );
+
+    final availableWidth = renderBox.size.width;
+    final tp = TextPainter(
+      text: TextSpan(text: pageContent, style: style),
+      textDirection: TextDirection.ltr,
+      maxLines: null,
+    );
+    tp.layout(maxWidth: availableWidth);
+    final centerIndex = ((_wordStart! + _wordEnd!) / 2).round();
+    final caret = tp.getOffsetForCaret(TextPosition(offset: centerIndex), Rect.zero);
+    final global = renderBox.localToGlobal(Offset(caret.dx, caret.dy));
+    setState(() {
+      _lastTooltipPosition = global;
+    });
+    _updateWordOverlay();
+  }
+
+  void _attachOverlayRepositionListener(ThemeManager themeManager) {
+    if (_wordPageIndex == null) return;
+    _activeOverlayScrollController = _scrollControllers[_wordPageIndex!];
+    _overlayScrollListener = () => _repositionOverlayToSelectedWord(themeManager);
+    _activeOverlayScrollController?.addListener(_overlayScrollListener!);
+  }
+
+  void _detachOverlayRepositionListener() {
+    if (_activeOverlayScrollController != null && _overlayScrollListener != null) {
+      _activeOverlayScrollController!.removeListener(_overlayScrollListener!);
+    }
+    _overlayScrollListener = null;
+    _activeOverlayScrollController = null;
+  }
+
   // Kelime popup overlay gizle
   void _hideWordOverlay() {
     _wordOverlay?.remove();
     _wordOverlay = null;
+    _detachOverlayRepositionListener();
     
     setState(() {
       _isTooltipVisible = false;
