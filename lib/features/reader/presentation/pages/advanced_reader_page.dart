@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_manager.dart';
@@ -54,12 +55,20 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
   String? _wordTranslation;
   bool _isLoadingTranslation = false;
   OverlayEntry? _wordOverlay;
+  
+  // TTS instance
+  FlutterTts? _flutterTts;
+  
+  // Tooltip state
+  bool _isTooltipVisible = false;
+  Offset? _lastTooltipPosition;
 
   @override
   void initState() {
     super.initState();
     _readerBloc = context.read<AdvancedReaderBloc>();
     _loadBook();
+    _initializeTts();
     
     // 3 saniye sonra kaydırma ipucunu gizle
     Future.delayed(const Duration(seconds: 3), () {
@@ -73,6 +82,53 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
 
   void _loadBook() {
     _readerBloc.add(LoadBook(widget.book.id.toString()));
+  }
+
+  // TTS initialize
+  void _initializeTts() async {
+    _flutterTts = FlutterTts();
+    
+    await _flutterTts?.setLanguage("en-US");
+    await _flutterTts?.setSpeechRate(0.5);
+    await _flutterTts?.setVolume(1.0);
+    await _flutterTts?.setPitch(1.0);
+    
+    print('🎤 [TTS] Initialized successfully');
+  }
+
+  // Kelime seslendirme
+  Future<void> _speakWord(String word) async {
+    try {
+      print('🎤 [TTS] Speaking word: "$word"');
+      await _flutterTts?.speak(word);
+    } catch (e) {
+      print('🎤 [TTS] Error speaking word: $e');
+    }
+  }
+
+  // Kelimeyi kelime defterine ekle
+  Future<void> _addToVocabulary(String word) async {
+    try {
+      print('📚 [Vocabulary] Adding word to dictionary: "$word"');
+      // TODO: API call to add word to vocabulary
+      // Bu API endpoint'i henüz yok, eklenmeli
+      
+      // Şimdilik sadece log
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Kelime defterine eklendi: $word'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      print('📚 [Vocabulary] Error adding word: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Kelime eklenirken hata oluştu: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   // Tema renklerini döndüren yardımcı metodlar
@@ -490,6 +546,12 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                               _onWordLongPressStart(details, pageContent, constraints, themeManager, textStyle);
                             },
                             onLongPressEnd: (details) => _onWordLongPressEnd(),
+                            onPanStart: (details) {
+                              // Hareket başladığında tooltip'i kapat
+                              if (_isTooltipVisible) {
+                                _hideWordOverlay();
+                              }
+                            },
                             onTapUp: (details) async {
                                HapticFeedback.selectionClick();
                               final textStyle = TextStyle(
@@ -1552,6 +1614,9 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
         _wordEnd = wordInfo['end'];
         _wordPageIndex = currentPageIndex;
         _selectedWord = wordInfo['word'];
+        // Loading state immediately so overlay shows spinner right away
+        _isLoadingTranslation = true;
+        _wordTranslation = null;
       });
       
       print('🔍 [Word Detection] ✅ Word selected: "${wordInfo['word']}"');
@@ -1570,14 +1635,15 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
 
   // Long press sonu
   void _onWordLongPressEnd() {
-    _hideWordOverlay();
+    // Tooltip'i kapatma - kalıcı olması için
+    print('🔍 [Word Detection] Long press ended - tooltip remains visible');
+    
+    // Sadece highlight'ları temizle, tooltip'i açık bırak
     setState(() {
       _wordStart = null;
       _wordEnd = null;
       _wordPageIndex = null;
-      _selectedWord = null;
-      _wordTranslation = null;
-      _isLoadingTranslation = false;
+      // _selectedWord ve _wordTranslation'ı koruyalım ki tooltip açık kalsın
     });
   }
 
@@ -1588,14 +1654,19 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     setState(() {
       _isLoadingTranslation = true;
     });
+    // Reflect loading state in overlay immediately
+    _updateWordOverlay();
     
     try {
+      print('🌐 [Word Translation] Translating word: "$word"');
       final bloc = context.read<AdvancedReaderBloc>();
-      final translation = await bloc.translateSentence(word);
+      final translation = await bloc.translateWord(word);
+      
+      print('🌐 [Word Translation] Translation result: "$translation"');
       
       if (mounted) {
         setState(() {
-          _wordTranslation = translation;
+          _wordTranslation = translation.isNotEmpty ? translation : 'Çeviri bulunamadı';
           _isLoadingTranslation = false;
         });
         
@@ -1603,10 +1674,14 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
         _updateWordOverlay();
       }
     } catch (e) {
+      print('🌐 [Word Translation] Translation error: $e');
       if (mounted) {
         setState(() {
+          _wordTranslation = 'Çeviri hatası: $e';
           _isLoadingTranslation = false;
         });
+        // Reflect error state/content in overlay as well
+        _updateWordOverlay();
       }
     }
   }
@@ -1615,95 +1690,198 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
   void _showWordOverlay(Offset globalPosition, String word, ThemeManager themeManager) {
     _hideWordOverlay();
     
+    setState(() {
+      _isTooltipVisible = true;
+      _lastTooltipPosition = globalPosition;
+    });
+    
     _wordOverlay = OverlayEntry(
-      builder: (context) => Positioned(
-        left: globalPosition.dx - 75, // Tooltip'i daha iyi konumlandır
-        top: globalPosition.dy - 100, // Üstte göster
-        child: Material(
+      builder: (context) => GestureDetector(
+        onTap: () {
+          // Tooltip dışına tıklanırsa kapat
+          _hideWordOverlay();
+        },
+        child: Container(
           color: Colors.transparent,
-          child: Container(
-            constraints: const BoxConstraints(
-              maxWidth: 200, // Maksimum genişlik
-              minWidth: 100, // Minimum genişlik
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: _getThemeSurfaceColor(themeManager),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.25),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+          child: Stack(
+            children: [
+              // Arka plan overlay (tıklanabilir alan)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.1),
                 ),
-              ],
-              border: Border.all(
-                color: _getThemePrimaryColor(themeManager).withValues(alpha: 0.3),
-                width: 1.5,
               ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Kelime başlığı
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _getThemePrimaryColor(themeManager).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    word,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: _getThemePrimaryColor(themeManager),
+              // Tooltip
+              Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    constraints: const BoxConstraints(
+                      maxWidth: 280,
+                      minWidth: 200,
+                    ),
+                    margin: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: _getThemeSurfaceColor(themeManager),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                      border: Border.all(
+                        color: _getThemePrimaryColor(themeManager).withValues(alpha: 0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Header with close button
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: _getThemePrimaryColor(themeManager).withValues(alpha: 0.05),
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(16),
+                              topRight: Radius.circular(16),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              // Kelime
+                              Expanded(
+                                child: Text(
+                                  word,
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: _getThemePrimaryColor(themeManager),
+                                  ),
+                                ),
+                              ),
+                              // Kapatma butonu
+                              GestureDetector(
+                                onTap: () => _hideWordOverlay(),
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: _getThemeOnSurfaceVariantColor(themeManager).withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.close,
+                                    size: 18,
+                                    color: _getThemeOnSurfaceVariantColor(themeManager),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Content
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              // Çeviri
+                              if (_isLoadingTranslation)
+                                Row(
+                                  children: [
+                                    const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      'Çeviriliyor...',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: _getThemeOnSurfaceVariantColor(themeManager),
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              else if (_wordTranslation != null && _wordTranslation!.isNotEmpty)
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: _getThemeOnSurfaceVariantColor(themeManager).withValues(alpha: 0.05),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    _wordTranslation!,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: _getThemeOnSurfaceColor(themeManager),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                )
+                              else
+                                Text(
+                                  'Çeviri yükleniyor...',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: _getThemeOnSurfaceVariantColor(themeManager),
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              const SizedBox(height: 16),
+                              // Action buttons
+                              Row(
+                                children: [
+                                  // Seslendirme butonu
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: () => _speakWord(word),
+                                      icon: const Icon(Icons.volume_up, size: 18),
+                                      label: const Text('Dinle'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: _getThemePrimaryColor(themeManager).withValues(alpha: 0.1),
+                                        foregroundColor: _getThemePrimaryColor(themeManager),
+                                        elevation: 0,
+                                        padding: const EdgeInsets.symmetric(vertical: 12),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  // Kelime defterine ekle butonu
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: () => _addToVocabulary(word),
+                                      icon: const Icon(Icons.bookmark_add, size: 18),
+                                      label: const Text('Kaydet'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green.withValues(alpha: 0.1),
+                                        foregroundColor: Colors.green.shade700,
+                                        elevation: 0,
+                                        padding: const EdgeInsets.symmetric(vertical: 12),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                // Çeviri veya loading
-                if (_isLoadingTranslation)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Çeviriliyor...',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: _getThemeOnSurfaceVariantColor(themeManager),
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
-                  )
-                else if (_wordTranslation != null && _wordTranslation!.isNotEmpty)
-                  Text(
-                    _wordTranslation!,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: _getThemeOnSurfaceColor(themeManager),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  )
-                else
-                  Text(
-                    'Çeviri yükleniyor...',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: _getThemeOnSurfaceVariantColor(themeManager),
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1714,7 +1892,10 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
 
   // Kelime popup overlay güncelle
   void _updateWordOverlay() {
-    if (_wordOverlay != null && _selectedWord != null) {
+    if (_wordOverlay != null) {
+      print('🔄 [Overlay] markNeedsBuild triggered. Loading: '+
+          _isLoadingTranslation.toString()+', Has translation: '+
+          ((_wordTranslation ?? '').isNotEmpty).toString());
       _wordOverlay!.markNeedsBuild();
     }
   }
@@ -1723,6 +1904,14 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
   void _hideWordOverlay() {
     _wordOverlay?.remove();
     _wordOverlay = null;
+    
+    setState(() {
+      _isTooltipVisible = false;
+      _selectedWord = null;
+      _wordTranslation = null;
+      _isLoadingTranslation = false;
+      _lastTooltipPosition = null;
+    });
   }
 
   void _navigateToQuiz(ReaderLoaded state) {
@@ -1755,6 +1944,8 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     _highlightTimer?.cancel();
     _hideWordOverlay();
     _pageController.dispose();
+    _flutterTts?.stop();
+    _flutterTts = null;
     super.dispose();
   }
 } 

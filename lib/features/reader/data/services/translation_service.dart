@@ -46,5 +46,37 @@ class TranslationService {
     }
     return '';
   }
+
+  Future<String> translateWord(String word) async {
+    try {
+      print('🌐 [TranslationService] Translating word: "$word"');
+      final resp = await _network.get(
+        '/api/ApiReadingTexts/TranslateWord',
+        queryParameters: {
+          'vocabulary': word.toLowerCase(),
+        },
+      );
+
+      print('🌐 [TranslationService] Response status: ${resp.statusCode}');
+      print('🌐 [TranslationService] Response data: ${resp.data}');
+
+      if (resp.statusCode == 200 && resp.data != null) {
+        final data = resp.data as Map<String, dynamic>;
+        final success = data['success'] == true;
+        if (success) {
+          // Backend response format: { success: true, data: { original: "...", translated: "..." } }
+          final responseData = data['data'] as Map<String, dynamic>?;
+          final translation = responseData?['translated'] as String? ?? '';
+          print('🌐 [TranslationService] Translation result: "$translation"');
+          return translation;
+        } else {
+          print('🌐 [TranslationService] API returned success=false');
+        }
+      }
+    } catch (e) {
+      print('❌ [TranslationService] Word translation error: $e');
+    }
+    return '';
+  }
 }
 

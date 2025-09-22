@@ -119,6 +119,7 @@ class UnifiedBookCard extends StatelessWidget {
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             ClipRRect(
                 borderRadius: const BorderRadius.only(
@@ -126,7 +127,7 @@ class UnifiedBookCard extends StatelessWidget {
                   topRight: Radius.circular(16),
                 ),
                 child: Container(
-                  height: 110, // Biraz daha yüksek - daha dengeli görünüm
+                  height: 100, // Reduced height to prevent overflow
                   width: double.infinity,
                   color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
                   child: cover.isEmpty
@@ -138,36 +139,42 @@ class UnifiedBookCard extends StatelessWidget {
                         ),
                 ),
               ),
-            Padding(
-              padding: const EdgeInsets.all(8), // Daha az padding
-              child: Column(
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      book.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12, // Daha küçük font
-                        fontWeight: FontWeight.w600,
-                        height: 1.1,
+                    Expanded(
+                      child: Text(
+                        book.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          height: 1.1,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'Lvl ${book.textLevel ?? '1'}',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Theme.of(context).colorScheme.primary,
-                              fontWeight: FontWeight.w600,
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Lvl ${book.textLevel ?? '1'}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ),
@@ -178,11 +185,14 @@ class UnifiedBookCard extends StatelessWidget {
                           color: Colors.grey[600],
                         ),
                         const SizedBox(width: 2),
-                        Text(
-                          '${book.estimatedReadingTimeInMinutes}dk',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey[600],
+                        Flexible(
+                          child: Text(
+                            '${book.estimatedReadingTimeInMinutes}dk',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey[600],
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -190,6 +200,7 @@ class UnifiedBookCard extends StatelessWidget {
                   ],
                 ),
               ),
+            ),
           ],
         ),
       ),

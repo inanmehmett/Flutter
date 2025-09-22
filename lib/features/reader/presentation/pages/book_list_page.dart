@@ -311,10 +311,15 @@ class _BookListPageState extends State<BookListPage> {
     return RefreshIndicator(
       onRefresh: () async => await bookViewModel.refreshBooks(),
       child: GridView.builder(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: widget.showBottomNav ? 100 : 20, // Add bottom padding for navigation
+        ),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: _getCrossAxisCount(),
-          childAspectRatio: 0.85, // Daha kareye yakın - fotoğraflar dikey görünür
+          childAspectRatio: 0.75, // Adjusted for better content fit
           crossAxisSpacing: 16,
           mainAxisSpacing: 20,
         ),

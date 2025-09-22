@@ -74,6 +74,17 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     }
   }
 
+  // Word translation helper
+  Future<String> translateWord(String word) async {
+    try {
+      // In a full setup, TranslationService is injected; to avoid crash if not, return empty
+      if ((_translationService as dynamic) == null) return '';
+      return await _translationService.translateWord(word);
+    } catch (_) {
+      return '';
+    }
+  }
+
   Future<String?> findSentenceAudioUrl(int readingTextId, int sentenceIndex, {String voiceId = 'default'}) async {
     try {
       final manifest = _manifestCache[readingTextId] ??
