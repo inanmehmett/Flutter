@@ -21,6 +21,23 @@ import '../../data/models/book_model.dart';
 import '../../data/services/reading_quiz_service.dart';
 import 'reading_quiz_page.dart';
 
+// Anchor data for tooltip positioning
+class TooltipAnchor {
+  final bool showAbove;
+  final double left;
+  final double? top;
+  final double? bottom;
+  final double notchLeft;
+
+  const TooltipAnchor({
+    required this.showAbove,
+    required this.left,
+    this.top,
+    this.bottom,
+    required this.notchLeft,
+  });
+}
+
 class AdvancedReaderPage extends StatefulWidget {
   final BookModel book;
 
@@ -93,7 +110,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     _flutterTts = FlutterTts();
     
     await _flutterTts?.setLanguage("en-US");
-    await _flutterTts?.setSpeechRate(0.5);
+    await _flutterTts?.setSpeechRate(0.40);
     await _flutterTts?.setVolume(1.0);
     await _flutterTts?.setPitch(1.0);
     
@@ -566,10 +583,12 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                               );
                               // Metin widget'ının gerçek boyutu ve lokal pozisyonu
                               final box = textKey.currentContext?.findRenderObject() as RenderBox?;
-                              final maxTextWidth = (box?.size.width ?? (constraints.maxWidth - 40)).clamp(0, double.infinity);
-                              final localPos = box != null
+                              final maxTextWidth = (box?.size.width ?? constraints.maxWidth).toDouble();
+                              final localPosRaw = box != null
                                   ? box.globalToLocal(details.globalPosition)
                                   : details.localPosition;
+                              final scrollOffset = _scrollControllers[index]?.offset ?? 0.0;
+                              final localPos = Offset(localPosRaw.dx, localPosRaw.dy + scrollOffset);
                                final sentence = _extractSentenceAtOffset(
                                 pageContent,
                                 textStyle,
@@ -1120,10 +1139,10 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _buildRateChip(label: 'Yavaş', value: 0.45, current: currentRate, themeManager: themeManager),
-                      _buildRateChip(label: 'Normal', value: 0.50, current: currentRate, themeManager: themeManager),
-                      _buildRateChip(label: 'Orta-Hızlı', value: 0.65, current: currentRate, themeManager: themeManager),
-                      _buildRateChip(label: 'Hızlı', value: 0.80, current: currentRate, themeManager: themeManager),
+                      _buildRateChip(label: 'Yavaş', value: 0.30, current: currentRate, themeManager: themeManager),
+                      _buildRateChip(label: 'Normal', value: 0.40, current: currentRate, themeManager: themeManager),
+                      _buildRateChip(label: 'Orta-Hızlı', value: 0.50, current: currentRate, themeManager: themeManager),
+                      _buildRateChip(label: 'Hızlı', value: 0.65, current: currentRate, themeManager: themeManager),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -1578,8 +1597,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     // Get current page index from the context
     final currentPageIndex = _readerBloc.state is ReaderLoaded ? (_readerBloc.state as ReaderLoaded).currentPage : 0;
     
-    // Gerçek metin genişliğini hesapla - padding ve margin'leri çıkar
-    final maxTextWidth = (constraints.maxWidth - 32.0).clamp(0.0, double.infinity); // 16px padding her iki tarafta
+    // Gerçek metin genişliğini render edilmiş metin kutusundan al
     
     // RenderBox'ı bul ve pozisyonu doğru hesapla
     final box = _textKeys[currentPageIndex]?.currentContext?.findRenderObject() as RenderBox?;
@@ -1588,7 +1606,10 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
       return;
     }
     
-    final localPos = box.globalToLocal(details.globalPosition);
+    final localPosRaw = box.globalToLocal(details.globalPosition);
+    final scrollOffset = _scrollControllers[currentPageIndex]?.offset ?? 0.0;
+    final localPos = Offset(localPosRaw.dx, localPosRaw.dy + scrollOffset);
+    final double maxTextWidth = box.size.width;
     
     // Detaylı loglar
     print('🔍 [Word Detection] ===== LONG PRESS START =====');
@@ -1708,26 +1729,14 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                     color: Colors.black.withValues(alpha: 0.05),
                   ),
                 ),
-                // Minimal Tooltip - anchored near tapped word
-                Positioned(
-                  left: (() {
-                    final size = MediaQuery.of(context).size;
-                    const tooltipWidth = 240.0;
-                    const margin = 16.0;
-                    final tap = _lastTooltipPosition ?? Offset(size.width / 2, size.height / 2);
-                    final rawLeft = tap.dx - tooltipWidth / 2;
-                    final clamped = rawLeft.clamp(margin, size.width - tooltipWidth - margin);
-                    return (clamped is double) ? clamped : (clamped as num).toDouble();
-                  })(),
-                  top: (() {
-                    final size = MediaQuery.of(context).size;
-                    const margin = 16.0;
-                    final tap = _lastTooltipPosition ?? Offset(size.width / 2, size.height / 2);
-                    final rawTop = tap.dy - 120.0; // prefer above the tap
-                    final clamped = rawTop.clamp(margin, size.height - 180.0);
-                    return (clamped is double) ? clamped : (clamped as num).toDouble();
-                  })(),
-                  child: TweenAnimationBuilder<double>(
+                // Smart Positioned tooltip near tapped word (above/below)
+                Builder(builder: (context) {
+                  final anchor = _computeAnchor(context, _lastTooltipPosition);
+                  return Positioned(
+                    left: anchor.left,
+                    top: anchor.top,
+                    bottom: anchor.bottom,
+                    child: TweenAnimationBuilder<double>(
                     duration: const Duration(milliseconds: 200),
                     tween: Tween(begin: 0.0, end: 1.0),
                     curve: Curves.easeOut,
@@ -1735,7 +1744,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                       return Transform.scale(
                         scale: 0.98 + (0.02 * value),
                         child: Transform.translate(
-                          offset: Offset(0, (1 - value) * 10),
+                          offset: Offset(0, (1 - value) * 8),
                           child: Container(
                             width: 240,
                             margin: const EdgeInsets.all(40),
@@ -1753,7 +1762,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                             child: Stack(
                               clipBehavior: Clip.none,
                               children: [
-                                // Dynamic arrow + premium word pill aligned with tapped word
+                                // Dynamic arrow aligned with tapped word
                                 Builder(builder: (context) {
                                   final size = MediaQuery.of(context).size;
                                   const tooltipWidth = 240.0;
@@ -1767,45 +1776,26 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                                   final minLeft = sidePadding;
                                   final maxLeft = tooltipWidth - sidePadding - notchSize;
                                   notchLeft = notchLeft.clamp(minLeft, maxLeft);
-                                  const double labelWidth = 120.0;
-                                  final double rawLabelLeft = notchLeft - (labelWidth / 2);
-                                  final double labelLeft = rawLabelLeft.clamp(4.0, tooltipWidth - labelWidth - 4.0);
                                   return Positioned(
-                                    left: 0,
-                                    top: 0,
-                                    width: tooltipWidth,
-                                    height: 0,
-                                    child: Stack(
-                                      clipBehavior: Clip.none,
-                                      children: [
-                                        Positioned(
-                                          top: -7,
-                                          left: notchLeft,
-                                          child: Transform.rotate(
-                                            angle: 0.785398,
-                                            child: Container(
-                                              width: notchSize,
-                                              height: notchSize,
-                                              decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: Colors.black.withValues(alpha: 0.06),
-                                                    blurRadius: 6,
-                                                    offset: const Offset(0, 2),
-                                                  ),
-                                                ],
-                                              ),
+                                    left: notchLeft,
+                                    top: anchor.showAbove ? null : -7,
+                                    bottom: anchor.showAbove ? -7 : null,
+                                    child: Transform.rotate(
+                                      angle: 0.785398,
+                                      child: Container(
+                                        width: notchSize,
+                                        height: notchSize,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(alpha: 0.06),
+                                              blurRadius: 6,
+                                              offset: const Offset(0, 2),
                                             ),
-                                          ),
+                                          ],
                                         ),
-                                        // Premium word pill over the notch (remove duplicate display)
-                                        // Positioned(
-                                        //   top: -34,
-                                        //   left: labelLeft,
-                                        //   child: ...
-                                        // ),
-                                      ],
+                                      ),
                                     ),
                                   );
                                 }),
@@ -1954,7 +1944,8 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                       );
                     },
                   ),
-                ),
+                );
+              }),
               ],
             ),
           ),
@@ -2007,7 +1998,8 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     tp.layout(maxWidth: availableWidth);
     final centerIndex = ((_wordStart! + _wordEnd!) / 2).round();
     final caret = tp.getOffsetForCaret(TextPosition(offset: centerIndex), Rect.zero);
-    final global = renderBox.localToGlobal(Offset(caret.dx, caret.dy));
+    final baselineY = caret.dy; // top of the word line
+    final global = renderBox.localToGlobal(Offset(caret.dx, baselineY));
     setState(() {
       _lastTooltipPosition = global;
     });
@@ -2027,6 +2019,33 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     }
     _overlayScrollListener = null;
     _activeOverlayScrollController = null;
+  }
+
+  TooltipAnchor _computeAnchor(BuildContext context, Offset? tap) {
+    final size = MediaQuery.of(context).size;
+    final safePadding = MediaQuery.of(context).padding;
+    final Offset anchorTap = tap ?? Offset(size.width / 2, size.height / 2);
+    const double tooltipWidth = 240.0;
+    const double tooltipHeight = 120.0; // approx content height
+    const double margin = 16.0;
+
+    final double leftRaw = anchorTap.dx - tooltipWidth / 2;
+    final double left = leftRaw.clamp(margin, size.width - tooltipWidth - margin);
+
+    final double safeTop = safePadding.top + margin;
+    final bool showAbove = (anchorTap.dy - safeTop) >= (tooltipHeight + margin);
+    final double? top = showAbove
+        ? (anchorTap.dy - tooltipHeight - 12.0).clamp(safeTop, size.height - tooltipHeight - margin)
+        : (anchorTap.dy + 12.0).clamp(safeTop, size.height - tooltipHeight - margin);
+    final double? bottom = null;
+
+    // Notch left, clamped inside tooltip
+    const double notchSize = 14.0;
+    const double sidePadding = 12.0;
+    double notchLeft = (anchorTap.dx - left) - (notchSize / 2);
+    notchLeft = notchLeft.clamp(sidePadding, tooltipWidth - sidePadding - notchSize);
+
+    return TooltipAnchor(showAbove: showAbove, left: left.toDouble(), top: top?.toDouble(), bottom: bottom, notchLeft: notchLeft.toDouble());
   }
 
   // Kelime popup overlay gizle

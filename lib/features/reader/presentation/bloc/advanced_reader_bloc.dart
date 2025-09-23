@@ -27,13 +27,13 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   Book? _currentBook;
   bool _isSpeaking = false;
   bool _isPaused = false;
-  double _speechRate = 0.5;
+  double _speechRate = 0.40;
 
   double _audioRateForTts(double ttsRate) {
     // Map normalized TTS rate (0.1-1.0) to a practical audio playback rate
-    if (ttsRate <= 0.46) return 0.9;    // Yavaş
-    if (ttsRate <= 0.56) return 1.0;    // Normal
-    if (ttsRate <= 0.75) return 1.1;    // Orta-Hızlı
+    if (ttsRate <= 0.40) return 0.9;    // Yavaş
+    if (ttsRate <= 0.50) return 1.0;    // Normal
+    if (ttsRate <= 0.65) return 1.1;    // Orta-Hızlı
     return 1.2;                         // Hızlı
   }
   double _fontSize = 27.0;
