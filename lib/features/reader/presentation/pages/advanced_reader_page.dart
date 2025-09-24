@@ -101,6 +101,62 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     });
   }
 
+  // Backdrop tap: close if tap is far from text content; otherwise retarget to new word
+  void _onBackdropTapDown(Offset globalPosition, ThemeManager themeManager) {
+    try {
+      // If tap is near the reading text area, detect word and open there; else just close
+      final int pageIndex = _wordPageIndex ?? (_readerBloc.state is ReaderLoaded ? (_readerBloc.state as ReaderLoaded).currentPage : 0);
+      final renderBox = _textKeys[pageIndex]?.currentContext?.findRenderObject() as RenderBox?;
+      final pageContent = _getPageContent(pageIndex);
+      if (renderBox == null || pageContent.isEmpty) {
+        _hideWordOverlay();
+        return;
+      }
+      final local = renderBox.globalToLocal(globalPosition);
+      // Quick containment check (a bit generous)
+      final rect = Offset.zero & renderBox.size;
+      if (!rect.inflate(12).contains(local)) {
+        _hideWordOverlay();
+        return;
+      }
+
+      // Build style from current state
+      double fontSize = 20;
+      final current = _readerBloc.state;
+      if (current is ReaderLoaded) fontSize = current.fontSize;
+      final style = TextStyle(
+        fontSize: fontSize,
+        height: 1.6,
+        letterSpacing: 0.1,
+        color: _getThemeTextColor(themeManager),
+      );
+
+      final wordInfo = _extractWordAtOffset(
+        pageContent,
+        style,
+        renderBox.size.width,
+        local,
+      );
+
+      if (wordInfo['word'] != null && wordInfo['word'].toString().isNotEmpty) {
+        setState(() {
+          _wordStart = wordInfo['start'];
+          _wordEnd = wordInfo['end'];
+          _wordPageIndex = pageIndex;
+          _selectedWord = wordInfo['word'];
+          _isLoadingTranslation = true;
+          _wordTranslation = null;
+        });
+        _showWordOverlay(globalPosition, _selectedWord!, themeManager);
+        _translateWord(_selectedWord!);
+      } else {
+        _hideWordOverlay();
+      }
+    } catch (_) {
+      _hideWordOverlay();
+    }
+  }
+
   void _loadBook() {
     _readerBloc.add(LoadBook(widget.book.id.toString()));
   }
@@ -1749,17 +1805,19 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
       builder: (context) => AnimatedOpacity(
         opacity: _isTooltipVisible ? 1.0 : 0.0,
         duration: const Duration(milliseconds: 150),
-        child: GestureDetector(
-          onTap: () => _hideWordOverlay(),
-          child: Container(
+        child: Container(
             color: Colors.transparent,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                // Minimal backdrop
+                // Backdrop detects taps to retarget/close
                 Positioned.fill(
-                  child: Container(
-                    color: Colors.black.withValues(alpha: 0.05),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTapDown: (details) => _onBackdropTapDown(details.globalPosition, themeManager),
+                    child: Container(
+                      color: Colors.black.withValues(alpha: 0.05),
+                    ),
                   ),
                 ),
                 // Smart Positioned tooltip near tapped word (above/below)
@@ -1778,7 +1836,10 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                         scale: 0.98 + (0.02 * value),
                         child: Transform.translate(
                           offset: Offset(0, (1 - value) * 8),
-                          child: Container(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {},
+                            child: Container(
                             width: 240,
                             decoration: BoxDecoration(
                               color: Colors.white,
@@ -2055,12 +2116,40 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
 
     final double leftRaw = anchorTap.dx - tooltipWidth / 2;
     final double left = leftRaw.clamp(screenEdgePadding, size.width - tooltipWidth - screenEdgePadding);
+    // Determine vertical bounds using reading area's RenderBox if available
+    double safeTop = safePadding.top + screenEdgePadding;
+    double safeBottom = size.height - screenEdgePadding;
+    try {
+      if (_wordPageIndex != null) {
+        final renderBox = _textKeys[_wordPageIndex!]?.currentContext?.findRenderObject() as RenderBox?;
+        if (renderBox != null) {
+          final contentTop = renderBox.localToGlobal(Offset.zero).dy;
+          final contentBottom = contentTop + renderBox.size.height;
+          // Clamp to content rect to avoid overlapping top bar/controls
+          safeTop = (contentTop + screenEdgePadding).clamp(safeTop, size.height);
+          safeBottom = (contentBottom - screenEdgePadding).clamp(0.0, safeBottom);
+          // If bounds inverted due to extremely small content, reset to screen bounds
+          if (safeBottom <= safeTop) {
+            safeTop = safePadding.top + screenEdgePadding;
+            safeBottom = size.height - screenEdgePadding;
+          }
+        }
+      }
+    } catch (_) {
+      // Fallback to screen-based bounds
+      safeTop = safePadding.top + screenEdgePadding;
+      safeBottom = size.height - screenEdgePadding;
+    }
 
-    final double safeTop = safePadding.top + screenEdgePadding;
-    final bool showAbove = (anchorTap.dy - safeTop) >= (tooltipHeight + screenEdgePadding);
-    final double? top = showAbove
-        ? (anchorTap.dy - tooltipHeight - 12.0).clamp(safeTop, size.height - tooltipHeight - screenEdgePadding)
-        : (anchorTap.dy + 12.0).clamp(safeTop, size.height - tooltipHeight - screenEdgePadding);
+    // Choose above/below based on available space within the clamped bounds
+    final double spaceAbove = (anchorTap.dy - safeTop).clamp(0.0, double.infinity);
+    final double spaceBelow = (safeBottom - anchorTap.dy).clamp(0.0, double.infinity);
+    final bool showAbove = spaceAbove >= tooltipHeight + 12.0 || (spaceAbove >= spaceBelow);
+    final double topLimit = safeBottom - tooltipHeight;
+    final double candidateTop = showAbove
+        ? (anchorTap.dy - tooltipHeight - 12.0)
+        : (anchorTap.dy + 12.0);
+    final double? top = candidateTop.clamp(safeTop, topLimit);
     final double? bottom = null;
 
     // Notch left, clamped inside tooltip
@@ -2074,7 +2163,8 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
         ', showAbove='+showAbove.toString()+
         ', notchLeft='+notchLeft.toString()+
         ', screen='+size.width.toString()+'x'+size.height.toString()+
-        ', safeTop='+safePadding.top.toString());
+        ', safeTop='+safeTop.toString()+
+        ', safeBottom='+safeBottom.toString());
 
     return TooltipAnchor(showAbove: showAbove, left: left.toDouble(), top: top?.toDouble(), bottom: bottom, notchLeft: notchLeft.toDouble());
   }
