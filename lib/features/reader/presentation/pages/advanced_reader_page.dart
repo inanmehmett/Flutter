@@ -1527,7 +1527,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
 
     // Pozisyonu daha hassas hesapla
     final pos = tp.getPositionForOffset(localPos);
-    final idx = pos.offset.clamp(0, fullText.length - 1);
+    int idx = pos.offset.clamp(0, fullText.length - 1);
     
     print('🔍 [Extract Word] TextPainter Position: $pos');
     print('🔍 [Extract Word] Character Index: $idx');
@@ -1539,36 +1539,68 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     print('🔍 [Extract Word] Context: "${fullText.substring(contextStart, contextEnd)}"');
     print('🔍 [Extract Word] Context Index: $contextStart-$contextEnd, Target: $idx');
 
-    // Kelime sınırları: boşluk, noktalama işaretleri ve özel karakterler
-    final wordBoundaryRegex = RegExp(r'[\s\.,!?;:"\x27\-\(\)\[\]{}]');
+    // Kelime karakter tanımı: harf/rakam, apostrof (' veya ’) ve tire (-)
+    bool isWordChar(String ch) {
+      if (ch.isEmpty) return false;
+      final code = ch.codeUnitAt(0);
+      final isAsciiLetter = (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+      final isDigit = code >= 48 && code <= 57;
+      final isApostrophe = ch == "'" || ch == "’";
+      final isHyphen = ch == '-';
+      return isAsciiLetter || isDigit || isApostrophe || isHyphen;
+    }
+
+    // Eğer boşluk/noktalama üzerine tıklandıysa en yakın kelime karakterine kaydır
+    if (!isWordChar(fullText[idx])) {
+      int left = idx - 1;
+      while (left >= 0 && !isWordChar(fullText[left])) {
+        left--;
+      }
+      int right = idx + 1;
+      while (right < fullText.length && !isWordChar(fullText[right])) {
+        right++;
+      }
+      if (left >= 0 && right < fullText.length) {
+        idx = (idx - left) <= (right - idx) ? left : right;
+      } else if (left >= 0) {
+        idx = left;
+      } else if (right < fullText.length) {
+        idx = right;
+      } else {
+        print('🔍 [Extract Word] ❌ No word characters around tap');
+        return {'word': '', 'start': 0, 'end': 0};
+      }
+      print('🔍 [Extract Word] Adjusted Character Index: $idx (char="${fullText[idx]}")');
+    }
 
     // Solda kelime başlangıcını bul
     int start = idx;
-    for (int i = idx; i >= 0; i--) {
-      if (wordBoundaryRegex.hasMatch(fullText[i])) {
-        start = i + 1;
-        break;
-      }
-      if (i == 0) {
-        start = 0;
-      }
+    while (start > 0 && isWordChar(fullText[start - 1])) {
+      start--;
     }
 
     // Sağda kelime sonunu bul
     int end = idx;
-    for (int i = idx; i < fullText.length; i++) {
-      if (wordBoundaryRegex.hasMatch(fullText[i])) {
-        end = i;
-        break;
-      }
-      if (i == fullText.length - 1) {
-        end = fullText.length;
-      }
+    while (end < fullText.length && isWordChar(fullText[end])) {
+      end++;
     }
     
     print('🔍 [Extract Word] Word Boundaries: start=$start, end=$end');
+    // Guard against invalid ranges (e.g., when tapping punctuation/space)
+    if (end <= start) {
+      print('🔍 [Extract Word] ❌ Invalid range: end <= start');
+      return {'word': '', 'start': 0, 'end': 0};
+    }
 
-    final word = fullText.substring(start, end).trim();
+    // Clamp indices safely before substring
+    final int safeStart = start.clamp(0, fullText.length);
+    final int safeEnd = end.clamp(safeStart, fullText.length);
+    if (safeEnd <= safeStart) {
+      print('🔍 [Extract Word] ❌ Safe invalid range after clamp');
+      return {'word': '', 'start': 0, 'end': 0};
+    }
+
+    final word = fullText.substring(safeStart, safeEnd).trim();
     
     print('🔍 [Extract Word] Extracted Word: "$word"');
     
@@ -1579,8 +1611,9 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     }
 
     // Kelime sadece noktalama işaretlerinden oluşuyorsa geçersiz
-    if (wordBoundaryRegex.hasMatch(word)) {
-      print('🔍 [Extract Word] ❌ Word contains only punctuation');
+    final hasAlphaNum = RegExp(r'[A-Za-z0-9]').hasMatch(word);
+    if (!hasAlphaNum) {
+      print('🔍 [Extract Word] ❌ Word contains no alphanumeric');
       return {'word': '', 'start': 0, 'end': 0};
     }
 
@@ -1606,9 +1639,8 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
       return;
     }
     
-    final localPosRaw = box.globalToLocal(details.globalPosition);
-    final scrollOffset = _scrollControllers[currentPageIndex]?.offset ?? 0.0;
-    final localPos = Offset(localPosRaw.dx, localPosRaw.dy + scrollOffset);
+    // Box zaten scroll ile taşındığı için ekstra offset eklemiyoruz
+    final localPos = box.globalToLocal(details.globalPosition);
     final double maxTextWidth = box.size.width;
     
     // Detaylı loglar
@@ -1711,6 +1743,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
       _isTooltipVisible = true;
       _lastTooltipPosition = globalPosition;
     });
+    print('📍 [Tooltip] Open at tap: '+(_lastTooltipPosition?.toString() ?? 'null')+', word="'+word+'"');
     
     _wordOverlay = OverlayEntry(
       builder: (context) => AnimatedOpacity(
@@ -1747,7 +1780,6 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                           offset: Offset(0, (1 - value) * 8),
                           child: Container(
                             width: 240,
-                            margin: const EdgeInsets.all(40),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(12),
@@ -1764,20 +1796,9 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                               children: [
                                 // Dynamic arrow aligned with tapped word
                                 Builder(builder: (context) {
-                                  final size = MediaQuery.of(context).size;
-                                  const tooltipWidth = 240.0;
                                   const notchSize = 14.0;
-                                  const sidePadding = 12.0;
-                                  const margin = 16.0;
-                                  final tap = _lastTooltipPosition ?? Offset(size.width / 2, size.height / 2);
-                                  final left = (tap.dx - tooltipWidth / 2).clamp(margin, size.width - tooltipWidth - margin);
-                                  final leftDouble = (left is double) ? left : (left as num).toDouble();
-                                  double notchLeft = (tap.dx - leftDouble) - (notchSize / 2);
-                                  final minLeft = sidePadding;
-                                  final maxLeft = tooltipWidth - sidePadding - notchSize;
-                                  notchLeft = notchLeft.clamp(minLeft, maxLeft);
                                   return Positioned(
-                                    left: notchLeft,
+                                    left: anchor.notchLeft,
                                     top: anchor.showAbove ? null : -7,
                                     bottom: anchor.showAbove ? -7 : null,
                                     child: Transform.rotate(
@@ -2000,6 +2021,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     final caret = tp.getOffsetForCaret(TextPosition(offset: centerIndex), Rect.zero);
     final baselineY = caret.dy; // top of the word line
     final global = renderBox.localToGlobal(Offset(caret.dx, baselineY));
+    print('📍 [Tooltip] Reposition to: '+global.toString()+' (caret.dx='+caret.dx.toString()+', caret.dy='+baselineY.toString()+')');
     setState(() {
       _lastTooltipPosition = global;
     });
@@ -2027,23 +2049,32 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     final Offset anchorTap = tap ?? Offset(size.width / 2, size.height / 2);
     const double tooltipWidth = 240.0;
     const double tooltipHeight = 120.0; // approx content height
-    const double margin = 16.0;
+    const double screenEdgePadding = 16.0; // padding from screen edges
+    const double sidePadding = 12.0; // internal padding for notch clamping
+    const double notchSize = 14.0;
 
     final double leftRaw = anchorTap.dx - tooltipWidth / 2;
-    final double left = leftRaw.clamp(margin, size.width - tooltipWidth - margin);
+    final double left = leftRaw.clamp(screenEdgePadding, size.width - tooltipWidth - screenEdgePadding);
 
-    final double safeTop = safePadding.top + margin;
-    final bool showAbove = (anchorTap.dy - safeTop) >= (tooltipHeight + margin);
+    final double safeTop = safePadding.top + screenEdgePadding;
+    final bool showAbove = (anchorTap.dy - safeTop) >= (tooltipHeight + screenEdgePadding);
     final double? top = showAbove
-        ? (anchorTap.dy - tooltipHeight - 12.0).clamp(safeTop, size.height - tooltipHeight - margin)
-        : (anchorTap.dy + 12.0).clamp(safeTop, size.height - tooltipHeight - margin);
+        ? (anchorTap.dy - tooltipHeight - 12.0).clamp(safeTop, size.height - tooltipHeight - screenEdgePadding)
+        : (anchorTap.dy + 12.0).clamp(safeTop, size.height - tooltipHeight - screenEdgePadding);
     final double? bottom = null;
 
     // Notch left, clamped inside tooltip
-    const double notchSize = 14.0;
-    const double sidePadding = 12.0;
     double notchLeft = (anchorTap.dx - left) - (notchSize / 2);
     notchLeft = notchLeft.clamp(sidePadding, tooltipWidth - sidePadding - notchSize);
+
+    print('📍 [Tooltip] Anchor -> tap='+anchorTap.toString()+
+        ', left='+left.toString()+
+        ', top='+(top?.toString() ?? 'null')+
+        ', bottom='+(bottom?.toString() ?? 'null')+
+        ', showAbove='+showAbove.toString()+
+        ', notchLeft='+notchLeft.toString()+
+        ', screen='+size.width.toString()+'x'+size.height.toString()+
+        ', safeTop='+safePadding.top.toString());
 
     return TooltipAnchor(showAbove: showAbove, left: left.toDouble(), top: top?.toDouble(), bottom: bottom, notchLeft: notchLeft.toDouble());
   }
