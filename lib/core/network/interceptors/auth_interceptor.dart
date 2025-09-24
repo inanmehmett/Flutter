@@ -46,6 +46,11 @@ class AuthInterceptor extends Interceptor {
         } else {
           print('🔐 [AuthInterceptor] ⚠️ No token found for auth request');
         }
+        // Attach client timezone offset for backend streak/day-boundary handling
+        try {
+          final tzOffsetMinutes = DateTime.now().timeZoneOffset.inMinutes;
+          options.headers['X-Client-TZ-Offset'] = tzOffsetMinutes.toString();
+        } catch (_) {}
       } catch (e) {
         print('🔐 [AuthInterceptor] ❌ Error getting token: $e');
       }

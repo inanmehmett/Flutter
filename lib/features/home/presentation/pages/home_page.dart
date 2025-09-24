@@ -784,7 +784,7 @@ class _HomePageState extends State<HomePage> {
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final screenWidth = MediaQuery.of(context).size.width;
-                      final cardHeight = screenWidth < 400 ? 80.0 : 88.0;
+                      final cardHeight = screenWidth < 400 ? 110.0 : 128.0;
                       
                       return SizedBox(
                         height: cardHeight,
@@ -908,9 +908,16 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildIOSBookCard(BuildContext context, LastReadInfo info, double cardHeight) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final cardWidth = screenWidth < 400 ? 260.0 : 280.0;
+    final cardWidth = screenWidth < 400 ? 300.0 : 340.0;
     final coverHeight = cardHeight - 32; // Padding için alan bırak
-    final coverWidth = coverHeight * 0.6; // Oran koru
+    final coverWidth = coverHeight * 0.68; // Oran koru
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color tintedBg = isDark
+        ? Colors.white.withOpacity(0.06)
+        : Theme.of(context).colorScheme.primary.withOpacity(0.06);
+    final Color tintedBorder = isDark
+        ? Colors.white.withOpacity(0.10)
+        : Theme.of(context).colorScheme.primary.withOpacity(0.12);
     
     return InkWell(
       borderRadius: BorderRadius.circular(12),
@@ -921,8 +928,9 @@ class _HomePageState extends State<HomePage> {
         width: cardWidth,
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: tintedBg,
           borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: tintedBorder, width: 1),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.04),

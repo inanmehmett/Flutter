@@ -111,28 +111,15 @@ class _BookListPageState extends State<BookListPage> {
   }
 
   Widget _buildMainContent(BookListViewModel bookViewModel) {
-    // Build categories dynamically from books
     final categories = bookViewModel.categories;
-    if (_selectedCategory >= categories.length) {
-      _selectedCategory = 0;
-    }
-    final selectedCategory = categories[_selectedCategory];
-    final filteredBooks = bookViewModel.filterBooksBySearchAndCategory(
-      searchText: _searchController.text,
-      category: selectedCategory,
-    );
-
     return SafeArea(
       child: Column(
         children: [
           _buildModernAppBar(),
           _buildSearchSection(),
-          _buildCategorySection(categories),
           if (bookViewModel.hasError && bookViewModel.hasBooks)
             _buildErrorBanner(bookViewModel),
-          Expanded(
-            child: _buildBooksGrid(filteredBooks, bookViewModel),
-          ),
+          Expanded(child: _buildCategorySections(context, bookViewModel, categories)),
         ],
       ),
     );
@@ -234,38 +221,96 @@ class _BookListPageState extends State<BookListPage> {
     );
   }
 
-  Widget _buildCategorySection(List<String> categories) {
-    return Container(
-      height: 50,
+  // Ana sayfadaki bölüm başlığına benzer bir başlık
+  Widget _buildSectionTitle(String title, [String? subtitle]) {
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: AppTypography.title2.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              if (subtitle != null && subtitle.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    subtitle,
+                    style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Ana sayfadaki yatay kitap kaydırıcıya benzer bir görünüm
+  Widget _buildBooksScroller(BuildContext context, List<Book> books) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final screenHeight = MediaQuery.of(context).size.height;
+        double cardWidth;
+        if (screenWidth < 400) {
+          cardWidth = 110;
+        } else if (screenWidth < 600) {
+          cardWidth = 121;
+        } else {
+          cardWidth = 135;
+        }
+        final double coverHeight = cardWidth * 1.30;
+        final double listHeight = coverHeight + (screenHeight < 600 ? 70 : 82);
+
+        return SizedBox(
+          height: listHeight,
+          child: ListView.separated(
+            padding: const EdgeInsets.only(left: 20, right: 12),
+            scrollDirection: Axis.horizontal,
+            itemCount: books.length.clamp(0, 12),
+            separatorBuilder: (_, __) => SizedBox(width: screenWidth < 400 ? 12 : 16),
+            itemBuilder: (context, index) {
+              final book = books[index];
+              return UnifiedBookCard(book: book);
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCategorySections(BuildContext context, BookListViewModel vm, List<String> categories) {
+    return RefreshIndicator(
+      onRefresh: () async => await vm.refreshBooks(),
+      child: ListView.builder(
+        padding: EdgeInsets.only(bottom: widget.showBottomNav ? 100 : 20, top: 8),
         itemCount: categories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
-          final isSelected = _selectedCategory == index;
-          return GestureDetector(
-            onTap: () => setState(() => _selectedCategory = index),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary : AppColors.surface,
-                borderRadius: BorderRadius.circular(AppRadius.buttonRadius),
-                boxShadow: isSelected ? AppShadows.buttonShadow : null,
-                border: Border.all(
-                  color: isSelected ? AppColors.primary : AppColors.border,
-                  width: 1,
-                ),
-              ),
-              child: Text(
-                categories[index],
-                style: AppTypography.buttonMedium.copyWith(
-                  color: isSelected ? AppColors.surface : AppColors.textPrimary,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                ),
-              ),
-            ),
+          final category = categories[index];
+          final books = vm.filterBooksBySearchAndCategory(
+            searchText: _searchController.text,
+            category: category,
+          );
+          if (books.isEmpty) {
+            return const SizedBox.shrink();
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 12),
+              _buildSectionTitle(category),
+              const SizedBox(height: 8),
+              _buildBooksScroller(context, books),
+              const SizedBox(height: 8),
+            ],
           );
         },
       ),
@@ -303,37 +348,7 @@ class _BookListPageState extends State<BookListPage> {
     );
   }
 
-  Widget _buildBooksGrid(List<Book> books, BookListViewModel bookViewModel) {
-    if (books.isEmpty) {
-      return _buildNoBooksFound();
-    }
-
-    return RefreshIndicator(
-      onRefresh: () async => await bookViewModel.refreshBooks(),
-      child: GridView.builder(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: widget.showBottomNav ? 100 : 20, // Add bottom padding for navigation
-        ),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: _getCrossAxisCount(),
-          childAspectRatio: 0.75, // Adjusted for better content fit
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 20,
-        ),
-        itemCount: books.length,
-        itemBuilder: (context, index) {
-          final book = books[index];
-          return UnifiedBookCard(
-            book: book,
-            isGridLayout: false,
-          );
-        },
-      ),
-    );
-  }
+  // Grid kullanımı kaldırıldı; dikey kategoriler ve yatay scroller kullanılıyor
 
   int _getCrossAxisCount() {
     final screenWidth = MediaQuery.of(context).size.width;

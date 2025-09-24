@@ -84,6 +84,10 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
   bool _isTooltipVisible = false;
   Offset? _lastTooltipPosition;
 
+  // Sentence translation premium overlay
+  OverlayEntry? _sentenceOverlay;
+  Timer? _sentenceOverlayTimer;
+
   @override
   void initState() {
     super.initState();
@@ -676,16 +680,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                               final translation = await bloc.translateSentence(sentence);
                               if (!mounted) return;
                               if (translation.isNotEmpty) {
-                                ScaffoldMessenger.of(context)
-                                  ..hideCurrentSnackBar()
-                                  ..showSnackBar(
-                                    SnackBar(
-                                      content: Text(translation),
-                                      duration: const Duration(seconds: 6),
-                                      behavior: SnackBarBehavior.floating,
-                                      margin: const EdgeInsets.all(16),
-                                    ),
-                                  );
+                                _showSentenceOverlayPremium(sentence, translation, themeManager);
                               }
                             },
                              child: Container(
@@ -796,6 +791,175 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
         );
       },
     );
+  }
+
+  // ================= PREMIUM TRANSLATION OVERLAY =================
+  void _showSentenceOverlayPremium(String original, String translated, ThemeManager themeManager) {
+    _hideSentenceOverlay();
+
+    final overlay = Overlay.of(context);
+    if (overlay == null) return;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color bg = isDark ? Colors.white.withOpacity(0.08) : Colors.white.withOpacity(0.7);
+    final Color border = isDark ? Colors.white.withOpacity(0.14) : Colors.black.withOpacity(0.08);
+    final Color textPrimary = _getThemeOnSurfaceColor(themeManager);
+    final Color textSecondary = _getThemeOnSurfaceVariantColor(themeManager);
+
+    _sentenceOverlay = OverlayEntry(
+      builder: (ctx) {
+        final mq = MediaQuery.of(ctx);
+        final double horizontal = 16;
+        final double maxWidth = mq.size.width - (horizontal * 2);
+        return AnimatedOpacity(
+          opacity: 1.0,
+          duration: const Duration(milliseconds: 180),
+          child: Stack(
+            children: [
+              // Backdrop tap to dismiss
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: _hideSentenceOverlay,
+                  child: const SizedBox.shrink(),
+                ),
+              ),
+              // Floating glass card
+              Positioned(
+                left: horizontal,
+                right: horizontal,
+                bottom: mq.padding.bottom + 20,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, child) {
+                    return Transform.translate(
+                      offset: Offset(0, (1 - value) * 12),
+                      child: Transform.scale(
+                        scale: 0.98 + value * 0.02,
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                      child: Container(
+                        constraints: BoxConstraints(maxWidth: maxWidth),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: bg,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: border, width: 1),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(isDark ? 0.4 : 0.08),
+                              blurRadius: 18,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(CupertinoIcons.globe, size: 16, color: textSecondary),
+                                const SizedBox(width: 6),
+                                Text('Translation', style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w600, letterSpacing: 0.2)),
+                                const Spacer(),
+                                GestureDetector(
+                                  onTap: _hideSentenceOverlay,
+                                  child: Icon(CupertinoIcons.xmark_circle_fill, size: 18, color: textSecondary.withOpacity(0.8)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              translated,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: textPrimary,
+                                height: 1.35,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              original,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: textSecondary,
+                                height: 1.35,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                _iconAction(
+                                  icon: CupertinoIcons.speaker_2_fill,
+                                  label: 'Listen',
+                                  onTap: () => _readerBloc.speakSentenceWithIndex(original, _readerBloc.computeSentenceIndex(original, _getPageContent((_readerBloc.state as ReaderLoaded).currentPage))),
+                                  themeManager: themeManager,
+                                ),
+                                const SizedBox(width: 10),
+                                _iconAction(
+                                  icon: CupertinoIcons.doc_on_doc,
+                                  label: 'Copy',
+                                  onTap: () => Clipboard.setData(ClipboardData(text: translated)),
+                                  themeManager: themeManager,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    Overlay.of(context).insert(_sentenceOverlay!);
+
+    _sentenceOverlayTimer?.cancel();
+    _sentenceOverlayTimer = Timer(const Duration(seconds: 7), _hideSentenceOverlay);
+  }
+
+  Widget _iconAction({required IconData icon, required String label, required VoidCallback onTap, required ThemeManager themeManager}) {
+    final Color fg = _getThemeOnSurfaceVariantColor(themeManager);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: fg),
+            const SizedBox(width: 6),
+            Text(label, style: TextStyle(fontSize: 12, color: fg, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _hideSentenceOverlay() {
+    _sentenceOverlayTimer?.cancel();
+    _sentenceOverlayTimer = null;
+    _sentenceOverlay?.remove();
+    _sentenceOverlay = null;
   }
 
   String _getPageContent(int pageIndex) {
@@ -976,29 +1140,6 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                 }
               },
             ),
-          ),
-          
-          // Page info - Spotify tarzı
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '${state.currentPage + 1}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              Text(
-                '${state.totalPages}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -1802,36 +1943,31 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     print('📍 [Tooltip] Open at tap: '+(_lastTooltipPosition?.toString() ?? 'null')+', word="'+word+'"');
     
     _wordOverlay = OverlayEntry(
-      builder: (context) => AnimatedOpacity(
-        opacity: _isTooltipVisible ? 1.0 : 0.0,
-        duration: const Duration(milliseconds: 150),
-        child: Container(
-            color: Colors.transparent,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                // Backdrop detects taps to retarget/close
-                Positioned.fill(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTapDown: (details) => _onBackdropTapDown(details.globalPosition, themeManager),
-                    child: Container(
-                      color: Colors.black.withValues(alpha: 0.05),
-                    ),
-                  ),
+      builder: (context) {
+        return AnimatedOpacity(
+          opacity: _isTooltipVisible ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 150),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTapDown: (details) => _onBackdropTapDown(details.globalPosition, themeManager),
+                  child: Container(color: Colors.black.withValues(alpha: 0.05)),
                 ),
-                // Smart Positioned tooltip near tapped word (above/below)
-                Builder(builder: (context) {
-                  final anchor = _computeAnchor(context, _lastTooltipPosition);
-                  return Positioned(
-                    left: anchor.left,
-                    top: anchor.top,
-                    bottom: anchor.bottom,
-                    child: TweenAnimationBuilder<double>(
+              ),
+              Builder(builder: (context) {
+                final anchor = _computeAnchor(context, _lastTooltipPosition);
+                return Positioned(
+                  left: anchor.left,
+                  top: anchor.top,
+                  bottom: anchor.bottom,
+                  child: TweenAnimationBuilder<double>(
                     duration: const Duration(milliseconds: 200),
                     tween: Tween(begin: 0.0, end: 1.0),
                     curve: Curves.easeOut,
-                    builder: (context, value, child) {
+                    builder: (context, value, _) {
                       return Transform.scale(
                         scale: 0.98 + (0.02 * value),
                         child: Transform.translate(
@@ -1840,33 +1976,30 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                             behavior: HitTestBehavior.opaque,
                             onTap: () {},
                             child: Container(
-                            width: 240,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.06),
-                                  blurRadius: 14,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ],
-                            ),
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                // Dynamic arrow aligned with tapped word
-                                Builder(builder: (context) {
-                                  const notchSize = 14.0;
-                                  return Positioned(
+                              width: 240,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.06),
+                                    blurRadius: 14,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Positioned(
                                     left: anchor.notchLeft,
                                     top: anchor.showAbove ? null : -7,
                                     bottom: anchor.showAbove ? -7 : null,
                                     child: Transform.rotate(
                                       angle: 0.785398,
                                       child: Container(
-                                        width: notchSize,
-                                        height: notchSize,
+                                        width: 14.0,
+                                        height: 14.0,
                                         decoration: BoxDecoration(
                                           color: Colors.white,
                                           boxShadow: [
@@ -1879,147 +2012,139 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                                         ),
                                       ),
                                     ),
-                                  );
-                                }),
-                                // Close button - Positioned outside the tooltip like in the image
-                                Positioned(
-                                  top: -10,
-                                  right: -10,
-                                  child: GestureDetector(
-                                    onTap: () => _hideWordOverlay(),
-                                    child: Container(
-                                      width: 28,
-                                      height: 28,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        shape: BoxShape.circle,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.12),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 3),
-                                          ),
-                                        ],
-                                      ),
-                                      child: const Icon(
-                                        CupertinoIcons.xmark,
-                                        size: 14,
-                                        color: Color(0xFF666666),
+                                  ),
+                                  Positioned(
+                                    top: -10,
+                                    right: -10,
+                                    child: GestureDetector(
+                                      onTap: () => _hideWordOverlay(),
+                                      child: Container(
+                                        width: 28,
+                                        height: 28,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(alpha: 0.12),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 3),
+                                            ),
+                                          ],
+                                        ),
+                                        child: const Icon(
+                                          CupertinoIcons.xmark,
+                                          size: 14,
+                                          color: Color(0xFF666666),
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                                // Main content
-                                Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      // Top row - Word + Icons (like the image)
-                                      Row(
-                                        children: [
-                                          // Word - iOS style capsule inside header
-                                          Expanded(
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFFE6F0FF),
-                                                borderRadius: BorderRadius.circular(8),
+                                  Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFE6F0FF),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                child: Text(
+                                                  word,
+                                                  style: const TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Colors.black,
+                                                    decoration: TextDecoration.none,
+                                                  ),
+                                                ),
                                               ),
-                                              child: Text(
-                                                word,
-                                                style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Colors.black,
+                                            ),
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                GestureDetector(
+                                                  onTap: () => _addToVocabulary(word),
+                                                  child: Container(
+                                                    padding: const EdgeInsets.all(6),
+                                                    child: Icon(
+                                                      CupertinoIcons.star,
+                                                      size: 18,
+                                                      color: Colors.amber,
+                                                    ),
+                                                  ),
+                                                ),
+                                                GestureDetector(
+                                                  onTap: () => _speakWord(word),
+                                                  child: Container(
+                                                    padding: const EdgeInsets.all(6),
+                                                    child: Icon(
+                                                      CupertinoIcons.speaker_2_fill,
+                                                      size: 18,
+                                                      color: CupertinoColors.activeBlue,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                        Container(
+                                          margin: const EdgeInsets.symmetric(vertical: 8),
+                                          height: 1,
+                                          color: Colors.black.withValues(alpha: 0.06),
+                                        ),
+                                        if (_isLoadingTranslation)
+                                          Row(
+                                            children: [
+                                              const SizedBox(
+                                                width: 14,
+                                                height: 14,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 1.5,
+                                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                'Translating...',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Colors.grey[600],
                                                   decoration: TextDecoration.none,
                                                 ),
                                               ),
-                                            ),
-                                          ),
-                                          // Icons row - Smaller and more subtle
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              // Star icon (favorite)
-                                              GestureDetector(
-                                                onTap: () => _addToVocabulary(word),
-                                                child: Container(
-                                                  padding: const EdgeInsets.all(6),
-                                                  child: Icon(
-                                                    CupertinoIcons.star,
-                                                    size: 18,
-                                                    color: Colors.amber,
-                                                  ),
-                                                ),
-                                              ),
-                                              // Speaker icon
-                                              GestureDetector(
-                                                onTap: () => _speakWord(word),
-                                                child: Container(
-                                                  padding: const EdgeInsets.all(6),
-                                                  child: Icon(
-                                                    CupertinoIcons.speaker_2_fill,
-                                                    size: 18,
-                                                    color: CupertinoColors.activeBlue,
-                                                  ),
-                                                ),
-                                              ),
                                             ],
-                                          ),
-                                        ],
-                                      ),
-                                      Container(
-                                        margin: const EdgeInsets.symmetric(vertical: 8),
-                                        height: 1,
-                                        color: Colors.black.withValues(alpha: 0.06),
-                                      ),
-                                      // Translation - Smaller and more subtle
-                                      if (_isLoadingTranslation)
-                                        Row(
-                                          children: [
-                                            const SizedBox(
-                                              width: 14,
-                                              height: 14,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 1.5,
-                                                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-                                              ),
+                                          )
+                                        else if (_wordTranslation != null && _wordTranslation!.isNotEmpty)
+                                          Text(
+                                            _wordTranslation!,
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              color: Colors.black,
+                                              fontWeight: FontWeight.w600,
+                                              decoration: TextDecoration.none,
                                             ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              'Translating...',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: Colors.grey[600],
-                                                decoration: TextDecoration.none,
-                                              ),
+                                          )
+                                        else
+                                          Text(
+                                            'Loading...',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: Colors.grey[600],
+                                              decoration: TextDecoration.none,
                                             ),
-                                          ],
-                                        )
-                                      else if (_wordTranslation != null && _wordTranslation!.isNotEmpty)
-                                        Text(
-                                          _wordTranslation!,
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            color: Colors.black,
-                                            fontWeight: FontWeight.w600,
-                                            decoration: TextDecoration.none,
                                           ),
-                                        )
-                                      else
-                                        Text(
-                                          'Loading...',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey[600],
-                                            decoration: TextDecoration.none,
-                                          ),
-                                        ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -2028,11 +2153,10 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                   ),
                 );
               }),
-              ],
-            ),
+            ],
           ),
-        ),
-      ),
+        );
+      },
     );
     
     Overlay.of(context).insert(_wordOverlay!);

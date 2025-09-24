@@ -26,6 +26,7 @@ class SignalRService {
   bool _isConnected = false;
   bool _isConnecting = false;
   Timer? _reconnectTimer;
+  int? _lastNotifiedStreak; // prevent duplicate streak toasts when value unchanged
   
   SignalRService(this._networkManager, this._secureStorage);
 
@@ -190,12 +191,41 @@ class SignalRService {
       if (args != null && args.isNotEmpty) {
         final data = args[0] as Map<String, dynamic>?;
         if (data != null) {
-          _controller.add(RealtimeEvent(RealtimeEventType.streakUpdated, {
-            'currentStreak': data['currentStreak'] ?? 0,
-            'longestStreak': data['longestStreak'] ?? 0,
-          }));
-          
-          HapticFeedback.selectionClick();
+          final int current = (data['currentStreak'] ?? 0) is num ? (data['currentStreak'] as num).toInt() : 0;
+          if (_lastNotifiedStreak == null) {
+            _lastNotifiedStreak = current; // prime without toast on first event
+            return;
+          }
+          if (current != _lastNotifiedStreak) {
+            _lastNotifiedStreak = current;
+            _controller.add(RealtimeEvent(RealtimeEventType.streakUpdated, {
+              'currentStreak': current,
+              'longestStreak': data['longestStreak'] ?? 0,
+            }));
+            HapticFeedback.selectionClick();
+          }
+        }
+      }
+    });
+
+    // Alias: backend might emit lowercase name 'streakUpdated'
+    _connection!.on('streakUpdated', (List<Object?>? args) {
+      if (args != null && args.isNotEmpty) {
+        final data = args[0] as Map<String, dynamic>?;
+        if (data != null) {
+          final int current = (data['currentStreak'] ?? 0) is num ? (data['currentStreak'] as num).toInt() : 0;
+          if (_lastNotifiedStreak == null) {
+            _lastNotifiedStreak = current; // prime without toast on first event
+            return;
+          }
+          if (current != _lastNotifiedStreak) {
+            _lastNotifiedStreak = current;
+            _controller.add(RealtimeEvent(RealtimeEventType.streakUpdated, {
+              'currentStreak': current,
+              'longestStreak': data['longestStreak'] ?? 0,
+            }));
+            HapticFeedback.selectionClick();
+          }
         }
       }
     });
