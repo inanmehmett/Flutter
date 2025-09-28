@@ -9,6 +9,7 @@ class AppSettings {
   final bool notificationsEnabled;
   final double fontSize;
   final bool autoPlayAudio;
+  final bool premiumHighlightEnabled;
   
   AppSettings({
     this.isDarkMode = false,
@@ -16,6 +17,7 @@ class AppSettings {
     this.notificationsEnabled = true,
     this.fontSize = 16.0,
     this.autoPlayAudio = false,
+    this.premiumHighlightEnabled = false,
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -25,6 +27,7 @@ class AppSettings {
       notificationsEnabled: json['notificationsEnabled'] as bool? ?? true,
       fontSize: (json['fontSize'] as num?)?.toDouble() ?? 16.0,
       autoPlayAudio: json['autoPlayAudio'] as bool? ?? false,
+      premiumHighlightEnabled: json['premiumHighlightEnabled'] as bool? ?? false,
     );
   }
   
@@ -34,6 +37,7 @@ class AppSettings {
     'notificationsEnabled': notificationsEnabled,
     'fontSize': fontSize,
     'autoPlayAudio': autoPlayAudio,
+    'premiumHighlightEnabled': premiumHighlightEnabled,
   };
 }
 

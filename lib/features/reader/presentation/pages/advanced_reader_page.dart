@@ -13,6 +13,7 @@ import '../../../../core/theme/theme_manager.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../../core/di/injection.dart';
+import '../../../../core/app/app_manager.dart';
 import '../bloc/advanced_reader_bloc.dart';
 import '../bloc/reader_event.dart';
 import '../bloc/reader_state.dart';
@@ -20,6 +21,8 @@ import '../cubit/reading_quiz_cubit.dart';
 import '../../data/models/book_model.dart';
 import '../../data/services/reading_quiz_service.dart';
 import 'reading_quiz_page.dart';
+import '../../data/phrasal_verbs_tr.dart';
+import '../widgets/daily_media_bar.dart';
 
 // Anchor data for tooltip positioning
 class TooltipAnchor {
@@ -50,7 +53,7 @@ class AdvancedReaderPage extends StatefulWidget {
   State<AdvancedReaderPage> createState() => _AdvancedReaderPageState();
 }
 
-class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
+class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBindingObserver {
   late final AdvancedReaderBloc _readerBloc;
   final PageController _pageController = PageController(
     viewportFraction: 1.0,
@@ -88,9 +91,102 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
   OverlayEntry? _sentenceOverlay;
   Timer? _sentenceOverlayTimer;
 
+  // Local phrasal verb cache
+  Map<String, PhrasalVerbEntry>? _phrasalMapCache;
+  Map<String, PhrasalVerbEntry> get _phrasalMap {
+    if (_phrasalMapCache != null) return _phrasalMapCache!;
+    final map = <String, PhrasalVerbEntry>{};
+    for (final e in kPhrasalVerbsTr) {
+      for (final f in e.forms) {
+        map[f] = e;
+      }
+    }
+    _phrasalMapCache = map;
+    return map;
+  }
+
+  // Quick tokenization (letters/digits/apostrophe/hyphen), returns [start, end, text]
+  List<Map<String, dynamic>> _tokenize(String text) {
+    final reg = RegExp(r"[A-Za-z0-9'\-]+");
+    final tokens = <Map<String, dynamic>>[];
+    for (final m in reg.allMatches(text)) {
+      tokens.add({
+        'start': m.start,
+        'end': m.end,
+        'text': text.substring(m.start, m.end),
+      });
+    }
+    return tokens;
+  }
+
+  // Try to detect a phrasal verb around the given word span. Returns null if none.
+  Map<String, dynamic>? _detectLocalPhrasalAt(String fullText, int wordStart, int wordEnd) {
+    if (fullText.isEmpty) return null;
+    final tokens = _tokenize(fullText);
+    if (tokens.isEmpty) return null;
+    int i = -1;
+    for (int t = 0; t < tokens.length; t++) {
+      final s = tokens[t]['start'] as int;
+      final e = tokens[t]['end'] as int;
+      if (wordStart >= s && wordStart < e) {
+        i = t;
+        break;
+      }
+    }
+    if (i < 0) return null;
+
+    String formOf(int si, int ei) {
+      return List.generate(ei - si + 1, (k) => tokens[si + k]['text']).join(' ').toLowerCase();
+    }
+
+    Map<String, dynamic>? makeResult(int si, int ei, PhrasalVerbEntry entry) {
+      final start = tokens[si]['start'] as int;
+      final end = tokens[ei]['end'] as int;
+      final phrase = fullText.substring(start, end);
+      return {
+        'start': start,
+        'end': end,
+        'phrase': phrase,
+        'entry': entry,
+      };
+    }
+
+    // 1) Contiguous longest-match first: try trigram then bigram windows including i
+    for (final len in [3, 2]) {
+      for (int s = i - (len - 1); s <= i; s++) {
+        final e = s + len - 1;
+        if (s < 0 || e >= tokens.length) continue;
+        if (i < s || i > e) continue; // ensure selection inside window
+        final cand = formOf(s, e);
+        final entry = _phrasalMap[cand];
+        if (entry != null) {
+          return makeResult(s, e, entry);
+        }
+      }
+    }
+
+    // 2) Simple separable detection: verb token at i, particle within next 3 tokens
+    //    Match entries where some form starts with "<verb> ".
+    final verbLower = (tokens[i]['text'] as String).toLowerCase();
+    for (final entry in kPhrasalVerbsTr.where((e) => e.separable)) {
+      final hasVerbFormPrefix = entry.forms.any((f) => f.startsWith('$verbLower '));
+      if (!hasVerbFormPrefix) continue;
+      final particle = entry.base.split(' ').last.toLowerCase();
+      for (int j = i + 1; j <= i + 3 && j < tokens.length; j++) {
+        final tj = (tokens[j]['text'] as String).toLowerCase();
+        if (tj == particle) {
+          return makeResult(i, j, entry);
+        }
+      }
+    }
+
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _readerBloc = context.read<AdvancedReaderBloc>();
     _loadBook();
     _initializeTts();
@@ -103,6 +199,16 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
         });
       }
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Stop any ongoing playback when app goes to background or becomes inactive
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      try { _readerBloc.add(StopSpeech()); } catch (_) {}
+    }
   }
 
   // Backdrop tap: close if tap is far from text content; otherwise retarget to new word
@@ -143,16 +249,30 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
       );
 
       if (wordInfo['word'] != null && wordInfo['word'].toString().isNotEmpty) {
+        // Try local phrasal detection around the tapped word
+        final localHit = _detectLocalPhrasalAt(pageContent, wordInfo['start'], wordInfo['end']);
+        final selStart = localHit != null ? localHit['start'] as int : wordInfo['start'] as int;
+        final selEnd = localHit != null ? localHit['end'] as int : wordInfo['end'] as int;
+        final selText = pageContent.substring(selStart, selEnd);
         setState(() {
-          _wordStart = wordInfo['start'];
-          _wordEnd = wordInfo['end'];
+          _wordStart = selStart;
+          _wordEnd = selEnd;
           _wordPageIndex = pageIndex;
-          _selectedWord = wordInfo['word'];
+          _selectedWord = selText;
           _isLoadingTranslation = true;
           _wordTranslation = null;
         });
-        _showWordOverlay(globalPosition, _selectedWord!, themeManager);
-        _translateWord(_selectedWord!);
+        _showWordOverlay(globalPosition, selText, themeManager);
+        if (localHit != null) {
+          final entry = localHit['entry'] as PhrasalVerbEntry;
+          setState(() {
+            _wordTranslation = entry.meaningTr;
+            _isLoadingTranslation = false;
+          });
+          _updateWordOverlay();
+        } else {
+          _translateWord(selText);
+        }
       } else {
         _hideWordOverlay();
       }
@@ -450,7 +570,12 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
             curve: Curves.easeInOut,
           );
         });
-        return Scaffold(
+        return WillPopScope(
+          onWillPop: () async {
+            try { _readerBloc.add(StopSpeech()); } catch (_) {}
+            return true;
+          },
+          child: Scaffold(
           backgroundColor: _getThemeBackgroundColor(themeManager),
           body: SafeArea(
             child: Column(
@@ -460,10 +585,44 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                 Expanded(
                   child: _buildReadingArea(state, themeManager),
                 ),
-                _buildControls(state, themeManager),
+                DailyMediaBar(
+                  isSpeaking: state.isSpeaking,
+                  isPaused: state.isPaused,
+                  speechRate: state.speechRate,
+                  currentPage: state.currentPage,
+                  totalPages: state.totalPages,
+                  onPrevPage: _goToPreviousPage,
+                  onNextPage: _goToNextPage,
+                  onTogglePlayPause: () => _readerBloc.add(TogglePlayPause()),
+                  onStop: () {
+                    // Full reset on Stop: clear local UI states too
+                    try {
+                      _highlightTimer?.cancel();
+                      _highlightPageIndex = null;
+                      _highlightStart = null;
+                      _highlightEnd = null;
+                      _hideWordOverlay();
+                    } catch (_) {}
+                    _readerBloc.add(StopSpeech());
+                  },
+                  onCycleRate: () {
+                    final List<double> rates = [0.30, 0.40, 0.50, 0.65];
+                    final idx = rates.indexWhere((r) => (r - state.speechRate).abs() < 0.02);
+                    final next = rates[(idx < 0 ? 1 : (idx + 1) % rates.length)];
+                    _readerBloc.add(UpdateSpeechRate(next));
+                  },
+                  onScrubToPageFraction: (v) {
+                    final target = (v * state.totalPages).clamp(0, state.totalPages.toDouble());
+                    final page = target.ceil() - 1;
+                    if (page >= 0 && page < state.totalPages) {
+                      _readerBloc.add(GoToPage(page));
+                    }
+                  },
+                ),
               ],
             ),
           ),
+        ),
         );
       },
     );
@@ -489,7 +648,10 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
               Icons.arrow_back,
               color: _getThemeOnSurfaceColor(themeManager),
             ),
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () {
+              try { _readerBloc.add(StopSpeech()); } catch (_) {}
+              Navigator.of(context).pop();
+            },
           ),
           Expanded(
             child: Column(
@@ -573,6 +735,8 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                   _suppressOnPageChanged = false;
                   return;
                 }
+                // Stop any ongoing playback on manual page swipe
+                try { _readerBloc.add(StopSpeech()); } catch (_) {}
                 if (index != state.currentPage) {
                   // Haptic feedback
                   HapticFeedback.lightImpact();
@@ -658,8 +822,10 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
 
                               if (sentence.isEmpty) return;
 
-                               // Highlight sentence briefly
-                               _setTemporaryHighlight(index, pageContent, sentence);
+                              // Premium highlight removed: no upsell, optional future gating can be added elsewhere
+                              if (AppManager().settings.premiumHighlightEnabled) {
+                                _setTemporaryHighlight(index, pageContent, sentence);
+                              }
 
                               // Speak via server audio when available; fallback to local TTS
                               final bloc = context.read<AdvancedReaderBloc>();
@@ -673,15 +839,12 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
                               }
                               if (audioUrl != null) {
                                 Logger.debug('Playing from URL: $audioUrl');
-                                await bloc.playSentenceFromUrl(audioUrl);
+                                final globalIndex = bloc.computeSentenceIndex(sentence, pageContent);
+                                await bloc.playSentenceFromUrl(audioUrl, sentenceIndex: globalIndex);
                               } else {
                                 await bloc.speakSentenceWithIndex(sentence, sentenceIndex);
                               }
-                              final translation = await bloc.translateSentence(sentence);
-                              if (!mounted) return;
-                              if (translation.isNotEmpty) {
-                                _showSentenceOverlayPremium(sentence, translation, themeManager);
-                              }
+                              // Removed premium upsell
                             },
                              child: Container(
                                key: textKey,
@@ -1863,23 +2026,36 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     print('🔍 [Word Detection] Word End: ${wordInfo['end']}');
     
     if (wordInfo['word'].toString().isNotEmpty) {
+      // Try local phrasal detection
+      final localHit = _detectLocalPhrasalAt(pageContent, wordInfo['start'], wordInfo['end']);
+      final selStart = localHit != null ? localHit['start'] as int : wordInfo['start'] as int;
+      final selEnd = localHit != null ? localHit['end'] as int : wordInfo['end'] as int;
+      final selText = pageContent.substring(selStart, selEnd);
       setState(() {
-        _wordStart = wordInfo['start'];
-        _wordEnd = wordInfo['end'];
+        _wordStart = selStart;
+        _wordEnd = selEnd;
         _wordPageIndex = currentPageIndex;
-        _selectedWord = wordInfo['word'];
-        // Loading state immediately so overlay shows spinner right away
+        _selectedWord = selText;
         _isLoadingTranslation = true;
         _wordTranslation = null;
       });
       
-      print('🔍 [Word Detection] ✅ Word selected: "${wordInfo['word']}"');
+      print('🔍 [Word Detection] ✅ Word selected: "$selText"');
       
       // Show word popup overlay
-      _showWordOverlay(details.globalPosition, wordInfo['word'], themeManager);
+      _showWordOverlay(details.globalPosition, selText, themeManager);
       
-      // Get translation
-      _translateWord(wordInfo['word']);
+      if (localHit != null) {
+        final entry = localHit['entry'] as PhrasalVerbEntry;
+        setState(() {
+          _wordTranslation = entry.meaningTr;
+          _isLoadingTranslation = false;
+        });
+        _updateWordOverlay();
+      } else {
+        // Get translation from network
+        _translateWord(selText);
+      }
     } else {
       print('🔍 [Word Detection] ❌ No word detected');
     }
@@ -2338,6 +2514,8 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> {
     _highlightTimer?.cancel();
     _hideWordOverlay();
     _pageController.dispose();
+    try { _readerBloc.add(StopSpeech()); } catch (_) {}
+    WidgetsBinding.instance.removeObserver(this);
     _flutterTts?.stop();
     _flutterTts = null;
     super.dispose();

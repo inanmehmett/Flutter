@@ -34,6 +34,10 @@ class ReaderLoaded extends ReaderState {
   final int? playingRangeStart; // local to current page
   final int? playingRangeEnd;   // local to current page
 
+  // Backward compatibility: legacy getter kept to avoid hot reload lookup failures
+  // after removing highlight ranges from state. Always empty now.
+  List<List<int>> get completedRanges => const [];
+
   const ReaderLoaded({
     required this.book,
     required this.currentPage,

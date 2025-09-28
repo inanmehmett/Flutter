@@ -21,13 +21,25 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   final TranslationService _translationService = getIt<TranslationService>();
   final EventService _eventService = getIt<EventService>();
   final PageManager _pageManager;
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  final AudioPlayer _audioPlayer;
   final Map<int, List<Map<String, dynamic>>> _manifestCache = {};
+  final bool _enableTts;
+  StreamSubscription<PlayerState>? _audioStateSub;
+  bool _sequentialInProgress = false;
+  Timer? _endUiDebounce;
+  static const Duration _endUiDebounceDuration = Duration(milliseconds: 150);
+  StreamSubscription<Duration>? _audioPosSub;
+  StreamSubscription<Duration>? _audioDurSub;
   
   Book? _currentBook;
   bool _isSpeaking = false;
   bool _isPaused = false;
   double _speechRate = 0.40;
+  // Track user-initiated single sentence playback and resumption logic
+  bool _invokedBySequential = false;              // true while sequential calls play
+  bool _resumeSequentialAfterSingle = false;      // if a single tap interrupted sequential
+  int? _resumeStartGlobalIndex;                   // next global sentence index to continue from
+  int? _lastPlayedSentenceIndexGlobal;            // last global sentence index played
 
   double _audioRateForTts(double ttsRate) {
     // Map normalized TTS rate (0.1-1.0) to a practical audio playback rate
@@ -44,9 +56,13 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   AdvancedReaderBloc({
     required BookRepository bookRepository,
     required FlutterTts flutterTts,
+    AudioPlayer? audioPlayer,
+    bool enableTts = true,
   })  : _bookRepository = bookRepository,
         _flutterTts = flutterTts,
         _pageManager = PageManager(),
+        _audioPlayer = audioPlayer ?? AudioPlayer(),
+        _enableTts = enableTts,
         super(ReaderInitial()) {
     
     // Event handlers
@@ -59,7 +75,12 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     on<UpdateSpeechRate>(_onUpdateSpeechRate);
     on<UpdateFontSize>(_onUpdateFontSize);
 
-    _initializeTts();
+    if (_enableTts) {
+      _initializeTts();
+    } else {
+      Logger.debug('TTS initialization skipped (enableTts=false)');
+    }
+    _initializeAudioListeners();
     _setupPageManager();
   }
 
@@ -141,6 +162,10 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   // Speak a single sentence with known global sentence index for segment highlighting
   Future<void> speakSentenceWithIndex(String sentence, int sentenceIndex, {String languageCode = 'en-US'}) async {
     try {
+      Logger.info('Speak sentence via TTS | index=$sentenceIndex, lang=$languageCode');
+      // Ensure mutual exclusion with streaming audio
+      try { await _audioPlayer.stop(); } catch (_) {}
+      _endUiDebounce?.cancel();
       // TODO: replaced by server-side audio when available from manifest
       await _flutterTts.stop();
       await _flutterTts.setLanguage(languageCode);
@@ -158,7 +183,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
             isPaused: false,
             playingSentenceIndex: sentenceIndex,
             playingRangeStart: localRange[0],
-            playingRangeEnd: localRange[1],
+            playingRangeEnd: localRange[1], // highlight entire sentence
           ));
         } else {
           emit(s.copyWith(
@@ -181,13 +206,43 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   }
 
   // Stream sentence audio from backend manifest instead of local TTS
-  Future<void> playSentenceFromUrl(String url) async {
+  Future<void> playSentenceFromUrl(String url, {int? sentenceIndex}) async {
     try {
+      Logger.info('Play sentence from URL | url=$url');
+      // Ensure mutual exclusion with TTS
+      try { await _flutterTts.stop(); } catch (_) {}
+      _endUiDebounce?.cancel();
       await _audioPlayer.stop();
       try { await _audioPlayer.setPlaybackRate(_audioRateForTts(_speechRate).clamp(0.1, 2.0)); } catch (_) {}
       await _audioPlayer.play(UrlSource(url));
       _isSpeaking = true;
       _isPaused = false;
+      if (sentenceIndex != null) {
+        _lastPlayedSentenceIndexGlobal = sentenceIndex;
+        // If user tapped during sequential, request resumption after this single finishes
+        if (!_invokedBySequential && _sequentialInProgress) {
+          _resumeSequentialAfterSingle = true;
+        }
+        // Always remember where to resume if user later presses Play
+        _resumeStartGlobalIndex = sentenceIndex + 1;
+      }
+      if (sentenceIndex != null && state is ReaderLoaded) {
+        _currentPlayingSentenceIndex = sentenceIndex;
+        final s = state as ReaderLoaded;
+        final localRange = computeLocalRangeForSentence(_getCurrentPageContent(), sentenceIndex);
+        if (localRange != null && localRange.length == 2) {
+          _currentSentenceBaseInPage = localRange[0];
+          emit(s.copyWith(
+            isSpeaking: true,
+            isPaused: false,
+            playingSentenceIndex: sentenceIndex,
+            playingRangeStart: localRange[0],
+            playingRangeEnd: localRange[1],
+          ));
+        } else {
+          emit(s.copyWith(isSpeaking: true, isPaused: false, playingSentenceIndex: sentenceIndex));
+        }
+      }
       if (state is ReaderLoaded) {
         final currentState = state as ReaderLoaded;
         emit(currentState.copyWith(isSpeaking: true, isPaused: false));
@@ -257,11 +312,35 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     }
   }
 
-  Future<void> _playPageSequentially() async {
+  Future<void> _playPageSequentially({int? startGlobalIndex}) async {
     if (state is! ReaderLoaded) return;
     var currentState = state as ReaderLoaded;
     final readingTextId = int.tryParse(_currentBook?.id ?? '0') ?? 0;
     var pageIndex = _pageManager.currentPageIndex;
+    if (_sequentialInProgress) {
+      Logger.debug('Sequential playback already in progress, ignoring duplicate call');
+      return;
+    }
+    _sequentialInProgress = true;
+
+    // If a specific start sentence is requested, navigate to its page first
+    if (startGlobalIndex != null) {
+      try {
+        final targetPage = await _findPageIndexForGlobalSentence(startGlobalIndex);
+        if (targetPage != null) {
+          await _pageManager.goToPage(targetPage);
+          pageIndex = targetPage;
+          if (state is ReaderLoaded) {
+            final updated = (state as ReaderLoaded).copyWith(
+              currentPage: _pageManager.currentPageIndex,
+              currentPageContent: _getCurrentPageContent(),
+            );
+            emit(updated);
+            currentState = updated;
+          }
+        }
+      } catch (_) {}
+    }
 
     // start heartbeat to credit non-audio reading time
     _readingHeartbeat?.cancel();
@@ -276,15 +355,23 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
       final indices = _computeSentenceIndicesForPage(pageText);
 
       for (final idx in indices) {
+        // Skip until the requested start index on the first iteration
+        if (startGlobalIndex != null && idx < startGlobalIndex) {
+          continue;
+        }
         if (!_isSpeaking) break;
         emit(currentState.copyWith(playingSentenceIndex: idx));
         final url = await findSentenceAudioUrl(readingTextId, idx);
         if (url != null) {
+          Logger.debug('Sequential play start | page=$pageIndex, sentence=$idx');
           final startedAt = DateTime.now();
-          await playSentenceFromUrl(url);
+          _invokedBySequential = true;
+          await playSentenceFromUrl(url, sentenceIndex: idx);
+          _invokedBySequential = false;
           try { await _audioPlayer.onPlayerComplete.first; } catch (_) {}
           final endedAt = DateTime.now();
           final durationMs = endedAt.difference(startedAt).inMilliseconds;
+          Logger.debug('Sequential play complete | page=$pageIndex, sentence=$idx, durationMs=$durationMs');
           if (readingTextId > 0) {
             unawaited(_eventService.sentenceListened(readingTextId, idx, durationMs));
           }
@@ -304,6 +391,8 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
         );
         emit(currentState);
       }
+      // After the first page, clear start constraint
+      startGlobalIndex = null;
     }
 
     _isSpeaking = false;
@@ -320,6 +409,25 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
         unawaited(_eventService.readingCompleted(readingTextId));
       } catch (_) {}
     }
+    _sequentialInProgress = false;
+  }
+
+  Future<int?> _findPageIndexForGlobalSentence(int globalSentenceIndex) async {
+    try {
+      final total = _pageManager.totalPages;
+      for (int i = _pageManager.currentPageIndex; i < total; i++) {
+        final content = _pageManager.attributedPages[i].string;
+        final range = computeLocalRangeForSentence(content, globalSentenceIndex);
+        if (range != null) return i;
+      }
+      // Optionally search previous pages
+      for (int i = 0; i < _pageManager.currentPageIndex; i++) {
+        final content = _pageManager.attributedPages[i].string;
+        final range = computeLocalRangeForSentence(content, globalSentenceIndex);
+        if (range != null) return i;
+      }
+    } catch (_) {}
+    return null;
   }
 
   void _setupPageManager() {
@@ -334,6 +442,64 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     };
   }
 
+  void _initializeAudioListeners() {
+    try {
+      _audioStateSub = _audioPlayer.onPlayerStateChanged.listen((playerState) {
+        Logger.debug('Audio state changed: $playerState');
+        if (playerState == PlayerState.completed || playerState == PlayerState.stopped) {
+          // During sequential playback we keep isSpeaking=true across sentence boundaries
+          if (_sequentialInProgress) {
+            // If a single-tap interrupted sequential and asked to resume, we'll handle after complete
+            return;
+          }
+          // Debounce end-state to avoid quick flicker if a new sentence starts immediately
+          _endUiDebounce?.cancel();
+          _endUiDebounce = Timer(_endUiDebounceDuration, () {
+            _isSpeaking = false;
+            _isPaused = false;
+            if (state is ReaderLoaded) {
+              final s = state as ReaderLoaded;
+              emit(s.copyWith(isSpeaking: false, isPaused: false));
+            }
+            // If a user-tapped single sentence finished and sequential was active before, resume
+            if (_resumeSequentialAfterSingle && _resumeStartGlobalIndex != null) {
+              _resumeSequentialAfterSingle = false;
+              _isSpeaking = true;
+              _isPaused = false;
+              unawaited(_playPageSequentially(startGlobalIndex: _resumeStartGlobalIndex));
+            }
+          });
+        }
+      });
+      // For streamed audio, keep full sentence highlighted (no progressive update)
+      Duration currentDuration = Duration.zero;
+      _audioDurSub = _audioPlayer.onDurationChanged.listen((d) {
+        currentDuration = d;
+      });
+      _audioPosSub = _audioPlayer.onPositionChanged.listen((pos) {
+        try {
+          if (state is! ReaderLoaded) return;
+          final s = state as ReaderLoaded;
+          if (_currentPlayingSentenceIndex == null) return;
+          final localRange = computeLocalRangeForSentence(_getCurrentPageContent(), _currentPlayingSentenceIndex!);
+          if (localRange == null || localRange.length != 2) return;
+          emit(s.copyWith(
+            playingSentenceIndex: _currentPlayingSentenceIndex,
+            playingRangeStart: localRange[0],
+            playingRangeEnd: localRange[1],
+          ));
+        } catch (_) {}
+      });
+      try {
+        _audioPlayer.onSeekComplete.listen((_) {
+          Logger.debug('Audio seek completed');
+        });
+      } catch (_) {}
+    } catch (e) {
+      Logger.error('initializeAudioListeners error', e);
+    }
+  }
+
   Future<void> _initializeTts() async {
     try {
       await _flutterTts.setLanguage('en-US');
@@ -341,16 +507,53 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
       await _flutterTts.setVolume(1.0);
       try {
         _flutterTts.setProgressHandler((String text, int start, int end, String word) async {
+          // Keep entire sentence highlighted during TTS
           if (state is! ReaderLoaded) return;
           final s = state as ReaderLoaded;
-          if (_currentSentenceBaseInPage == null) return;
-          final base = _currentSentenceBaseInPage!;
-          final localStart = base + start;
-          final localEnd = base + end;
+          if (_currentPlayingSentenceIndex == null) return;
+          final range = computeLocalRangeForSentence(_getCurrentPageContent(), _currentPlayingSentenceIndex!);
+          if (range == null || range.length != 2) return;
           emit(s.copyWith(
-            playingRangeStart: localStart,
-            playingRangeEnd: localEnd,
+            playingRangeStart: range[0],
+            playingRangeEnd: range[1],
           ));
+        });
+        _flutterTts.setStartHandler(() {
+          Logger.debug('TTS start');
+        });
+        _flutterTts.setCompletionHandler(() {
+          Logger.debug('TTS completed');
+          _isSpeaking = false;
+          _isPaused = false;
+          if (state is ReaderLoaded) {
+            final s = state as ReaderLoaded;
+            emit(s.copyWith(isSpeaking: false, isPaused: false, playingSentenceIndex: null));
+          }
+        });
+        _flutterTts.setCancelHandler(() {
+          Logger.debug('TTS canceled');
+          _isSpeaking = false;
+          _isPaused = false;
+          if (state is ReaderLoaded) {
+            final s = state as ReaderLoaded;
+            emit(s.copyWith(isSpeaking: false, isPaused: false));
+          }
+        });
+        _flutterTts.setPauseHandler(() {
+          Logger.debug('TTS paused');
+          _isPaused = true;
+          if (state is ReaderLoaded) {
+            final s = state as ReaderLoaded;
+            emit(s.copyWith(isPaused: true));
+          }
+        });
+        _flutterTts.setContinueHandler(() {
+          Logger.debug('TTS continued');
+          _isPaused = false;
+          if (state is ReaderLoaded) {
+            final s = state as ReaderLoaded;
+            emit(s.copyWith(isPaused: false));
+          }
         });
       } catch (_) {}
     } catch (e) {
@@ -463,7 +666,8 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
       Logger.book('NextPage - Current: ${_pageManager.currentPageIndex} / ${_pageManager.totalPages}');
-      
+      // Stop any ongoing playback when navigating pages
+      add(StopSpeech());
       _pageManager.nextPage().then((_) {
         if (state is ReaderLoaded) {
           final updatedState = state as ReaderLoaded;
@@ -480,7 +684,8 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
       Logger.book('PreviousPage - Current: ${_pageManager.currentPageIndex} / ${_pageManager.totalPages}');
-      
+      // Stop any ongoing playback when navigating pages
+      add(StopSpeech());
       _pageManager.previousPage().then((_) {
         if (state is ReaderLoaded) {
           final updatedState = state as ReaderLoaded;
@@ -500,6 +705,8 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
       if (event.page == _pageManager.currentPageIndex) {
         return;
       }
+      // Stop any ongoing playback when jumping to a specific page
+      add(StopSpeech());
       _pageManager.goToPage(event.page).then((_) {
         if (state is ReaderLoaded) {
           final updatedState = state as ReaderLoaded;
@@ -515,19 +722,24 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   Future<void> _onTogglePlayPause(TogglePlayPause event, Emitter<ReaderState> emit) async {
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
-      
+      Logger.debug('TogglePlayPause | isSpeaking=$_isSpeaking, isPaused=$_isPaused');
       if (_isSpeaking) {
         if (_isPaused) {
+          Logger.debug('Audio resume requested');
           await _audioPlayer.resume();
           _isPaused = false;
         } else {
+          Logger.debug('Audio pause requested');
           await _audioPlayer.pause();
           _isPaused = true;
         }
       } else {
+        Logger.debug('Start sequential playback');
         _isSpeaking = true;
         _isPaused = false;
-        await _playPageSequentially();
+        // If user last played a single tapped sentence, continue from the next one
+        final startFrom = _resumeStartGlobalIndex;
+        await _playPageSequentially(startGlobalIndex: startFrom);
       }
 
       emit(currentState.copyWith(
@@ -538,16 +750,30 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   }
 
   Future<void> _onStopSpeech(StopSpeech event, Emitter<ReaderState> emit) async {
+    Logger.debug('StopSpeech requested');
+    _endUiDebounce?.cancel();
     await _audioPlayer.stop();
     await _flutterTts.stop();
     _isSpeaking = false;
     _isPaused = false;
+    _sequentialInProgress = false;
+    _currentPlayingSentenceIndex = null;
+    _currentSentenceBaseInPage = null;
+    _readingHeartbeat?.cancel();
+    // Reset resume/continuation flags for a clean stop
+    _invokedBySequential = false;
+    _resumeSequentialAfterSingle = false;
+    _resumeStartGlobalIndex = null;
+    _lastPlayedSentenceIndexGlobal = null;
     
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
       emit(currentState.copyWith(
         isSpeaking: false,
         isPaused: false,
+        playingSentenceIndex: null,
+        playingRangeStart: null,
+        playingRangeEnd: null,
       ));
     }
   }
@@ -555,7 +781,9 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   Future<void> _onUpdateSpeechRate(UpdateSpeechRate event, Emitter<ReaderState> emit) async {
     _speechRate = event.rate;
     await _flutterTts.setSpeechRate(_speechRate);
-    try { await _audioPlayer.setPlaybackRate(_audioRateForTts(_speechRate).clamp(0.1, 2.0)); } catch (_) {}
+    final mapped = _audioRateForTts(_speechRate).clamp(0.1, 2.0);
+    Logger.debug('UpdateSpeechRate | ttsRate=${event.rate} -> audioRate=$mapped');
+    try { await _audioPlayer.setPlaybackRate(mapped); } catch (_) {}
     
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
@@ -594,6 +822,9 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     await _flutterTts.stop();
     try { await _audioPlayer.dispose(); } catch (_) {}
     _readingHeartbeat?.cancel();
+    try { await _audioStateSub?.cancel(); } catch (_) {}
+    try { await _audioPosSub?.cancel(); } catch (_) {}
+    try { await _audioDurSub?.cancel(); } catch (_) {}
     _pageManager.dispose();
     return super.close();
   }
