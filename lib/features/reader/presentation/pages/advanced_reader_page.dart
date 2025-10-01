@@ -572,8 +572,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
         });
         return WillPopScope(
           onWillPop: () async {
-            try { _readerBloc.add(StopSpeech()); } catch (_) {}
-            return true;
+            return await _handleExitAttemptWithQuiz(state, themeManager);
           },
           child: Scaffold(
           backgroundColor: _getThemeBackgroundColor(themeManager),
@@ -648,9 +647,11 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
               Icons.arrow_back,
               color: _getThemeOnSurfaceColor(themeManager),
             ),
-            onPressed: () {
-              try { _readerBloc.add(StopSpeech()); } catch (_) {}
-              Navigator.of(context).pop();
+            onPressed: () async {
+              final shouldExit = await _handleExitAttemptWithQuiz(state, themeManager);
+              if (shouldExit && mounted) {
+                Navigator.of(context).pop();
+              }
             },
           ),
           Expanded(
@@ -684,6 +685,124 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
             ),
             onPressed: () => _showSettingsSheet(state, themeManager),
           ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool> _handleExitAttemptWithQuiz(ReaderLoaded state, ThemeManager themeManager) async {
+    try { _readerBloc.add(StopSpeech()); } catch (_) {}
+    final bool isAtLastPage = state.currentPage >= (state.totalPages - 1);
+    if (!isAtLastPage) {
+      return true;
+    }
+
+    final decision = await _showExitQuizSheet(state, themeManager);
+    if (decision == false) {
+      // User chose to take the quiz
+      _navigateToQuiz(state);
+      return false;
+    }
+    // decision == true => exit, decision == null => stay
+    return decision == true;
+  }
+
+  Future<bool?> _showExitQuizSheet(ReaderLoaded state, ThemeManager themeManager) async {
+    final Color surface = _getThemeSurfaceColor(themeManager);
+    final Color onSurface = _getThemeOnSurfaceColor(themeManager);
+    final Color onSurfaceMuted = _getThemeOnSurfaceVariantColor(themeManager);
+    final Color primary = _getThemePrimaryColor(themeManager);
+
+    return await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            decoration: BoxDecoration(
+              color: surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: primary.withOpacity(0.12), width: 1),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(colors: [primary, primary.withOpacity(0.8)]),
+                  ),
+                  child: const Icon(Icons.quiz_outlined, color: Colors.white),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Quiz ile pekiştir',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: onSurface),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Çıkmadan önce 3 soruluk kısa quizi çözelim mi?',
+                  style: TextStyle(fontSize: 13, color: onSurfaceMuted),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: ElevatedButton.icon(
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
+                    ),
+                    icon: const Icon(Icons.bolt),
+                    label: const Text("Quiz'i Çöz", style: TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(ctx).pop(true),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      side: BorderSide(color: onSurfaceMuted.withOpacity(0.4)),
+                    ),
+                    child: Text('Şimdilik çık', style: TextStyle(color: onSurface)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _pill({required IconData icon, required String label, required Color fg, required Color bg}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: bg.withOpacity(0.5), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: fg),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(fontSize: 12, color: fg, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -2500,8 +2619,9 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
           child: BlocProvider(
             create: (context) => ReadingQuizCubit(getIt<ReadingQuizService>()),
             child: ReadingQuizPage(
-              readingTextId: int.tryParse(state.book.id) ?? 0,
+              readingTextId: _readerBloc.pageManager.bookId ?? 0,
               bookTitle: state.book.title,
+              book: BookModel.fromBook(state.book),
             ),
           ),
         ),

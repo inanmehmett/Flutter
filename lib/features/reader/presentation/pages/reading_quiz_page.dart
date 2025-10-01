@@ -4,15 +4,18 @@ import '../cubit/reading_quiz_cubit.dart';
 import '../widgets/reading_quiz_widgets.dart';
 import '../../domain/entities/reading_quiz_models.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../data/models/book_model.dart';
 
 class ReadingQuizPage extends StatelessWidget {
   final int readingTextId;
   final String bookTitle;
+  final BookModel book;
 
   const ReadingQuizPage({
     Key? key,
     required this.readingTextId,
     required this.bookTitle,
+    required this.book,
   }) : super(key: key);
 
   @override
@@ -67,7 +70,10 @@ class ReadingQuizPage extends StatelessWidget {
                 context.read<ReadingQuizCubit>().startQuiz(readingTextId);
               },
               onBackToBook: () {
-                Navigator.of(context).pop();
+                final nav = Navigator.of(context, rootNavigator: true);
+                // Close quiz dialog then replace reader with book preview
+                nav.pop();
+                nav.pushReplacementNamed('/book-preview', arguments: book);
               },
             );
           } else if (state is ReadingQuizError) {
@@ -96,12 +102,14 @@ class ReadingQuizRoute {
   static Route<void> route({
     required int readingTextId,
     required String bookTitle,
+    required BookModel book,
   }) {
     return MaterialPageRoute(
       settings: const RouteSettings(name: name),
       builder: (context) => ReadingQuizPage(
         readingTextId: readingTextId,
         bookTitle: bookTitle,
+        book: book,
       ),
     );
   }
