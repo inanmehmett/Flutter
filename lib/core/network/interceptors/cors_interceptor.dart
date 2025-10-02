@@ -3,11 +3,16 @@ import 'package:dio/dio.dart';
 class CorsInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    // Sadece temel JSON header'ları ekle
-    options.headers.addAll({
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    });
+    // Sadece Accept ekle; Content-Type'ı istek türüne göre bırak (FormData vs JSON)
+    options.headers['Accept'] = 'application/json';
+
+    final isMultipart = options.data is FormData;
+    final hasContentTypeHeader = options.headers.containsKey(Headers.contentTypeHeader);
+
+    // Eğer multipart değilse ve Content-Type hiç ayarlanmamışsa JSON olarak belirle
+    if (!isMultipart && options.contentType == null && !hasContentTypeHeader) {
+      options.contentType = Headers.jsonContentType;
+    }
     handler.next(options);
   }
 

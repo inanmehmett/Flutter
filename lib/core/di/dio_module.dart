@@ -10,7 +10,7 @@ abstract class DioModule {
     
     // Temel headers
     dio.options.headers = {
-      'Content-Type': 'application/json',
+      // Content-Type istek bazlı belirlenecek (JSON vs multipart)
       'Accept': 'application/json',
     };
     
