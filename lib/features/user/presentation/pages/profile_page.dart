@@ -22,7 +22,6 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   late Future<_LevelGoalData> _levelGoalFuture;
-  late Future<_ProgressData> _progressFuture;
   late Future<List<_BadgeItem>> _badgesFuture;
   // Son başarılı değerleri tutarak geçici hatalarda UI'nin sıfırlanmasını önler
   UserProfile? _lastProfile;
@@ -47,7 +46,6 @@ class _ProfilePageState extends State<ProfilePage> {
       });
     }
     _levelGoalFuture = _fetchLevelAndGoals();
-    _progressFuture = _fetchProgress();
     _badgesFuture = _fetchBadges();
 
     // Prefetch reading counts (finished + validated)
@@ -91,7 +89,6 @@ class _ProfilePageState extends State<ProfilePage> {
               _lastProfile = state.user;
               setState(() {
                 _levelGoalFuture = _fetchLevelAndGoals();
-                _progressFuture = _fetchProgress();
                 _badgesFuture = _fetchBadges();
               });
             } else if (state is AuthUnauthenticated && !_redirectedToLogin) {
@@ -304,19 +301,10 @@ class _ProfilePageState extends State<ProfilePage> {
                           longestStreak: longestStreakVal,
                         ),
                         const SizedBox(height: 20),
-                        FutureBuilder<_ProgressData>(
-                          future: _progressFuture,
-                          builder: (context, progSnap) {
-                            if (progSnap.connectionState != ConnectionState.done && _lastProgress == null) {
-                              return const _LearningProgressSkeleton();
-                            }
-                            final p = progSnap.data ?? _lastProgress ?? const _ProgressData(reading: 0, listening: 0, speaking: 0);
-                            return _LearningProgressCard(
-                              reading: p.reading,
-                              listening: p.listening,
-                              speaking: p.speaking,
-                            );
-                          },
+                        _LevelProgressBar(
+                          progress: xpProgress,
+                          currentXP: displayedXP,
+                          xpForNextLevel: levelInfo?.xpForNextLevel ?? 1000,
                         ),
                         const SizedBox(height: 24),
                         const Text('Rozetler', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -579,6 +567,7 @@ class _ProfilePageState extends State<ProfilePage> {
         streakDays: streakDays,
         currentLevel: currentLevel,
         longestStreak: longestStreak,
+        xpForNextLevel: xpForNext.toInt(),
       );
       _lastLevelGoal = result;
       return result;
@@ -594,6 +583,7 @@ class _ProfilePageState extends State<ProfilePage> {
         streakDays: null,
         currentLevel: level,
         longestStreak: null,
+        xpForNextLevel: 1000,
       );
     }
   }
@@ -798,6 +788,7 @@ class _LevelGoalData {
   final int? streakDays;
   final int? currentLevel;
   final int? longestStreak;
+  final int xpForNextLevel;
 
   _LevelGoalData({
     required this.levelLabel,
@@ -806,6 +797,7 @@ class _LevelGoalData {
     required this.streakDays,
     required this.currentLevel,
     this.longestStreak,
+    this.xpForNextLevel = 1000,
   });
 }
 
@@ -1109,6 +1101,66 @@ class _LearningProgressSkeleton extends StatelessWidget {
                   ],
                 ),
               ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LevelProgressBar extends StatelessWidget {
+  final double progress; // 0..1
+  final int currentXP;
+  final int xpForNextLevel;
+
+  const _LevelProgressBar({
+    required this.progress,
+    required this.currentXP,
+    required this.xpForNextLevel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final int percent = (progress.clamp(0, 1) * 100).round();
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: const [
+              Text('Next level', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: progress.clamp(0, 1),
+              minHeight: 10,
+              backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+              valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('$currentXP / $xpForNextLevel XP', style: TextStyle(color: Colors.grey[700])),
+              Text('%$percent', style: const TextStyle(fontWeight: FontWeight.w700)),
             ],
           ),
         ],
