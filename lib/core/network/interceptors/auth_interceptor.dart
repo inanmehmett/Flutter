@@ -33,6 +33,13 @@ class AuthInterceptor extends Interceptor {
     // All /api/ endpoints require authentication
     final isAuthRequest = !isPublicRequest;
 
+    // Always attach client timezone offset so backend can compute local day boundary for streak
+    try {
+      final tzOffsetMinutes = DateTime.now().timeZoneOffset.inMinutes;
+      options.headers['X-Client-TZ-Offset'] = tzOffsetMinutes.toString();
+      print('🔐 [AuthInterceptor] X-Client-TZ-Offset: ${options.headers['X-Client-TZ-Offset']}');
+    } catch (_) {}
+
     print('🔐 [AuthInterceptor] Is auth request: $isAuthRequest');
 
     if (isAuthRequest) {
@@ -46,11 +53,7 @@ class AuthInterceptor extends Interceptor {
         } else {
           print('🔐 [AuthInterceptor] ⚠️ No token found for auth request');
         }
-        // Attach client timezone offset for backend streak/day-boundary handling
-        try {
-          final tzOffsetMinutes = DateTime.now().timeZoneOffset.inMinutes;
-          options.headers['X-Client-TZ-Offset'] = tzOffsetMinutes.toString();
-        } catch (_) {}
+        // Authorization attached above; TZ offset already set globally
       } catch (e) {
         print('🔐 [AuthInterceptor] ❌ Error getting token: $e');
       }
