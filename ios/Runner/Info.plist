@@ -45,6 +45,13 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Photo/Camera permissions for image picking -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Profil fotoğrafınızı seçebilmeniz için fotoğraf kütüphanesine erişim gerekiyor.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Profil fotoğrafınızı çekebilmeniz için kameraya erişim gerekiyor.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Fotoğrafları kaydedebilmek için fotoğraf kütüphanesine yazma izni gerekiyor.</string>
 	<!-- ATS exceptions for local development over HTTP -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
