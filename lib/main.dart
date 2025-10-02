@@ -9,6 +9,8 @@ import 'core/theme/app_design_system.dart';
 import 'core/theme/app_colors.dart';
 import 'features/user/presentation/pages/profile_page.dart';
 import 'features/user/presentation/pages/profile_details_page.dart';
+import 'features/user/presentation/pages/notifications_page.dart';
+import 'features/user/presentation/pages/privacy_page.dart';
 import 'core/di/injection.dart';
 import 'features/reader/data/models/book_model.dart';
 import 'features/reader/domain/repositories/book_repository.dart';
@@ -133,6 +135,8 @@ class MyApp extends StatelessWidget {
           '/books': (context) => const AppShell(initialIndex: 1),
           '/profile': (context) => const AppShell(initialIndex: 4),
           '/profile-details': (context) => const ProfileDetailsPage(),
+          '/notifications': (context) => const NotificationsPage(),
+          '/privacy': (context) => const PrivacyPage(),
           '/badges': (context) => BadgesPage(),
           '/leaderboard': (context) => const LeaderboardPage(),
           '/quiz': (context) => Scaffold(

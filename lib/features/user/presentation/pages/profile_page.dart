@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -9,6 +11,7 @@ import '../../../../core/config/app_config.dart';
 import '../../../../core/widgets/badge_icon.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/cache/cache_manager.dart';
+import '../../../auth/data/services/auth_service.dart' as auth;
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -29,6 +32,7 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _redirectedToLogin = false;
   int? _readingFinishedCount;
   int? _readingValidatedCount;
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void initState() {
@@ -242,9 +246,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                     shape: const CircleBorder(),
                                     child: InkWell(
                                       customBorder: const CircleBorder(),
-                                      onTap: () {
-                                        Navigator.pushNamed(context, '/profile-details');
-                                      },
+                                      onTap: () => _onChangePhotoTap(),
                                       child: const Padding(
                                         padding: EdgeInsets.all(6.0),
                                         child: Icon(Icons.camera_alt, color: Colors.white, size: 18),
@@ -305,11 +307,14 @@ class _ProfilePageState extends State<ProfilePage> {
                         FutureBuilder<_ProgressData>(
                           future: _progressFuture,
                           builder: (context, progSnap) {
-                            final p = progSnap.data;
+                            if (progSnap.connectionState != ConnectionState.done && _lastProgress == null) {
+                              return const _LearningProgressSkeleton();
+                            }
+                            final p = progSnap.data ?? _lastProgress ?? const _ProgressData(reading: 0, listening: 0, speaking: 0);
                             return _LearningProgressCard(
-                              reading: p?.reading ?? 0,
-                              listening: p?.listening ?? 0,
-                              speaking: p?.speaking ?? 0,
+                              reading: p.reading,
+                              listening: p.listening,
+                              speaking: p.speaking,
                             );
                           },
                         ),
@@ -395,8 +400,14 @@ class _ProfilePageState extends State<ProfilePage> {
                           onTap: () => Navigator.pushNamed(context, '/profile-details'),
                           child: _settingsTile(context, Icons.person_outline, 'Profile Details'),
                         ),
-                        _settingsTile(context, Icons.notifications_outlined, 'Notifications'),
-                        _settingsTile(context, Icons.privacy_tip_outlined, 'Privacy'),
+                        GestureDetector(
+                          onTap: () => Navigator.pushNamed(context, '/notifications'),
+                          child: _settingsTile(context, Icons.notifications_outlined, 'Notifications'),
+                        ),
+                        GestureDetector(
+                          onTap: () => Navigator.pushNamed(context, '/privacy'),
+                          child: _settingsTile(context, Icons.privacy_tip_outlined, 'Privacy'),
+                        ),
                         const SizedBox(height: 12),
                         _buildStatRow(context, booksCount, profile),
                       ],
@@ -410,6 +421,89 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     ),
     );
+  }
+
+  Future<void> _onChangePhotoTap() async {
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Galeriden seç'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _pickAndUpload(ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined),
+                title: const Text('Kamera ile çek'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _pickAndUpload(ImageSource.camera);
+                },
+              ),
+              if (_lastProfile?.profileImageUrl != null)
+                ListTile(
+                  leading: const Icon(Icons.remove_red_eye_outlined),
+                  title: const Text('Fotoğrafı görüntüle'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    final url = _lastProfile!.profileImageUrl!;
+                    Navigator.push(
+                      context,
+                      PageRouteBuilder(
+                        opaque: false,
+                        pageBuilder: (_, __, ___) => GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            color: Colors.black.withValues(alpha: 0.9),
+                            child: Center(
+                              child: Hero(
+                                tag: 'avatar_${_lastProfile?.id}',
+                                child: Image.network(url),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickAndUpload(ImageSource source) async {
+    try {
+      final picked = await _imagePicker.pickImage(source: source, maxWidth: 1600, imageQuality: 88);
+      if (picked == null) return;
+
+      final file = File(picked.path);
+      final service = getIt<auth.AuthServiceProtocol>();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fotoğraf yükleniyor...')));
+      await service.updateProfileImage(file);
+      if (!mounted) return;
+      // Refresh profile and caches
+      try {
+        final cacheManager = getIt<CacheManager>();
+        cacheManager.removeData('user/profile');
+      } catch (_) {}
+      context.read<AuthBloc>().add(CheckAuthStatus());
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profil fotoğrafı güncellendi')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fotoğraf yüklenemedi')));
+    }
   }
 
   int? _extractCount(dynamic data) {
@@ -935,3 +1029,90 @@ class _LearningProgressCard extends StatelessWidget {
 
 
 
+class _LearningProgressSkeleton extends StatelessWidget {
+  const _LearningProgressSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    Color shimmerBase = Theme.of(context).colorScheme.surface;
+    Color shimmerHighlight = Theme.of(context).colorScheme.primary.withValues(alpha: 0.08);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(height: 20, width: 160, decoration: BoxDecoration(color: shimmerHighlight, borderRadius: BorderRadius.circular(6))),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 96,
+                      height: 96,
+                      decoration: BoxDecoration(
+                        color: shimmerBase,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(height: 14, width: 60, decoration: BoxDecoration(color: shimmerHighlight, borderRadius: BorderRadius.circular(6))),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 96,
+                      height: 96,
+                      decoration: BoxDecoration(
+                        color: shimmerBase,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(height: 14, width: 60, decoration: BoxDecoration(color: shimmerHighlight, borderRadius: BorderRadius.circular(6))),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 96,
+                      height: 96,
+                      decoration: BoxDecoration(
+                        color: shimmerBase,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(height: 14, width: 60, decoration: BoxDecoration(color: shimmerHighlight, borderRadius: BorderRadius.circular(6))),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}

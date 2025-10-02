@@ -25,6 +25,7 @@ dependencies:
   shared_preferences: ^2.2.2
   flutter_secure_storage: ^9.0.0
   json_annotation: ^4.8.1
+  image_picker: ^1.1.2
   google_sign_in: ^6.2.1
   share_plus: ^7.2.1
   signalr_core: ^1.1.2
