@@ -26,7 +26,7 @@ class NetworkManager {
     
     // İstemci tarafında CORS header'ları gereksizdir, kaldırıldı
     _dio.options.headers.addAll({
-      'Content-Type': 'application/json',
+      // İçerik tipi istek düzeyinde belirlenecek (JSON vs multipart)
       'Accept': 'application/json',
     });
     
@@ -68,10 +68,24 @@ class NetworkManager {
         ),
       );
     }
+    final isMultipart = data is FormData;
+    final effectiveOptions = (options ?? Options()).copyWith(
+      contentType: isMultipart ? Headers.multipartFormDataContentType : null,
+      extra: {
+        ...(options?.extra ?? {}),
+        'dio': _dio,
+      },
+      headers: {
+        // Varsayılan 'Content-Type' başlığını ezme; Dio FormData için boundary ekleyecek
+        ..._dio.options.headers,
+        ...(options?.headers ?? {}),
+      },
+    );
+
     return await _dio.post(
       path,
       data: data,
-      options: options ?? Options(extra: {'dio': _dio}),
+      options: effectiveOptions,
     );
   }
 

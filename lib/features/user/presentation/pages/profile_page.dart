@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'dart:math' as math;
+import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -473,10 +476,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _pickAndUpload(ImageSource source) async {
     try {
-      final picked = await _imagePicker.pickImage(source: source, maxWidth: 1600, imageQuality: 88);
+      final picked = await _imagePicker.pickImage(source: source, maxWidth: 1200, imageQuality: 85);
       if (picked == null) return;
 
-      final file = File(picked.path);
+      File file = File(picked.path);
+      file = await _downscaleImage(file, maxWidth: 1200, quality: 85);
+
       final service = getIt<auth.AuthServiceProtocol>();
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fotoğraf yükleniyor...')));
       await service.updateProfileImage(file);
@@ -491,6 +496,34 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fotoğraf yüklenemedi')));
+    }
+  }
+
+  Future<File> _downscaleImage(File file, {int maxWidth = 1200, int quality = 85}) async {
+    try {
+      final bytes = await file.readAsBytes();
+      if (bytes.isEmpty) return file;
+      final decoded = img.decodeImage(bytes);
+      if (decoded == null) return file;
+
+      final int targetW = math.min(maxWidth, decoded.width);
+      if (decoded.width <= targetW) {
+        // Just re-encode to make sure it's JPEG with desired quality
+        final encoded = img.encodeJpg(decoded, quality: quality);
+        final dir = await getTemporaryDirectory();
+        final out = File('${dir.path}/profile_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        await out.writeAsBytes(encoded, flush: true);
+        return out;
+      }
+
+      final resized = img.copyResize(decoded, width: targetW);
+      final encoded = img.encodeJpg(resized, quality: quality);
+      final dir = await getTemporaryDirectory();
+      final out = File('${dir.path}/profile_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      await out.writeAsBytes(encoded, flush: true);
+      return out;
+    } catch (_) {
+      return file;
     }
   }
 
