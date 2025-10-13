@@ -26,6 +26,10 @@ import 'features/reader/presentation/pages/book_list_page.dart';
 import 'features/reader/presentation/pages/book_preview_page.dart';
 import 'features/reader/presentation/pages/advanced_reader_page.dart';
 import 'features/reader/presentation/bloc/advanced_reader_bloc.dart';
+import 'features/reader/data/services/translation_service.dart';
+import 'core/analytics/event_service.dart';
+import 'features/reader/services/page_manager.dart';
+import 'core/storage/last_read_manager.dart';
 import 'features/user/presentation/pages/badges_page.dart';
 import 'core/realtime/signalr_service.dart';
 import 'core/cache/cache_manager.dart';
@@ -151,6 +155,10 @@ class MyApp extends StatelessWidget {
               create: (_) => AdvancedReaderBloc(
                 bookRepository: getIt<BookRepository>(),
                 flutterTts: getIt<FlutterTts>(),
+                translationService: getIt<TranslationService>(),
+                eventService: getIt<EventService>(),
+                lastReadManager: getIt<LastReadManager>(),
+                pageManager: getIt<PageManager>(),
               ),
               child: AdvancedReaderPage(book: book as BookModel),
             );

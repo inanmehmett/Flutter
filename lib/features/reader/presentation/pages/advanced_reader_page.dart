@@ -47,6 +47,19 @@ class ReaderLayoutConfig {
   static const double mediaBarHeightApprox = 68.0; // approximate height of bottom media bar
 }
 
+class ReaderUiConstants {
+  // Tap target sizes
+  static const double minTap = 44.0;
+  static const double iconSize = 22.0;
+  // Highlight alpha values
+  static const double playingAlphaLight = 0.42;
+  static const double playingAlphaDark = 0.28;
+  static const double tapAlphaLight = 0.48;
+  static const double tapAlphaDark = 0.32;
+  static const double wordAlphaLight = 0.34;
+  static const double wordAlphaDark = 0.28;
+}
+
 // Overlay helper that provides a full-screen dismissible barrier under a custom body
 class _OverlayScaffold extends StatelessWidget {
   final Widget body;
@@ -249,74 +262,9 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     }
   }
 
-  // Backdrop tap: close if tap is far from text content; otherwise retarget to new word
+  // Backdrop tap: only dismiss tooltip; do not retarget/open on short tap
   void _onBackdropTapDown(Offset globalPosition, ThemeManager themeManager) {
-    try {
-      // If tap is near the reading text area, detect word and open there; else just close
-      final int pageIndex = _wordPageIndex ?? (_readerBloc.state is ReaderLoaded ? (_readerBloc.state as ReaderLoaded).currentPage : 0);
-      final renderBox = _textKeys[pageIndex]?.currentContext?.findRenderObject() as RenderBox?;
-      final pageContent = _getPageContent(pageIndex);
-      if (renderBox == null || pageContent.isEmpty) {
-        _hideWordOverlay();
-        return;
-      }
-      final local = renderBox.globalToLocal(globalPosition);
-      // Quick containment check (a bit generous)
-      final rect = Offset.zero & renderBox.size;
-      if (!rect.inflate(12).contains(local)) {
-        _hideWordOverlay();
-        return;
-      }
-
-      // Build style from current state
-      double fontSize = 20;
-      final current = _readerBloc.state;
-      if (current is ReaderLoaded) fontSize = current.fontSize;
-      final style = TextStyle(
-        fontSize: fontSize,
-        height: 1.6,
-        letterSpacing: 0.1,
-        color: _getThemeTextColor(themeManager),
-      );
-
-      final wordInfo = _extractWordAtOffset(
-        pageContent,
-        style,
-        renderBox.size.width,
-        local,
-      );
-
-      if (wordInfo['word'] != null && wordInfo['word'].toString().isNotEmpty) {
-        // Try local phrasal detection around the tapped word
-        final localHit = _detectLocalPhrasalAt(pageContent, wordInfo['start'], wordInfo['end']);
-        final selStart = localHit != null ? localHit['start'] as int : wordInfo['start'] as int;
-        final selEnd = localHit != null ? localHit['end'] as int : wordInfo['end'] as int;
-        final selText = pageContent.substring(selStart, selEnd);
-        setState(() {
-          _wordStart = selStart;
-          _wordEnd = selEnd;
-          _wordPageIndex = pageIndex;
-          _selectedWord = selText;
-          _isLoadingTranslation = true;
-          _wordTranslation = null;
-        });
-        _showWordOverlay(globalPosition, selText, themeManager);
-        if (localHit != null) {
-          final entry = localHit['entry'] as PhrasalVerbEntry;
-          setState(() {
-            _wordTranslation = entry.meaningTr;
-            _isLoadingTranslation = false;
-          });
-          _updateWordOverlay();
-        } else {
-          _translateWord(selText);
-        }
-      } else {
-        _hideWordOverlay();
-      }
-    } catch (_) {
-      _hideWordOverlay();
-    }
+    _hideWordOverlay();
   }
 
   void _loadBook() {
@@ -957,6 +905,11 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                               }
                             },
                             onTapUp: (details) async {
+                              // If tooltip is visible, a short tap should only close it
+                              if (_isTooltipVisible) {
+                                _hideWordOverlay();
+                                return;
+                              }
                                HapticFeedback.selectionClick();
                               final textStyle = TextStyle(
                                 fontSize: state.fontSize,
@@ -1213,7 +1166,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                         ],
                         const SizedBox(height: 8),
                         Text(
-                          translated,
+                          translated.toLowerCase(),
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -1301,9 +1254,9 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
 
   Widget _buildRichTextWithHighlight(String text, TextStyle style, int pageIndex, ReaderLoaded state, ThemeManager themeManager) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final double playingAlpha = isDark ? 0.28 : 0.42;
-    final double tapAlpha = isDark ? 0.32 : 0.48;
-    final double wordAlpha = isDark ? 0.28 : 0.34;
+    final double playingAlpha = isDark ? ReaderUiConstants.playingAlphaDark : ReaderUiConstants.playingAlphaLight;
+    final double tapAlpha = isDark ? ReaderUiConstants.tapAlphaDark : ReaderUiConstants.tapAlphaLight;
+    final double wordAlpha = isDark ? ReaderUiConstants.wordAlphaDark : ReaderUiConstants.wordAlphaLight;
     List<TextSpan> spans = [];
     
     // Collect all highlight ranges
@@ -1409,7 +1362,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     // This would trigger pagination update with new page size
     // For now, we'll just log the size change
     if (_pageSize != null) {
-      print('📖 [AdvancedReaderPage] Page size updated: $_pageSize');
+      Logger.debug('📖 [AdvancedReaderPage] Page size updated: $_pageSize');
     }
   }
 
@@ -2223,7 +2176,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
       if (localHit != null) {
         final entry = localHit['entry'] as PhrasalVerbEntry;
         setState(() {
-          _wordTranslation = entry.meaningTr;
+          _wordTranslation = entry.meaningTr.toLowerCase();
           _isLoadingTranslation = false;
         });
         _updateWordOverlay();
@@ -2263,7 +2216,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
       
       if (mounted) {
         setState(() {
-          _wordTranslation = translation.isNotEmpty ? translation : 'Çeviri bulunamadı';
+          _wordTranslation = translation.isNotEmpty ? translation.toLowerCase() : 'Çeviri bulunamadı';
           _isLoadingTranslation = false;
         });
         
@@ -2652,6 +2605,10 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     
     setState(() {
       _isTooltipVisible = false;
+      // Clear word highlight when tooltip closes
+      _wordStart = null;
+      _wordEnd = null;
+      _wordPageIndex = null;
       _selectedWord = null;
       _wordTranslation = null;
       _isLoadingTranslation = false;
@@ -2699,7 +2656,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     } catch (_) {}
     _scrollControllers.clear();
     _pageController.dispose();
-    try { _readerBloc.add(StopSpeech()); } catch (_) {}
+    try { _readerBloc.add(StopSpeech()); } catch (e) { Logger.warning('StopSpeech on dispose failed'); }
     WidgetsBinding.instance.removeObserver(this);
     _flutterTts?.stop();
     _flutterTts = null;

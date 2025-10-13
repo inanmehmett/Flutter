@@ -9,7 +9,6 @@ import '../../domain/entities/book.dart';
 import '../../domain/repositories/book_repository.dart';
 import '../../services/page_manager.dart';
 import '../../data/services/translation_service.dart';
-import '../../../../core/di/injection.dart';
 import '../../../../core/storage/last_read_manager.dart';
 import '../../../../core/analytics/event_service.dart';
 import 'reader_event.dart';
@@ -18,10 +17,11 @@ import 'reader_state.dart';
 class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   final BookRepository _bookRepository;
   final FlutterTts _flutterTts;
-  final TranslationService _translationService = getIt<TranslationService>();
-  final EventService _eventService = getIt<EventService>();
+  final TranslationService _translationService;
+  final EventService _eventService;
   final PageManager _pageManager;
   final AudioPlayer _audioPlayer;
+  final LastReadManager _lastReadManager;
   final Map<int, List<Map<String, dynamic>>> _manifestCache = {};
   final bool _enableTts;
   StreamSubscription<PlayerState>? _audioStateSub;
@@ -43,9 +43,9 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
 
   double _audioRateForTts(double ttsRate) {
     // Map normalized TTS rate (0.1-1.0) to a practical audio playback rate
-    if (ttsRate <= 0.40) return 0.9;    // Yavaş
-    if (ttsRate <= 0.50) return 1.0;    // Normal
-    if (ttsRate <= 0.65) return 1.1;    // Orta-Hızlı
+    if (ttsRate <= 0.40) return 0.7;    // Yavaş (düşürüldü)
+    if (ttsRate <= 0.50) return 0.9;    // Normal (düşürüldü)
+    if (ttsRate <= 0.65) return 1.0;    // Orta-Hızlı (düşürüldü)
     return 1.2;                         // Hızlı
   }
   double _fontSize = 27.0;
@@ -56,11 +56,18 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   AdvancedReaderBloc({
     required BookRepository bookRepository,
     required FlutterTts flutterTts,
+    required TranslationService translationService,
+    required EventService eventService,
+    required LastReadManager lastReadManager,
+    PageManager? pageManager,
     AudioPlayer? audioPlayer,
     bool enableTts = true,
   })  : _bookRepository = bookRepository,
         _flutterTts = flutterTts,
-        _pageManager = PageManager(),
+        _translationService = translationService,
+        _eventService = eventService,
+        _lastReadManager = lastReadManager,
+        _pageManager = pageManager ?? PageManager(),
         _audioPlayer = audioPlayer ?? AudioPlayer(),
         _enableTts = enableTts,
         super(ReaderInitial()) {
@@ -87,10 +94,9 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   // Simple helper exposed to UI for sentence translation; will be wired to DI
   Future<String> translateSentence(String sentence) async {
     try {
-      // In a full setup, TranslationService is injected; to avoid crash if not, return empty
-      if ((_translationService as dynamic) == null) return '';
       return await _translationService.translateSentence(sentence);
-    } catch (_) {
+    } catch (e) {
+      Logger.error('translateSentence error', e);
       return '';
     }
   }
@@ -98,10 +104,9 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   // Word translation helper
   Future<String> translateWord(String word) async {
     try {
-      // In a full setup, TranslationService is injected; to avoid crash if not, return empty
-      if ((_translationService as dynamic) == null) return '';
       return await _translationService.translateWord(word);
-    } catch (_) {
+    } catch (e) {
+      Logger.error('translateWord error', e);
       return '';
     }
   }
@@ -129,7 +134,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
           }
         }
       }
-    } catch (_) {}
+    } catch (e) { Logger.warning('findSentenceAudioUrl: manifest lookup failed'); }
     return null;
   }
 
@@ -339,7 +344,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
             currentState = updated;
           }
         }
-      } catch (_) {}
+      } catch (e) { Logger.warning('readingActive heartbeat failed'); }
     }
 
     // start heartbeat to credit non-audio reading time
@@ -368,7 +373,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
           _invokedBySequential = true;
           await playSentenceFromUrl(url, sentenceIndex: idx);
           _invokedBySequential = false;
-          try { await _audioPlayer.onPlayerComplete.first; } catch (_) {}
+          try { await _audioPlayer.onPlayerComplete.first; } catch (e) { Logger.warning('onPlayerComplete await failed'); }
           final endedAt = DateTime.now();
           final durationMs = endedAt.difference(startedAt).inMilliseconds;
           Logger.debug('Sequential play complete | page=$pageIndex, sentence=$idx, durationMs=$durationMs');
@@ -407,7 +412,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     if (readingTextId > 0 && pageIndex >= _pageManager.totalPages - 1) {
       try {
         unawaited(_eventService.readingCompleted(readingTextId));
-      } catch (_) {}
+      } catch (e) { Logger.warning('readingCompleted event failed'); }
     }
     _sequentialInProgress = false;
   }
@@ -426,7 +431,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
         final range = computeLocalRangeForSentence(content, globalSentenceIndex);
         if (range != null) return i;
       }
-    } catch (_) {}
+    } catch (e) { Logger.warning('findPageIndexForSentence failed'); }
     return null;
   }
 
@@ -435,10 +440,12 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
       Logger.book('Page changed to: $pageIndex');
       try {
         if (_currentBook != null) {
-          await getIt<LastReadManager>()
-              .saveLastRead(bookId: _currentBook!.id, pageIndex: pageIndex);
+          await _lastReadManager.saveLastRead(
+            bookId: _currentBook!.id,
+            pageIndex: pageIndex,
+          );
         }
-      } catch (_) {}
+      } catch (e) { Logger.warning('saveLastRead failed'); }
     };
   }
 
@@ -494,13 +501,13 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
             playingRangeStart: localRange[0],
             playingRangeEnd: localRange[1],
           ));
-        } catch (_) {}
+        } catch (e) { Logger.warning('audio position emit failed'); }
       });
       try {
         _audioPlayer.onSeekComplete.listen((_) {
           Logger.debug('Audio seek completed');
         });
-      } catch (_) {}
+      } catch (e) { Logger.warning('onSeekComplete listener attach failed'); }
     } catch (e) {
       Logger.error('initializeAudioListeners error', e);
     }
@@ -561,7 +568,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
             emit(s.copyWith(isPaused: false));
           }
         });
-      } catch (_) {}
+      } catch (e) { Logger.warning('flutterTts handler setup failed'); }
     } catch (e) {
       Logger.error('TTS initialization error', e);
     }
@@ -594,14 +601,14 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
           // Try to restore last read page
           int initialPage = 0;
           try {
-            final lastRead = await getIt<LastReadManager>().getLastRead();
+            final lastRead = await _lastReadManager.getLastRead();
             if (lastRead != null && lastRead.book.id == bookModel.id) {
               initialPage = lastRead.pageIndex.clamp(0, _pageManager.totalPages > 0 ? _pageManager.totalPages - 1 : 0);
               if (initialPage != _pageManager.currentPageIndex) {
                 await _pageManager.goToPage(initialPage);
               }
             }
-          } catch (_) {}
+          } catch (e) { Logger.warning('restore lastRead failed'); }
 
           // Emit initial loaded state with restored page if available
           emit(ReaderLoaded(
@@ -617,11 +624,11 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
 
           // Persist last read immediately to ensure Home picks it up
           try {
-            await getIt<LastReadManager>().saveLastRead(
+            await _lastReadManager.saveLastRead(
               bookId: bookModel.id,
               pageIndex: _pageManager.currentPageIndex,
             );
-          } catch (_) {}
+          } catch (e) { Logger.warning('initial saveLastRead failed'); }
 
           // Fire reading_started event (non-blocking)
           final readingTextId = int.tryParse(bookModel.id) ?? 0;

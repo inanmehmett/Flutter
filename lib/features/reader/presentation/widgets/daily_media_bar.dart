@@ -161,9 +161,9 @@ class DailyMediaBar extends StatelessWidget {
   }
 
   String _formatRate(double ttsRate) {
-    if (ttsRate <= 0.40) return '0.9x';
-    if (ttsRate <= 0.50) return '1.0x';
-    if (ttsRate <= 0.65) return '1.1x';
+    if (ttsRate <= 0.40) return '0.7x';
+    if (ttsRate <= 0.50) return '0.9x';
+    if (ttsRate <= 0.65) return '1.0x';
     return '1.2x';
   }
 }
