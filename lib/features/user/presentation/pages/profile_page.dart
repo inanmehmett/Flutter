@@ -577,11 +577,24 @@ class _ProfilePageState extends State<ProfilePage> {
       final dynamic currentXPRaw = ldat['currentXP'] ?? ldat['CurrentXP'] ?? ldat['totalXP'] ?? ldat['TotalXP'];
       final currentXPd = _asNum(currentXPRaw).toDouble();
       final dynamic xpForNextRaw = ldat['xpForNextLevel'] ?? ldat['XPForNextLevel'] ?? 1000;
-      final xpForNext = _asNum(xpForNextRaw, 1000).toDouble();
+      // Treat API value as remaining XP to next level; derive target XP
+      final double xpRemaining = _asNum(xpForNextRaw, 1000).toDouble();
       final dynamic progressRaw = ldat['progressPercentage'] ?? ldat['ProgressPercentage'];
-      final progressVal = _asNum(progressRaw).toDouble();
+      // Normalize progress: accept either 0..1 or 0..100 and clamp to 0..1
+      double xpProgressCandidate;
+      if (progressRaw != null) {
+        final double pv = _asNum(progressRaw).toDouble();
+        final double normalized = pv > 1 ? (pv / 100.0) : pv; // if 37 -> 0.37
+        xpProgressCandidate = normalized.clamp(0.0, 1.0).toDouble();
+      } else {
+        xpProgressCandidate = -1; // force fallback
+      }
       
-      xpProgress = progressVal > 0 && progressVal <= 1 ? progressVal : (xpForNext > 0 ? (currentXPd / xpForNext).clamp(0, 1).toDouble() : 0);
+      // Compute target XP and progress if API progress missing
+      final double xpTargetD = (currentXPd + xpRemaining).clamp(1, double.infinity);
+      xpProgress = (xpProgressCandidate > 0)
+          ? xpProgressCandidate
+          : ((xpTargetD > 0) ? (currentXPd / xpTargetD).clamp(0, 1).toDouble() : 0);
       currentXP = currentXPd.toInt();
       
       // Level bilgilerini al - hem label hem de numeric değer
@@ -600,7 +613,7 @@ class _ProfilePageState extends State<ProfilePage> {
         streakDays: streakDays,
         currentLevel: currentLevel,
         longestStreak: longestStreak,
-        xpForNextLevel: xpForNext.toInt(),
+        xpForNextLevel: xpTargetD.toInt(),
       );
       _lastLevelGoal = result;
       return result;
@@ -1190,10 +1203,9 @@ class _LevelProgressBar extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
               Text('$currentXP / $xpForNextLevel XP', style: TextStyle(color: Colors.grey[700])),
-              Text('%$percent', style: const TextStyle(fontWeight: FontWeight.w700)),
             ],
           ),
         ],
