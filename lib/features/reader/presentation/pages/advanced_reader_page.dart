@@ -639,7 +639,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                       _highlightStart = null;
                       _highlightEnd = null;
                       _hideWordOverlay();
-                    } catch (e) { Logger.warn('StopSpeech on exit failed', e); }
+                    } catch (e) { Logger.warning('StopSpeech on exit failed'); }
                     _readerBloc.add(StopSpeech());
                   },
                   onCycleRate: () {
@@ -729,7 +729,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
   }
 
   Future<bool> _handleExitAttemptWithQuiz(ReaderLoaded state, ThemeManager themeManager) async {
-    try { _readerBloc.add(StopSpeech()); } catch (e) { Logger.warn('StopSpeech before exit failed', e); }
+    try { _readerBloc.add(StopSpeech()); } catch (e) { Logger.warning('StopSpeech before exit failed'); }
     final bool isAtLastPage = state.currentPage >= (state.totalPages - 1);
     if (!isAtLastPage) {
       return true;
@@ -895,7 +895,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                   return;
                 }
                 // Stop any ongoing playback on manual page swipe
-                try { _readerBloc.add(StopSpeech()); } catch (e) { Logger.warn('StopSpeech on manual swipe failed', e); }
+                try { _readerBloc.add(StopSpeech()); } catch (e) { Logger.warning('StopSpeech on manual swipe failed'); }
                 if (index != state.currentPage) {
                   // Haptic feedback
                   HapticFeedback.lightImpact();
@@ -2045,7 +2045,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     Logger.debug('🔍 [Extract Word] Text Length: ${fullText.length}');
     
     if (fullText.isEmpty || maxWidth <= 0) {
-      Logger.warn('🔍 [Extract Word] ❌ Empty text or invalid maxWidth');
+      Logger.warning('🔍 [Extract Word] ❌ Empty text or invalid maxWidth');
       return {'word': '', 'start': 0, 'end': 0};
     }
 
@@ -2102,7 +2102,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
       } else if (right < fullText.length) {
         idx = right;
       } else {
-        Logger.warn('🔍 [Extract Word] ❌ No word characters around tap');
+        Logger.warning('🔍 [Extract Word] ❌ No word characters around tap');
         return {'word': '', 'start': 0, 'end': 0};
       }
       Logger.debug('🔍 [Extract Word] Adjusted Character Index: $idx (char="${fullText[idx]}")');
@@ -2123,7 +2123,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     Logger.debug('🔍 [Extract Word] Word Boundaries: start=$start, end=$end');
     // Guard against invalid ranges (e.g., when tapping punctuation/space)
     if (end <= start) {
-      Logger.warn('🔍 [Extract Word] ❌ Invalid range: end <= start');
+      Logger.warning('🔍 [Extract Word] ❌ Invalid range: end <= start');
       return {'word': '', 'start': 0, 'end': 0};
     }
 
@@ -2131,7 +2131,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     final int safeStart = start.clamp(0, fullText.length);
     final int safeEnd = end.clamp(safeStart, fullText.length);
     if (safeEnd <= safeStart) {
-      Logger.warn('🔍 [Extract Word] ❌ Safe invalid range after clamp');
+      Logger.warning('🔍 [Extract Word] ❌ Safe invalid range after clamp');
       return {'word': '', 'start': 0, 'end': 0};
     }
 
@@ -2141,14 +2141,14 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     
     // Kelime boşsa veya çok kısaysa (1 karakterden az) geçersiz kabul et
     if (word.isEmpty || word.length < 1) {
-      Logger.warn('🔍 [Extract Word] ❌ Word too short or empty');
+      Logger.warning('🔍 [Extract Word] ❌ Word too short or empty');
       return {'word': '', 'start': 0, 'end': 0};
     }
 
     // Kelime sadece noktalama işaretlerinden oluşuyorsa geçersiz
     final hasAlphaNum = RegExp(r'[A-Za-z0-9]').hasMatch(word);
     if (!hasAlphaNum) {
-      Logger.warn('🔍 [Extract Word] ❌ Word contains no alphanumeric');
+      Logger.warning('🔍 [Extract Word] ❌ Word contains no alphanumeric');
       return {'word': '', 'start': 0, 'end': 0};
     }
 
@@ -2170,7 +2170,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     // RenderBox'ı bul ve pozisyonu doğru hesapla
     final box = _textKeys[currentPageIndex]?.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) {
-      Logger.warn('🔍 [Word Detection] RenderBox bulunamadı! PageIndex: $currentPageIndex');
+      Logger.warning('🔍 [Word Detection] RenderBox bulunamadı! PageIndex: $currentPageIndex');
       return;
     }
     
@@ -2232,7 +2232,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
         _translateWord(selText);
       }
     } else {
-      Logger.warn('🔍 [Word Detection] ❌ No word detected');
+      Logger.warning('🔍 [Word Detection] ❌ No word detected');
     }
     
     Logger.debug('🔍 [Word Detection] ===== LONG PRESS START END =====');
