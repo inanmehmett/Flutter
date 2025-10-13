@@ -459,7 +459,13 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
             _isPaused = false;
             if (state is ReaderLoaded) {
               final s = state as ReaderLoaded;
-              emit(s.copyWith(isSpeaking: false, isPaused: false));
+              emit(s.copyWith(
+                isSpeaking: false,
+                isPaused: false,
+                playingSentenceIndex: null,
+                playingRangeStart: null,
+                playingRangeEnd: null,
+              ));
             }
             // If a user-tapped single sentence finished and sequential was active before, resume
             if (_resumeSequentialAfterSingle && _resumeStartGlobalIndex != null) {

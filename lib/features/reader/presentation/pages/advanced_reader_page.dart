@@ -41,6 +41,43 @@ class TooltipAnchor {
   });
 }
 
+// Reader layout configuration constants
+class ReaderLayoutConfig {
+  static const double minReadingHeight = 160.0;
+  static const double minPanelHeight = 64.0;
+  static const double maxPanelHeight = 160.0;
+  static const double panelFixedHeight = 105.0; // fixed height for translation panel
+  static const double spacingBetweenAreas = 2.0;
+  static const double panelPaddingV = 6.0;
+  static const double panelPaddingH = 12.0;
+  static const double panelInnerTopSpacer = 2.0;
+  static const double mediaBarHeightApprox = 68.0; // approximate height of bottom media bar
+}
+
+// Overlay helper that provides a full-screen dismissible barrier under a custom body
+class _OverlayScaffold extends StatelessWidget {
+  final Widget body;
+  final VoidCallback onDismiss;
+
+  const _OverlayScaffold({super.key, required this.body, required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onDismiss,
+            child: const SizedBox.shrink(),
+          ),
+        ),
+        body,
+      ],
+    );
+  }
+}
+
 class AdvancedReaderPage extends StatefulWidget {
   final BookModel book;
 
@@ -90,6 +127,10 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
   // Sentence translation premium overlay
   OverlayEntry? _sentenceOverlay;
   Timer? _sentenceOverlayTimer;
+  // Split view sentence translation state
+  String? _currentSentenceOriginal;
+  String? _currentSentenceTranslation;
+  bool _isTranslatingSentence = false;
 
   // Local phrasal verb cache
   Map<String, PhrasalVerbEntry>? _phrasalMapCache;
@@ -103,6 +144,68 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     }
     _phrasalMapCache = map;
     return map;
+  }
+
+  // Bottom translation panel (glass style)
+  // Deprecated: Standard bottom translation panel removed in favor of on-demand overlay.
+  Widget _buildTranslationPanel(ThemeManager themeManager, {double? height}) {
+    final Color surface = _getThemeSurfaceColor(themeManager);
+    final Color textPrimary = _getThemeTextColor(themeManager);
+    final Color textMuted = _getThemeOnSurfaceVariantColor(themeManager);
+    final double baseFont = (() {
+      final s = _readerBloc.state;
+      if (s is ReaderLoaded) return s.fontSize;
+      return 16.0;
+    })();
+
+    return Container(
+      height: height,
+      padding: const EdgeInsets.fromLTRB(ReaderLayoutConfig.panelPaddingH, ReaderLayoutConfig.panelPaddingV, ReaderLayoutConfig.panelPaddingH, ReaderLayoutConfig.panelPaddingV),
+      decoration: BoxDecoration(
+        color: surface,
+        border: Border(
+          top: BorderSide(color: _getThemeOutlineVariantColor(themeManager), width: 1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: ReaderLayoutConfig.panelInnerTopSpacer),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              child: _isTranslatingSentence
+                  ? Row(
+                      key: const ValueKey('loading'),
+                      children: [
+                        const SizedBox(
+                          width: 16, height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 1.8),
+                        ),
+                        const SizedBox(width: 8),
+                        Text('Çevriliyor...', style: TextStyle(color: textMuted)),
+                      ],
+                    )
+                  : (_currentSentenceOriginal == null || _currentSentenceOriginal!.isEmpty)
+                      ? Text('Bir cümleye dokunarak çevirisini görün', key: const ValueKey('hint'), style: TextStyle(color: textMuted))
+                      : SingleChildScrollView(
+                          key: const ValueKey('content'),
+                          child: Text(
+                            (_currentSentenceTranslation ?? '').isNotEmpty ? _currentSentenceTranslation! : 'Çeviri bulunamadı',
+                            style: TextStyle(
+                              fontSize: (baseFont * 0.7).clamp(18.0, 28.0),
+                              height: 1.6,
+                              letterSpacing: 0.1,
+                              color: (_currentSentenceTranslation ?? '').isNotEmpty ? textPrimary : textMuted,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // Quick tokenization (letters/digits/apostrophe/hyphen), returns [start, end, text]
@@ -539,7 +642,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
           final pageIndex = state.currentPage;
           final pageContent = _getPageContent(pageIndex);
           if (pageContent.isEmpty) return;
-          final range = context.read<AdvancedReaderBloc>()
+          final range = _readerBloc
               .computeLocalRangeForSentence(pageContent, state.playingSentenceIndex!);
           if (range == null) return;
           final start = range[0];
@@ -835,6 +938,8 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
           });
         }
 
+        // Auto translation on playback removed per request.
+
         return Stack(
           children: [
             // Ana sayfa görüntüleme alanı
@@ -947,10 +1052,10 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                               }
 
                               // Speak via server audio when available; fallback to local TTS
-                              final bloc = context.read<AdvancedReaderBloc>();
+                              final bloc = _readerBloc;
                               Logger.debug('Tapped sentence: "$sentence"');
                               final readingTextId = _readerBloc.pageManager.bookId ?? 0;
-                              final sentenceIndex = context.read<AdvancedReaderBloc>()
+                              final sentenceIndex = _readerBloc
                                   .computeSentenceIndex(sentence, pageContent);
                               String? audioUrl;
                               if (readingTextId > 0) {
@@ -963,6 +1068,13 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                               } else {
                                 await bloc.speakSentenceWithIndex(sentence, sentenceIndex);
                               }
+                              // Premium: fetch and show translation overlay (glassmorphism)
+                              try {
+                                final translated = await bloc.translateSentence(sentence);
+                                if (mounted && translated.isNotEmpty) {
+                                  _showSentenceOverlayPremium(sentence, translated, themeManager);
+                                }
+                              } catch (_) {}
                               // Removed premium upsell
                             },
                              child: Container(
@@ -1069,6 +1181,9 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                   ),
                 ),
               ),
+
+            // Bottom split translation panel
+            // Bottom split translation panel (embedded in main layout now)
           ],
         );
       },
@@ -1093,117 +1208,76 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
         final mq = MediaQuery.of(ctx);
         final double horizontal = 16;
         final double maxWidth = mq.size.width - (horizontal * 2);
-        return AnimatedOpacity(
-          opacity: 1.0,
-          duration: const Duration(milliseconds: 180),
-          child: Stack(
-            children: [
-              // Backdrop tap to dismiss
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: _hideSentenceOverlay,
-                  child: const SizedBox.shrink(),
-                ),
-              ),
-              // Floating glass card
-              Positioned(
-                left: horizontal,
-                right: horizontal,
-                bottom: mq.padding.bottom + 20,
-                child: TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  builder: (context, value, child) {
-                    return Transform.translate(
-                      offset: Offset(0, (1 - value) * 12),
-                      child: Transform.scale(
-                        scale: 0.98 + value * 0.02,
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                      child: Container(
-                        constraints: BoxConstraints(maxWidth: maxWidth),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: bg,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: border, width: 1),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(isDark ? 0.4 : 0.08),
-                              blurRadius: 18,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
+        return _OverlayScaffold(
+          onDismiss: _hideSentenceOverlay,
+          body: Positioned(
+            left: horizontal,
+            right: horizontal,
+            bottom: mq.padding.bottom + ReaderLayoutConfig.mediaBarHeightApprox + 18,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, child) {
+                return Transform.translate(
+                  offset: Offset(0, (1 - value) * 12),
+                  child: Transform.scale(
+                    scale: 0.98 + value * 0.02,
+                    child: child,
+                  ),
+                );
+              },
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  child: Container(
+                    constraints: BoxConstraints(maxWidth: maxWidth),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: bg,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: border, width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(isDark ? 0.4 : 0.08),
+                          blurRadius: 18,
+                          offset: const Offset(0, 10),
                         ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            Row(
-                              children: [
-                                Icon(CupertinoIcons.globe, size: 16, color: textSecondary),
-                                const SizedBox(width: 6),
-                                Text('Translation', style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w600, letterSpacing: 0.2)),
-                                const Spacer(),
-                                GestureDetector(
-                                  onTap: _hideSentenceOverlay,
-                                  child: Icon(CupertinoIcons.xmark_circle_fill, size: 18, color: textSecondary.withOpacity(0.8)),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              translated,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: textPrimary,
-                                height: 1.35,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              original,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: textSecondary,
-                                height: 1.35,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                _iconAction(
-                                  icon: CupertinoIcons.speaker_2_fill,
-                                  label: 'Listen',
-                                  onTap: () => _readerBloc.speakSentenceWithIndex(original, _readerBloc.computeSentenceIndex(original, _getPageContent((_readerBloc.state as ReaderLoaded).currentPage))),
-                                  themeManager: themeManager,
-                                ),
-                                const SizedBox(width: 10),
-                                _iconAction(
-                                  icon: CupertinoIcons.doc_on_doc,
-                                  label: 'Copy',
-                                  onTap: () => Clipboard.setData(ClipboardData(text: translated)),
-                                  themeManager: themeManager,
-                                ),
-                              ],
+                            Icon(CupertinoIcons.globe, size: 16, color: textSecondary),
+                            const SizedBox(width: 6),
+                            Text('Translation', style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w600, letterSpacing: 0.2)),
+                            const Spacer(),
+                            GestureDetector(
+                              onTap: _hideSentenceOverlay,
+                              child: Icon(CupertinoIcons.xmark_circle_fill, size: 18, color: textSecondary.withOpacity(0.8)),
                             ),
                           ],
                         ),
-                      ),
+                        const SizedBox(height: 8),
+                        Text(
+                          translated,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: textPrimary,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
-            ],
+            ),
           ),
         );
       },
@@ -1255,12 +1329,15 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
 
   // Highlight helpers
   void _setTemporaryHighlight(int pageIndex, String fullText, String sentence) {
-    final start = fullText.indexOf(sentence);
-    if (start < 0) return;
+    final bloc = _readerBloc;
+    // Derive global sentence index then compute precise local range
+    final globalIndex = bloc.computeSentenceIndex(sentence, fullText);
+    final local = bloc.computeLocalRangeForSentence(fullText, globalIndex);
+    if (local == null || local.length != 2) return;
     setState(() {
       _highlightPageIndex = pageIndex;
-      _highlightStart = start;
-      _highlightEnd = start + sentence.length;
+      _highlightStart = local[0];
+      _highlightEnd = local[1];
     });
     _highlightTimer?.cancel();
     _highlightTimer = Timer(const Duration(seconds: 2), () {
@@ -1315,26 +1392,51 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
       });
     }
     
-    // Sort highlights by start position
-    highlights.sort((a, b) => a['start'].compareTo(b['start']));
-    
-    // Build text spans
-    for (var highlight in highlights) {
-      final start = highlight['start'] as int;
-      final end = highlight['end'] as int;
-      
-      // Add text before highlight
-      if (start > currentIndex) {
-        spans.add(TextSpan(text: text.substring(currentIndex, start)));
+    // Merge overlaps with priority: higher 'priority' wins in overlaps
+    if (highlights.isEmpty) {
+      return Text(text, style: style);
+    }
+    highlights.sort((a, b) {
+      final cmp = (a['start'] as int).compareTo(b['start'] as int);
+      if (cmp != 0) return cmp;
+      // If same start, higher priority first
+      return (b['priority'] as int).compareTo(a['priority'] as int);
+    });
+
+    // Build non-overlapping segments using a sweep line
+    int cursor = 0;
+    // Active highlight is the one with highest priority among overlaps
+    List<Map<String, dynamic>> active = [];
+    // Collect all boundary points
+    final boundaries = <int>{0, text.length};
+    for (final h in highlights) { boundaries.add(h['start']); boundaries.add(h['end']); }
+    final sortedBounds = boundaries.toList()..sort();
+
+    for (int i = 0; i < sortedBounds.length - 1; i++) {
+      final segStart = sortedBounds[i];
+      final segEnd = sortedBounds[i + 1];
+      if (segEnd <= segStart) continue;
+      // Determine highest priority highlight covering this segment
+      Map<String, dynamic>? top;
+      for (final h in highlights) {
+        if (h['start'] <= segStart && h['end'] >= segEnd) {
+          if (top == null || (h['priority'] as int) > (top['priority'] as int)) {
+            top = h;
+          }
+        }
       }
-      
-      // Add highlighted text
-      spans.add(TextSpan(
-        text: text.substring(start, end),
-        style: style.copyWith(backgroundColor: highlight['color']),
-      ));
-      
-      currentIndex = end;
+      if (cursor < segStart) {
+        spans.add(TextSpan(text: text.substring(cursor, segStart)));
+      }
+      if (top != null) {
+        spans.add(TextSpan(
+          text: text.substring(segStart, segEnd),
+          style: style.copyWith(backgroundColor: top['color']),
+        ));
+      } else {
+        spans.add(TextSpan(text: text.substring(segStart, segEnd)));
+      }
+      cursor = segEnd;
     }
     
     // Add remaining text
@@ -1629,6 +1731,8 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                   const SizedBox(height: 16),
                   _buildFontPresetsSection(currentFont, setFont, themeManager),
                   const SizedBox(height: 16),
+                  // Auto-translation toggle removed per request
+                  const SizedBox(height: 8),
                   const Text(
                     'Yazı Boyutu',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
@@ -2633,6 +2737,15 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
   void dispose() {
     _highlightTimer?.cancel();
     _hideWordOverlay();
+    try {
+      _activeOverlayScrollController?.removeListener(_overlayScrollListener!);
+    } catch (_) {}
+    _overlayScrollListener = null;
+    _activeOverlayScrollController = null;
+    try {
+      for (final c in _scrollControllers.values) { c.dispose(); }
+    } catch (_) {}
+    _scrollControllers.clear();
     _pageController.dispose();
     try { _readerBloc.add(StopSpeech()); } catch (_) {}
     WidgetsBinding.instance.removeObserver(this);
