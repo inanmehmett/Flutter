@@ -218,8 +218,8 @@ class _IconCircle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 40,
-      height: 40,
+      width: 48,
+      height: 48,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: isDark ? Colors.white.withOpacity(0.06) : Colors.white,
@@ -228,9 +228,9 @@ class _IconCircle extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
           onTap: onTap,
-          child: Icon(icon, color: fg.withOpacity(0.9), size: 20),
+          child: Icon(icon, color: fg.withOpacity(0.9), size: 22),
         ),
       ),
     );
@@ -246,9 +246,10 @@ class _SpeedPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isDark ? Colors.white.withOpacity(0.06) : Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -257,9 +258,9 @@ class _SpeedPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(CupertinoIcons.speedometer, size: 14),
-            const SizedBox(width: 6),
-            Text(rate, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: fg)),
+            const Icon(CupertinoIcons.speedometer, size: 16),
+            const SizedBox(width: 8),
+            Text(rate, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: fg)),
           ],
         ),
       ),

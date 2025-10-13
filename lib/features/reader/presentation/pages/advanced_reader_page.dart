@@ -44,13 +44,6 @@ class TooltipAnchor {
 // Reader layout configuration constants
 class ReaderLayoutConfig {
   static const double minReadingHeight = 160.0;
-  static const double minPanelHeight = 64.0;
-  static const double maxPanelHeight = 160.0;
-  static const double panelFixedHeight = 105.0; // fixed height for translation panel
-  static const double spacingBetweenAreas = 2.0;
-  static const double panelPaddingV = 6.0;
-  static const double panelPaddingH = 12.0;
-  static const double panelInnerTopSpacer = 2.0;
   static const double mediaBarHeightApprox = 68.0; // approximate height of bottom media bar
 }
 
@@ -127,6 +120,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
   // Sentence translation premium overlay
   OverlayEntry? _sentenceOverlay;
   Timer? _sentenceOverlayTimer;
+  bool _overlayHintShown = false;
   // Split view sentence translation state
   String? _currentSentenceOriginal;
   String? _currentSentenceTranslation;
@@ -147,66 +141,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
   }
 
   // Bottom translation panel (glass style)
-  // Deprecated: Standard bottom translation panel removed in favor of on-demand overlay.
-  Widget _buildTranslationPanel(ThemeManager themeManager, {double? height}) {
-    final Color surface = _getThemeSurfaceColor(themeManager);
-    final Color textPrimary = _getThemeTextColor(themeManager);
-    final Color textMuted = _getThemeOnSurfaceVariantColor(themeManager);
-    final double baseFont = (() {
-      final s = _readerBloc.state;
-      if (s is ReaderLoaded) return s.fontSize;
-      return 16.0;
-    })();
-
-    return Container(
-      height: height,
-      padding: const EdgeInsets.fromLTRB(ReaderLayoutConfig.panelPaddingH, ReaderLayoutConfig.panelPaddingV, ReaderLayoutConfig.panelPaddingH, ReaderLayoutConfig.panelPaddingV),
-      decoration: BoxDecoration(
-        color: surface,
-        border: Border(
-          top: BorderSide(color: _getThemeOutlineVariantColor(themeManager), width: 1),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: ReaderLayoutConfig.panelInnerTopSpacer),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              child: _isTranslatingSentence
-                  ? Row(
-                      key: const ValueKey('loading'),
-                      children: [
-                        const SizedBox(
-                          width: 16, height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 1.8),
-                        ),
-                        const SizedBox(width: 8),
-                        Text('Çevriliyor...', style: TextStyle(color: textMuted)),
-                      ],
-                    )
-                  : (_currentSentenceOriginal == null || _currentSentenceOriginal!.isEmpty)
-                      ? Text('Bir cümleye dokunarak çevirisini görün', key: const ValueKey('hint'), style: TextStyle(color: textMuted))
-                      : SingleChildScrollView(
-                          key: const ValueKey('content'),
-                          child: Text(
-                            (_currentSentenceTranslation ?? '').isNotEmpty ? _currentSentenceTranslation! : 'Çeviri bulunamadı',
-                            style: TextStyle(
-                              fontSize: (baseFont * 0.7).clamp(18.0, 28.0),
-                              height: 1.6,
-                              letterSpacing: 0.1,
-                              color: (_currentSentenceTranslation ?? '').isNotEmpty ? textPrimary : textMuted,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Deprecated bottom translation panel fully removed.
 
   // Quick tokenization (letters/digits/apostrophe/hyphen), returns [start, end, text]
   List<Map<String, dynamic>> _tokenize(String text) {
@@ -397,23 +332,23 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     await _flutterTts?.setVolume(1.0);
     await _flutterTts?.setPitch(1.0);
     
-    print('🎤 [TTS] Initialized successfully');
+    Logger.debug('🎤 [TTS] Initialized successfully');
   }
 
   // Kelime seslendirme
   Future<void> _speakWord(String word) async {
     try {
-      print('🎤 [TTS] Speaking word: "$word"');
+      Logger.debug('🎤 [TTS] Speaking word: "$word"');
       await _flutterTts?.speak(word);
     } catch (e) {
-      print('🎤 [TTS] Error speaking word: $e');
+      Logger.error('🎤 [TTS] Error speaking word', e);
     }
   }
 
   // Kelimeyi kelime defterine ekle
   Future<void> _addToVocabulary(String word) async {
     try {
-      print('📚 [Vocabulary] Adding word to dictionary: "$word"');
+      Logger.debug('📚 [Vocabulary] Adding word to dictionary: "$word"');
       // TODO: API call to add word to vocabulary
       // Bu API endpoint'i henüz yok, eklenmeli
       
@@ -425,7 +360,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
         ),
       );
     } catch (e) {
-      print('📚 [Vocabulary] Error adding word: $e');
+      Logger.error('📚 [Vocabulary] Error adding word', e);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Kelime eklenirken hata oluştu: $e'),
@@ -704,7 +639,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                       _highlightStart = null;
                       _highlightEnd = null;
                       _hideWordOverlay();
-                    } catch (_) {}
+                    } catch (e) { Logger.warn('StopSpeech on exit failed', e); }
                     _readerBloc.add(StopSpeech());
                   },
                   onCycleRate: () {
@@ -794,7 +729,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
   }
 
   Future<bool> _handleExitAttemptWithQuiz(ReaderLoaded state, ThemeManager themeManager) async {
-    try { _readerBloc.add(StopSpeech()); } catch (_) {}
+    try { _readerBloc.add(StopSpeech()); } catch (e) { Logger.warn('StopSpeech before exit failed', e); }
     final bool isAtLastPage = state.currentPage >= (state.totalPages - 1);
     if (!isAtLastPage) {
       return true;
@@ -960,7 +895,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                   return;
                 }
                 // Stop any ongoing playback on manual page swipe
-                try { _readerBloc.add(StopSpeech()); } catch (_) {}
+                try { _readerBloc.add(StopSpeech()); } catch (e) { Logger.warn('StopSpeech on manual swipe failed', e); }
                 if (index != state.currentPage) {
                   // Haptic feedback
                   HapticFeedback.lightImpact();
@@ -1257,11 +1192,25 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                             Text('Translation', style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w600, letterSpacing: 0.2)),
                             const Spacer(),
                             GestureDetector(
+                              behavior: HitTestBehavior.opaque,
                               onTap: _hideSentenceOverlay,
-                              child: Icon(CupertinoIcons.xmark_circle_fill, size: 18, color: textSecondary.withOpacity(0.8)),
+                              child: SizedBox(
+                                width: 44,
+                                height: 44,
+                                child: Center(
+                                  child: Icon(CupertinoIcons.xmark_circle_fill, size: 22, color: textSecondary.withOpacity(0.85)),
+                                ),
+                              ),
                             ),
                           ],
                         ),
+                        if (!_overlayHintShown) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            'Kapatmak için boş alana dokun',
+                            style: TextStyle(fontSize: 11, color: textSecondary.withOpacity(0.8)),
+                          ),
+                        ],
                         const SizedBox(height: 8),
                         Text(
                           translated,
@@ -1351,8 +1300,11 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
   }
 
   Widget _buildRichTextWithHighlight(String text, TextStyle style, int pageIndex, ReaderLoaded state, ThemeManager themeManager) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final double playingAlpha = isDark ? 0.28 : 0.42;
+    final double tapAlpha = isDark ? 0.32 : 0.48;
+    final double wordAlpha = isDark ? 0.28 : 0.34;
     List<TextSpan> spans = [];
-    int currentIndex = 0;
     
     // Collect all highlight ranges
     List<Map<String, dynamic>> highlights = [];
@@ -1366,7 +1318,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
         highlights.add({
           'start': start,
           'end': end,
-          'color': Colors.yellow.withValues(alpha: 0.35),
+          'color': Colors.yellow.withValues(alpha: playingAlpha),
           'priority': 1
         });
       }
@@ -1377,7 +1329,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
       highlights.add({
         'start': _highlightStart!,
         'end': _highlightEnd!,
-        'color': Colors.yellow.withValues(alpha: 0.4),
+        'color': Colors.yellow.withValues(alpha: tapAlpha),
         'priority': 2
       });
     }
@@ -1387,7 +1339,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
       highlights.add({
         'start': _wordStart!,
         'end': _wordEnd!,
-        'color': _getThemePrimaryColor(themeManager).withValues(alpha: 0.3),
+        'color': _getThemePrimaryColor(themeManager).withValues(alpha: wordAlpha),
         'priority': 3
       });
     }
@@ -1440,8 +1392,8 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     }
     
     // Add remaining text
-    if (currentIndex < text.length) {
-      spans.add(TextSpan(text: text.substring(currentIndex)));
+    if (cursor < text.length) {
+      spans.add(TextSpan(text: text.substring(cursor)));
     }
     
     if (spans.isEmpty) {
@@ -2086,14 +2038,14 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     double maxWidth,
     Offset localPos,
   ) {
-    print('🔍 [Extract Word] ===== EXTRACT WORD START =====');
-    print('🔍 [Extract Word] Input Local Position: $localPos');
-    print('🔍 [Extract Word] Max Width: $maxWidth');
-    print('🔍 [Extract Word] Font Size: ${style.fontSize}');
-    print('🔍 [Extract Word] Text Length: ${fullText.length}');
+    Logger.debug('🔍 [Extract Word] ===== EXTRACT WORD START =====');
+    Logger.debug('🔍 [Extract Word] Input Local Position: $localPos');
+    Logger.debug('🔍 [Extract Word] Max Width: $maxWidth');
+    Logger.debug('🔍 [Extract Word] Font Size: ${style.fontSize}');
+    Logger.debug('🔍 [Extract Word] Text Length: ${fullText.length}');
     
     if (fullText.isEmpty || maxWidth <= 0) {
-      print('🔍 [Extract Word] ❌ Empty text or invalid maxWidth');
+      Logger.warn('🔍 [Extract Word] ❌ Empty text or invalid maxWidth');
       return {'word': '', 'start': 0, 'end': 0};
     }
 
@@ -2105,22 +2057,22 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     );
     tp.layout(maxWidth: maxWidth);
     
-    print('🔍 [Extract Word] TextPainter Size: ${tp.size}');
-    print('🔍 [Extract Word] TextPainter Line Count: ${tp.computeLineMetrics().length}');
+    Logger.debug('🔍 [Extract Word] TextPainter Size: ${tp.size}');
+    Logger.debug('🔍 [Extract Word] TextPainter Line Count: ${tp.computeLineMetrics().length}');
 
     // Pozisyonu daha hassas hesapla
     final pos = tp.getPositionForOffset(localPos);
     int idx = pos.offset.clamp(0, fullText.length - 1);
     
-    print('🔍 [Extract Word] TextPainter Position: $pos');
-    print('🔍 [Extract Word] Character Index: $idx');
-    print('🔍 [Extract Word] Character at Index: "${idx < fullText.length ? fullText[idx] : 'EOF'}"');
+    Logger.debug('🔍 [Extract Word] TextPainter Position: $pos');
+    Logger.debug('🔍 [Extract Word] Character Index: $idx');
+    Logger.debug('🔍 [Extract Word] Character at Index: "${idx < fullText.length ? fullText[idx] : 'EOF'}"');
     
     // Çevredeki karakterleri göster
     final contextStart = (idx - 10).clamp(0, fullText.length);
     final contextEnd = (idx + 10).clamp(0, fullText.length);
-    print('🔍 [Extract Word] Context: "${fullText.substring(contextStart, contextEnd)}"');
-    print('🔍 [Extract Word] Context Index: $contextStart-$contextEnd, Target: $idx');
+    Logger.debug('🔍 [Extract Word] Context: "${fullText.substring(contextStart, contextEnd)}"');
+    Logger.debug('🔍 [Extract Word] Context Index: $contextStart-$contextEnd, Target: $idx');
 
     // Kelime karakter tanımı: harf/rakam, apostrof (' veya ’) ve tire (-)
     bool isWordChar(String ch) {
@@ -2150,10 +2102,10 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
       } else if (right < fullText.length) {
         idx = right;
       } else {
-        print('🔍 [Extract Word] ❌ No word characters around tap');
+        Logger.warn('🔍 [Extract Word] ❌ No word characters around tap');
         return {'word': '', 'start': 0, 'end': 0};
       }
-      print('🔍 [Extract Word] Adjusted Character Index: $idx (char="${fullText[idx]}")');
+      Logger.debug('🔍 [Extract Word] Adjusted Character Index: $idx (char="${fullText[idx]}")');
     }
 
     // Solda kelime başlangıcını bul
@@ -2168,10 +2120,10 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
       end++;
     }
     
-    print('🔍 [Extract Word] Word Boundaries: start=$start, end=$end');
+    Logger.debug('🔍 [Extract Word] Word Boundaries: start=$start, end=$end');
     // Guard against invalid ranges (e.g., when tapping punctuation/space)
     if (end <= start) {
-      print('🔍 [Extract Word] ❌ Invalid range: end <= start');
+      Logger.warn('🔍 [Extract Word] ❌ Invalid range: end <= start');
       return {'word': '', 'start': 0, 'end': 0};
     }
 
@@ -2179,29 +2131,29 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     final int safeStart = start.clamp(0, fullText.length);
     final int safeEnd = end.clamp(safeStart, fullText.length);
     if (safeEnd <= safeStart) {
-      print('🔍 [Extract Word] ❌ Safe invalid range after clamp');
+      Logger.warn('🔍 [Extract Word] ❌ Safe invalid range after clamp');
       return {'word': '', 'start': 0, 'end': 0};
     }
 
     final word = fullText.substring(safeStart, safeEnd).trim();
     
-    print('🔍 [Extract Word] Extracted Word: "$word"');
+    Logger.debug('🔍 [Extract Word] Extracted Word: "$word"');
     
     // Kelime boşsa veya çok kısaysa (1 karakterden az) geçersiz kabul et
     if (word.isEmpty || word.length < 1) {
-      print('🔍 [Extract Word] ❌ Word too short or empty');
+      Logger.warn('🔍 [Extract Word] ❌ Word too short or empty');
       return {'word': '', 'start': 0, 'end': 0};
     }
 
     // Kelime sadece noktalama işaretlerinden oluşuyorsa geçersiz
     final hasAlphaNum = RegExp(r'[A-Za-z0-9]').hasMatch(word);
     if (!hasAlphaNum) {
-      print('🔍 [Extract Word] ❌ Word contains no alphanumeric');
+      Logger.warn('🔍 [Extract Word] ❌ Word contains no alphanumeric');
       return {'word': '', 'start': 0, 'end': 0};
     }
 
-    print('🔍 [Extract Word] ✅ Valid word: "$word"');
-    print('🔍 [Extract Word] ===== EXTRACT WORD END =====');
+    Logger.debug('🔍 [Extract Word] ✅ Valid word: "$word"');
+    Logger.debug('🔍 [Extract Word] ===== EXTRACT WORD END =====');
     
     return {'word': word, 'start': start, 'end': end};
   }
@@ -2218,7 +2170,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     // RenderBox'ı bul ve pozisyonu doğru hesapla
     final box = _textKeys[currentPageIndex]?.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) {
-      print('🔍 [Word Detection] RenderBox bulunamadı! PageIndex: $currentPageIndex');
+      Logger.warn('🔍 [Word Detection] RenderBox bulunamadı! PageIndex: $currentPageIndex');
       return;
     }
     
@@ -2227,15 +2179,15 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     final double maxTextWidth = box.size.width;
     
     // Detaylı loglar
-    print('🔍 [Word Detection] ===== LONG PRESS START =====');
-    print('🔍 [Word Detection] Page Index: $currentPageIndex');
-    print('🔍 [Word Detection] Global Position: ${details.globalPosition}');
-    print('🔍 [Word Detection] Local Position: $localPos');
-    print('🔍 [Word Detection] Box Size: ${box.size}');
-    print('🔍 [Word Detection] Max Text Width: $maxTextWidth');
-    print('🔍 [Word Detection] Font Size: ${actualTextStyle.fontSize}');
-    print('🔍 [Word Detection] Page Content Length: ${pageContent.length}');
-    print('🔍 [Word Detection] Page Content Preview: ${pageContent.substring(0, 100)}...');
+    Logger.debug('🔍 [Word Detection] ===== LONG PRESS START =====');
+    Logger.debug('🔍 [Word Detection] Page Index: $currentPageIndex');
+    Logger.debug('🔍 [Word Detection] Global Position: ${details.globalPosition}');
+    Logger.debug('🔍 [Word Detection] Local Position: $localPos');
+    Logger.debug('🔍 [Word Detection] Box Size: ${box.size}');
+    Logger.debug('🔍 [Word Detection] Max Text Width: $maxTextWidth');
+    Logger.debug('🔍 [Word Detection] Font Size: ${actualTextStyle.fontSize}');
+    Logger.debug('🔍 [Word Detection] Page Content Length: ${pageContent.length}');
+    Logger.debug('🔍 [Word Detection] Page Content Preview: ${pageContent.substring(0, 100)}...');
     
     final wordInfo = _extractWordAtOffset(
       pageContent,
@@ -2244,9 +2196,9 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
       localPos,
     );
     
-    print('🔍 [Word Detection] Detected Word: "${wordInfo['word']}"');
-    print('🔍 [Word Detection] Word Start: ${wordInfo['start']}');
-    print('🔍 [Word Detection] Word End: ${wordInfo['end']}');
+    Logger.debug('🔍 [Word Detection] Detected Word: "${wordInfo['word']}"');
+    Logger.debug('🔍 [Word Detection] Word Start: ${wordInfo['start']}');
+    Logger.debug('🔍 [Word Detection] Word End: ${wordInfo['end']}');
     
     if (wordInfo['word'].toString().isNotEmpty) {
       // Try local phrasal detection
@@ -2263,7 +2215,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
         _wordTranslation = null;
       });
       
-      print('🔍 [Word Detection] ✅ Word selected: "$selText"');
+      Logger.debug('🔍 [Word Detection] ✅ Word selected: "$selText"');
       
       // Show word popup overlay
       _showWordOverlay(details.globalPosition, selText, themeManager);
@@ -2280,16 +2232,16 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
         _translateWord(selText);
       }
     } else {
-      print('🔍 [Word Detection] ❌ No word detected');
+      Logger.warn('🔍 [Word Detection] ❌ No word detected');
     }
     
-    print('🔍 [Word Detection] ===== LONG PRESS START END =====');
+    Logger.debug('🔍 [Word Detection] ===== LONG PRESS START END =====');
   }
 
   // Long press sonu
   void _onWordLongPressEnd() {
     // Tooltip kalıcı; seçim korunur ki çentik ve konum tekrar hesaplanabilsin
-    print('🔍 [Word Detection] Long press ended - tooltip remains visible');
+    Logger.debug('🔍 [Word Detection] Long press ended - tooltip remains visible');
   }
 
   // Kelime çevirisi
@@ -2303,11 +2255,11 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     _updateWordOverlay();
     
     try {
-      print('🌐 [Word Translation] Translating word: "$word"');
+      Logger.debug('🌐 [Word Translation] Translating word: "$word"');
       final bloc = context.read<AdvancedReaderBloc>();
       final translation = await bloc.translateWord(word);
       
-      print('🌐 [Word Translation] Translation result: "$translation"');
+      Logger.debug('🌐 [Word Translation] Translation result: "$translation"');
       
       if (mounted) {
         setState(() {
@@ -2319,7 +2271,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
         _updateWordOverlay();
       }
     } catch (e) {
-      print('🌐 [Word Translation] Translation error: $e');
+      Logger.error('🌐 [Word Translation] Translation error: $e');
       if (mounted) {
         setState(() {
           _wordTranslation = 'Çeviri hatası: $e';
@@ -2339,7 +2291,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
       _isTooltipVisible = true;
       _lastTooltipPosition = globalPosition;
     });
-    print('📍 [Tooltip] Open at tap: '+(_lastTooltipPosition?.toString() ?? 'null')+', word="'+word+'"');
+    Logger.debug('📍 [Tooltip] Open at tap: '+(_lastTooltipPosition?.toString() ?? 'null')+', word="'+word+'"');
     
     _wordOverlay = OverlayEntry(
       builder: (context) {
@@ -2565,7 +2517,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
   // Kelime popup overlay güncelle
   void _updateWordOverlay() {
     if (_wordOverlay != null) {
-      print('🔄 [Overlay] markNeedsBuild triggered. Loading: '+
+      Logger.debug('🔄 [Overlay] markNeedsBuild triggered. Loading: '+
           _isLoadingTranslation.toString()+', Has translation: '+
           ((_wordTranslation ?? '').isNotEmpty).toString());
       _wordOverlay!.markNeedsBuild();
@@ -2605,7 +2557,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     final caret = tp.getOffsetForCaret(TextPosition(offset: centerIndex), Rect.zero);
     final baselineY = caret.dy; // top of the word line
     final global = renderBox.localToGlobal(Offset(caret.dx, baselineY));
-    print('📍 [Tooltip] Reposition to: '+global.toString()+' (caret.dx='+caret.dx.toString()+', caret.dy='+baselineY.toString()+')');
+    Logger.debug('📍 [Tooltip] Reposition to: '+global.toString()+' (caret.dx='+caret.dx.toString()+', caret.dy='+baselineY.toString()+')');
     setState(() {
       _lastTooltipPosition = global;
     });
@@ -2679,7 +2631,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     double notchLeft = (anchorTap.dx - left) - (notchSize / 2);
     notchLeft = notchLeft.clamp(sidePadding, tooltipWidth - sidePadding - notchSize);
 
-    print('📍 [Tooltip] Anchor -> tap='+anchorTap.toString()+
+    Logger.debug('📍 [Tooltip] Anchor -> tap='+anchorTap.toString()+
         ', left='+left.toString()+
         ', top='+(top?.toString() ?? 'null')+
         ', bottom='+(bottom?.toString() ?? 'null')+
