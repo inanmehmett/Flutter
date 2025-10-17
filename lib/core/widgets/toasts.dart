@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
 
 class ToastOverlay {
   static final Map<String, DateTime> _lastShown = <String, DateTime>{};
@@ -24,6 +25,7 @@ class ToastOverlay {
     }
     final mq = MediaQuery.maybeOf(context);
     final topInset = (mq?.padding.top ?? 0) + 12;
+    final key = GlobalKey<_AnimatedToastState>();
     final entry = OverlayEntry(
       builder: (entryCtx) => MediaQuery(
         data: mq ?? const MediaQueryData(),
@@ -34,24 +36,28 @@ class ToastOverlay {
               top: topInset,
               left: 12,
               right: 12,
-              child: _AnimatedToast(
-                duration: duration,
-                child: _ToastContainer(child: child),
-              ),
+              child: _AnimatedToast(key: key, duration: duration, child: _ToastContainer(child: child)),
             ),
           ]),
         ),
       ),
     );
     overlay.insert(entry);
-    Future.delayed(duration, () => entry.remove());
+    // Play exit animation slightly before removal for polish
+    final int exitLeadMs = 140;
+    final int totalMs = duration.inMilliseconds;
+    final int startExitMs = (totalMs - exitLeadMs).clamp(0, totalMs);
+    Future.delayed(Duration(milliseconds: startExitMs), () async {
+      try { await key.currentState?.playOut(); } catch (_) {}
+      entry.remove();
+    });
   }
 }
 
 class _AnimatedToast extends StatefulWidget {
   final Duration duration;
   final Widget child;
-  const _AnimatedToast({required this.duration, required this.child});
+  const _AnimatedToast({required this.duration, required this.child, super.key});
 
   @override
   State<_AnimatedToast> createState() => _AnimatedToastState();
@@ -61,13 +67,15 @@ class _AnimatedToastState extends State<_AnimatedToast> with SingleTickerProvide
   late final AnimationController _controller;
   late final Animation<double> _fade;
   late final Animation<Offset> _slide;
+  late final Animation<double> _scale;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 220));
     _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
-    _slide = Tween<Offset>(begin: const Offset(0, -0.2), end: Offset.zero).animate(_fade);
+    _slide = Tween<Offset>(begin: const Offset(0, -0.12), end: Offset.zero).animate(_fade);
+    _scale = Tween<double>(begin: 0.98, end: 1.0).animate(_fade);
     _controller.forward();
   }
 
@@ -81,8 +89,16 @@ class _AnimatedToastState extends State<_AnimatedToast> with SingleTickerProvide
   Widget build(BuildContext context) {
     return SlideTransition(
       position: _slide,
-      child: FadeTransition(opacity: _fade, child: widget.child),
+      child: FadeTransition(opacity: _fade, child: ScaleTransition(scale: _scale, child: widget.child)),
     );
+  }
+
+  Future<void> playOut() async {
+    try {
+      if (!_controller.isDismissed) {
+        await _controller.reverse();
+      }
+    } catch (_) {}
   }
 }
 
@@ -127,20 +143,32 @@ class _ToastContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (colors, textColor) = _paletteForChild();
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color outline = (isDark ? Colors.white : Colors.black).withOpacity(0.08);
     return Material(
       color: Colors.transparent,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 44),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: colors, begin: Alignment.topLeft, end: Alignment.bottomRight),
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(color: colors.last.withOpacity(0.35), blurRadius: 12, offset: const Offset(0, 6)),
-          ],
-          border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 44),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: colors.map((c) => c.withOpacity(isDark ? 0.85 : 0.95)).toList(),
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(color: colors.last.withOpacity(isDark ? 0.28 : 0.22), blurRadius: 16, offset: const Offset(0, 10)),
+              ],
+              border: Border.all(color: outline, width: 1),
+            ),
+            child: DefaultTextStyle.merge(style: TextStyle(color: textColor), child: child),
+          ),
         ),
-        child: DefaultTextStyle.merge(style: TextStyle(color: textColor), child: child),
       ),
     );
   }

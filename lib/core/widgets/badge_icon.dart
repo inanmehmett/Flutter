@@ -7,6 +7,7 @@ class BadgeIcon extends StatelessWidget {
   final String? rarityColorHex;
   final bool earned;
   final double size;
+  final String? imageUrl;
 
   const BadgeIcon({
     super.key,
@@ -16,6 +17,7 @@ class BadgeIcon extends StatelessWidget {
     this.rarityColorHex,
     required this.earned,
     this.size = 44,
+    this.imageUrl,
   });
 
   // Static mapping for specific badge names -> fixed icons
@@ -61,11 +63,26 @@ class BadgeIcon extends StatelessWidget {
               ],
             ),
           ),
-          Icon(
-            emblem,
-            color: emblemColor.withOpacity(earned ? 1.0 : 0.5),
-            size: size * 0.52,
-          ),
+          if (imageUrl != null && imageUrl!.isNotEmpty)
+            ClipOval(
+              child: Image.network(
+                imageUrl!,
+                width: size * 0.64,
+                height: size * 0.64,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Icon(
+                  emblem,
+                  color: emblemColor.withOpacity(earned ? 1.0 : 0.5),
+                  size: size * 0.52,
+                ),
+              ),
+            )
+          else
+            Icon(
+              emblem,
+              color: emblemColor.withOpacity(earned ? 1.0 : 0.5),
+              size: size * 0.52,
+            ),
         ],
       ),
     );

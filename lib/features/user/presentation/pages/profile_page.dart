@@ -359,13 +359,18 @@ class _ProfilePageState extends State<ProfilePage> {
                                               height: 36,
                                               child: BadgeIcon(
                                                 name: b.name,
-                                                // Profil önizlemesinde imageUrl olsa da BadgeIcon gösterelim
+                                                imageUrl: b.imageUrl,
                                                 earned: b.isEarned,
                                                 size: 36,
                                               ),
                                             ),
                                             const SizedBox(height: 6),
-                                            Text(b.name, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                                            Text(
+                                              b.name,
+                                              style: const TextStyle(fontSize: 12, height: 1.2, fontWeight: FontWeight.w600),
+                                              overflow: TextOverflow.ellipsis,
+                                              textAlign: TextAlign.center,
+                                            ),
                                           ],
                                         ),
                                       ),

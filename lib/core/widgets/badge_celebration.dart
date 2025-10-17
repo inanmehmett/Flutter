@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'badge_icon.dart';
@@ -28,6 +29,13 @@ class BadgeCelebration {
             return Stack(
               fit: StackFit.expand,
               children: [
+                // Soft dark blur scrim for contrast
+                IgnorePointer(
+                  child: BackdropFilter(
+                    filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                    child: Container(color: Colors.black.withValues(alpha: 0.18)),
+                  ),
+                ),
                 // Confetti across entire screen, non-blocking
                 IgnorePointer(
                   child: Stack(
@@ -43,50 +51,93 @@ class BadgeCelebration {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          // Gradient ring + glowing badge icon
                           Container(
-                            padding: const EdgeInsets.all(26),
-                            decoration: BoxDecoration(
+                            padding: const EdgeInsets.all(20),
+                            decoration: const BoxDecoration(
                               shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.45), blurRadius: 52),
-                                BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.25), blurRadius: 104),
-                              ],
+                              gradient: SweepGradient(
+                                colors: [
+                                  Colors.amber,
+                                  Colors.purpleAccent,
+                                  Colors.amber,
+                                ],
+                              ),
                             ),
-                            child: BadgeIcon(name: name, earned: earned, size: 168),
+                            child: Container(
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.35), blurRadius: 52),
+                                  BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.18), blurRadius: 96),
+                                ],
+                              ),
+                              child: BadgeIcon(name: name, earned: earned, size: 134),
+                            ),
                           ),
                           const SizedBox(height: 12),
-                          // Title (high-contrast)
+                          // Title with gradient ink + soft halo
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Text(
-                              name,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.black,
-                                shadows: [
-                                  Shadow(color: Colors.white70, blurRadius: 6),
-                                ],
+                            child: ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [Color(0xFFFFD700), Color(0xFFFF8C00)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ).createShader(bounds),
+                              child: Text(
+                                name,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white, // masked by shader
+                                  letterSpacing: 0.5,
+                                  shadows: [
+                                    Shadow(color: Colors.black45, blurRadius: 8),
+                                  ],
+                                  decoration: TextDecoration.none,
+                                ),
                               ),
                             ),
                           ),
                           if (subtitle != null && subtitle.isNotEmpty) ...[
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 6),
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
-                              child: Text(
-                                subtitle,
-                                textAlign: TextAlign.center,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.black,
-                                  shadows: [
-                                    Shadow(color: Colors.white54, blurRadius: 4),
-                                  ],
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(14),
+                                child: BackdropFilter(
+                                  filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.38),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(color: Colors.white.withValues(alpha: 0.24)),
+                                      boxShadow: [
+                                        BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 12),
+                                      ],
+                                    ),
+                                    child: Text(
+                                      subtitle,
+                                      textAlign: TextAlign.center,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        height: 1.25,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.2,
+                                        color: Colors.white.withValues(alpha: 0.98),
+                                        shadows: const [Shadow(color: Colors.black54, blurRadius: 6)],
+                                        decoration: TextDecoration.none,
+                                        decorationColor: Colors.transparent,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -97,20 +148,29 @@ class BadgeCelebration {
                   ),
                 ),
                 // Share button (optional)
+                // Centered Share button with pop-in
                 Positioned(
-                  bottom: MediaQuery.of(context).padding.bottom + 24,
-                  right: 24,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.colorScheme.primary,
-                      foregroundColor: theme.colorScheme.onPrimary,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                  bottom: MediaQuery.of(context).padding.bottom + 28,
+                  left: 0,
+                  right: 0,
+                  child: ScaleTransition(
+                    scale: CurvedAnimation(parent: controller, curve: const Interval(0.6, 1.0, curve: Curves.elasticOut)),
+                    child: Center(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: theme.colorScheme.primary,
+                          foregroundColor: theme.colorScheme.onPrimary,
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                          elevation: 6,
+                        ),
+                        onPressed: () {
+                          Share.share('Yeni rozet kazandım: $name');
+                        },
+                        icon: const Icon(Icons.ios_share),
+                        label: const Text('Paylaş'),
+                      ),
                     ),
-                    onPressed: () {
-                      Share.share('Yeni rozet kazandım: $name');
-                    },
-                    icon: const Icon(Icons.ios_share),
-                    label: const Text('Paylaş'),
                   ),
                 ),
               ],

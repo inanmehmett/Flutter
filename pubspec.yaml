@@ -30,6 +30,8 @@ dependencies:
   google_sign_in: ^6.2.1
   share_plus: ^7.2.1
   signalr_core: ^1.1.2
+  lottie: ^3.1.0
+  animated_text_kit: ^4.2.2
 
 dev_dependencies:
   flutter_test:
@@ -46,3 +48,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/animations/confetti.json
+    - assets/icons/crown.png
+    - assets/icons/trophy.png
+    - assets/icons/star.png
