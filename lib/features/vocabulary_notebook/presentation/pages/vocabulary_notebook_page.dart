@@ -22,16 +22,20 @@ class VocabularyNotebookPage extends StatefulWidget {
 
 class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     context.read<VocabularyBloc>().add(LoadVocabulary());
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -49,6 +53,14 @@ class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
 
   void _onRefresh() {
     context.read<VocabularyBloc>().add(RefreshVocabulary());
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 200) {
+      context.read<VocabularyBloc>().add(LoadMoreVocabulary());
+    }
   }
 
   @override
@@ -157,6 +169,7 @@ class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
             return RefreshIndicator(
               onRefresh: () async => _onRefresh(),
               child: CustomScrollView(
+                controller: _scrollController,
                 slivers: [
                   // Modern minimal header
                   SliverToBoxAdapter(
@@ -203,6 +216,16 @@ class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
                   
                   // Kelime listesi
                   VocabularyWordList(words: state.words),
+
+                  // Loading more indicator
+                  SliverToBoxAdapter(
+                    child: state.hasMore
+                        ? const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(child: CircularProgressIndicator()),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
                   
                   // Alt boşluk
                   const SliverToBoxAdapter(

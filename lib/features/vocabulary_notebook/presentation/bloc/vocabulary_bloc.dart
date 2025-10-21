@@ -14,6 +14,7 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     on<RefreshVocabulary>(_onRefreshVocabulary);
     on<SearchWords>(_onSearchWords);
     on<FilterByStatus>(_onFilterByStatus);
+    on<LoadMoreVocabulary>(_onLoadMore);
     on<AddWord>(_onAddWord);
     on<UpdateWord>(_onUpdateWord);
     on<DeleteWord>(_onDeleteWord);
@@ -29,10 +30,11 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
   ) async {
     emit(VocabularyLoading());
     try {
-      final words = await repository.getUserWords();
+      final words = await repository.getUserWords(limit: 50, offset: 0);
       final stats = await repository.getUserStats();
       _lastStats = stats;
-      emit(VocabularyLoaded(words: words, stats: stats));
+      final hasMore = words.length == 50;
+      emit(VocabularyLoaded(words: words, stats: stats, hasMore: hasMore));
     } catch (e) {
       emit(VocabularyError(message: e.toString()));
     }
@@ -43,10 +45,10 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     Emitter<VocabularyState> emit,
   ) async {
     try {
-      final words = await repository.getUserWords();
+      final words = await repository.getUserWords(limit: 50, offset: 0);
       final stats = await repository.getUserStats();
       _lastStats = stats;
-      emit(VocabularyLoaded(words: words, stats: stats));
+      emit(VocabularyLoaded(words: words, stats: stats, hasMore: words.length == 50));
     } catch (e) {
       emit(VocabularyError(message: e.toString()));
     }
@@ -75,13 +77,14 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     Emitter<VocabularyState> emit,
   ) async {
     try {
-      final words = await repository.getUserWords(status: event.status);
+      final words = await repository.getUserWords(status: event.status, limit: 50, offset: 0);
       final stats = _lastStats ?? await repository.getUserStats();
       _lastStats = stats;
       emit(VocabularyLoaded(
         words: words,
         stats: stats,
         selectedStatus: event.status,
+        hasMore: words.length == 50,
       ));
     } catch (e) {
       emit(VocabularyError(message: e.toString()));
@@ -94,6 +97,15 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
   ) async {
     emit(WordAdding(word: event.word));
     try {
+      // Pre-check duplicate locally if possible
+      final currentState = state;
+      if (currentState is VocabularyLoaded) {
+        final exists = currentState.words.any((w) => w.word.toLowerCase().trim() == event.word.word.toLowerCase().trim());
+        if (exists) {
+          emit(WordExists(word: event.word));
+          return;
+        }
+      }
       final addedWord = await repository.addWord(event.word);
       emit(WordAdded(word: addedWord));
       // After mutation, force refresh of stats
@@ -189,9 +201,27 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     try {
       final words = await repository.getWordsForReview(event.limit);
       final stats = await repository.getUserStats();
-      emit(VocabularyLoaded(words: words, stats: stats));
+      emit(VocabularyLoaded(words: words, stats: stats, hasMore: false));
     } catch (e) {
       emit(VocabularyError(message: e.toString()));
     }
+  }
+
+  Future<void> _onLoadMore(
+    LoadMoreVocabulary event,
+    Emitter<VocabularyState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! VocabularyLoaded || !currentState.hasMore) return;
+    try {
+      final offset = currentState.words.length;
+      final more = await repository.getUserWords(
+        status: currentState.selectedStatus,
+        limit: 50,
+        offset: offset,
+      );
+      final merged = [...currentState.words, ...more];
+      emit(currentState.copyWith(words: merged, hasMore: more.length == 50));
+    } catch (_) {}
   }
 }

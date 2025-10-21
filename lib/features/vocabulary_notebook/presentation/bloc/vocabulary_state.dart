@@ -18,28 +18,32 @@ class VocabularyLoaded extends VocabularyState {
   final VocabularyStats stats;
   final String? searchQuery;
   final VocabularyStatus? selectedStatus;
+  final bool hasMore;
 
   const VocabularyLoaded({
     required this.words,
     required this.stats,
     this.searchQuery,
     this.selectedStatus,
+    this.hasMore = false,
   });
 
   @override
-  List<Object?> get props => [words, stats, searchQuery, selectedStatus];
+  List<Object?> get props => [words, stats, searchQuery, selectedStatus, hasMore];
 
   VocabularyLoaded copyWith({
     List<VocabularyWord>? words,
     VocabularyStats? stats,
     String? searchQuery,
     VocabularyStatus? selectedStatus,
+    bool? hasMore,
   }) {
     return VocabularyLoaded(
       words: words ?? this.words,
       stats: stats ?? this.stats,
       searchQuery: searchQuery ?? this.searchQuery,
       selectedStatus: selectedStatus ?? this.selectedStatus,
+      hasMore: hasMore ?? this.hasMore,
     );
   }
 }
@@ -66,6 +70,15 @@ class WordAdded extends VocabularyState {
   final VocabularyWord word;
 
   const WordAdded({required this.word});
+
+  @override
+  List<Object?> get props => [word];
+}
+
+class WordExists extends VocabularyState {
+  final VocabularyWord word;
+
+  const WordExists({required this.word});
 
   @override
   List<Object?> get props => [word];

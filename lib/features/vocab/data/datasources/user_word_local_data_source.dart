@@ -6,6 +6,8 @@ class UserWordLocalDataSource {
   final Box<UserWordModel> box;
   UserWordLocalDataSource(this.box);
 
+  String _normalize(String s) => s.trim().toLowerCase();
+
   Future<void> add(UserWordModel model) async {
     await box.put(model.id, model);
   }
@@ -57,5 +59,21 @@ class UserWordLocalDataSource {
 
   Future<void> remove(String id) async {
     await box.delete(id);
+  }
+
+  bool existsWord(String word) {
+    final target = _normalize(word);
+    for (final m in box.values) {
+      if (_normalize(m.word) == target) return true;
+    }
+    return false;
+  }
+
+  UserWordModel? findByWord(String word) {
+    final target = _normalize(word);
+    for (final m in box.values) {
+      if (_normalize(m.word) == target) return m;
+    }
+    return null;
   }
 }

@@ -74,6 +74,12 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
 
   @override
   Future<VocabularyWord> addWord(VocabularyWord word) async {
+    final existing = await _svc.listWords(query: word.word);
+    final exists = existing.any((e) => e.word.toLowerCase().trim() == word.word.toLowerCase().trim());
+    if (exists) {
+      // Return existing mapped entity to keep UI consistent
+      return _mapEntity(existing.first);
+    }
     await _svc.addWord(word: word.word, meaningTr: word.meaning);
     final list = await _svc.listWords(query: word.word);
     return list.isNotEmpty ? _mapEntity(list.first) : word.copyWith(id: DateTime.now().millisecondsSinceEpoch);

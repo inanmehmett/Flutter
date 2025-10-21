@@ -16,6 +16,10 @@ class VocabLearningService implements VocabLearningServiceProtocol {
 
   @override
   Future<void> addWord({required String word, required String meaningTr, String? example, String? partOfSpeech, String? cefr, String? sourceBookId, String? sourceChapter, List<String> tags = const []}) async {
+    // Guard duplicate by normalized word
+    if (local.existsWord(word)) {
+      return;
+    }
     final now = DateTime.now();
     final id = const Uuid().v4();
     final model = UserWordModel(

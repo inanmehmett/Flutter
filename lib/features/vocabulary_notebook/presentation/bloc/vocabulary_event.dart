@@ -93,3 +93,5 @@ class LoadWordsForReview extends VocabularyEvent {
   @override
   List<Object?> get props => [limit];
 }
+
+class LoadMoreVocabulary extends VocabularyEvent {}
