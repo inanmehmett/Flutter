@@ -3,7 +3,7 @@ import 'dart:ui' as ui;
 import 'dart:math' as math;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:flutter/services.dart' show Clipboard, ClipboardData, HapticFeedback;
 import '../../../../core/di/injection.dart';
 import '../../../vocab/domain/services/vocab_learning_service.dart';
 import '../../../vocab/domain/entities/user_word_entity.dart' as ue;
@@ -131,6 +131,7 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
   Future<void> _delete() async {
     final ent = _entity;
     if (ent == null) return;
+    try { HapticFeedback.mediumImpact(); } catch (_) {}
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -210,7 +211,13 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(e.word, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -0.2)),
+                          Hero(
+                            tag: 'vocab_word_${widget.vocabWordId}',
+                            child: Material(
+                              type: MaterialType.transparency,
+                              child: Text(e.word, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -0.2)),
+                            ),
+                          ),
                           const SizedBox(height: 6),
                           Text(e.meaningTr, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.grey[800])),
                         ],
@@ -373,7 +380,10 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
-        onTap: onTap,
+        onTap: () {
+          try { HapticFeedback.selectionClick(); } catch (_) {}
+          onTap();
+        },
         child: Padding(
           padding: const EdgeInsets.all(8.0),
           child: Icon(icon, size: 20, color: active ? Theme.of(context).colorScheme.primary : Colors.black87),
@@ -425,15 +435,23 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          text,
-          maxLines: maxLines,
-          overflow: _descExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
-          style: TextStyle(color: Colors.grey[800], height: 1.35),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOut,
+          alignment: Alignment.topLeft,
+          child: Text(
+            text,
+            maxLines: maxLines,
+            overflow: _descExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
+            style: TextStyle(color: Colors.grey[800], height: 1.35),
+          ),
         ),
         const SizedBox(height: 4),
         GestureDetector(
-          onTap: () => setState(() => _descExpanded = !_descExpanded),
+          onTap: () {
+            try { HapticFeedback.selectionClick(); } catch (_) {}
+            setState(() => _descExpanded = !_descExpanded);
+          },
           child: Text(_descExpanded ? 'Daha az' : 'Daha fazla', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600)),
         )
       ],
@@ -445,6 +463,7 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
     return ToggleButtons(
       isSelected: isSelected,
       onPressed: (idx) {
+        try { HapticFeedback.selectionClick(); } catch (_) {}
         _updateProgress(idx);
       },
       borderRadius: BorderRadius.circular(12),
@@ -471,7 +490,10 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () => _updateProgress(math.max(0, selectedIndex - 1)),
+                onPressed: () {
+                  try { HapticFeedback.lightImpact(); } catch (_) {}
+                  _updateProgress(math.max(0, selectedIndex - 1));
+                },
                 icon: const Icon(Icons.arrow_back),
                 label: const Text('Geri'),
               ),
@@ -479,7 +501,10 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
             const SizedBox(width: 10),
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: () => _updateProgress(math.min(2, selectedIndex + 1)),
+                onPressed: () {
+                  try { HapticFeedback.lightImpact(); } catch (_) {}
+                  _updateProgress(math.min(2, selectedIndex + 1));
+                },
                 icon: const Icon(Icons.check_circle_outline),
                 label: const Text('İlerle'),
               ),

@@ -38,9 +38,15 @@ class VocabularyWordCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          word.word,
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.2),
+                        Hero(
+                          tag: 'vocab_word_${word.id}',
+                          child: Material(
+                            type: MaterialType.transparency,
+                            child: Text(
+                              word.word,
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.2),
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(

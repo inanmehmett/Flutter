@@ -98,8 +98,18 @@ class VocabularyWordList extends StatelessWidget {
 
   void _navigateToWordDetail(BuildContext context, VocabularyWord word) {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => VocabularyWordDetailPage(vocabWordId: word.id),
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => VocabularyWordDetailPage(vocabWordId: word.id),
+        transitionsBuilder: (_, animation, secondaryAnimation, child) {
+          final fade = CurvedAnimation(parent: animation, curve: Curves.easeOut);
+          final slide = Tween<Offset>(begin: const Offset(0, 0.04), end: Offset.zero).animate(fade);
+          return FadeTransition(
+            opacity: fade,
+            child: SlideTransition(position: slide, child: child),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 220),
+        reverseTransitionDuration: const Duration(milliseconds: 200),
       ),
     );
   }
