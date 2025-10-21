@@ -1,10 +1,13 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/repositories/vocabulary_repository.dart';
+import '../../domain/entities/vocabulary_stats.dart';
 import 'vocabulary_event.dart';
 import 'vocabulary_state.dart';
 
 class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
   final VocabularyRepository repository;
+  // Cache last known stats to avoid redundant fetches on local-only changes
+  VocabularyStats? _lastStats;
 
   VocabularyBloc({required this.repository}) : super(VocabularyInitial()) {
     on<LoadVocabulary>(_onLoadVocabulary);
@@ -28,6 +31,7 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     try {
       final words = await repository.getUserWords();
       final stats = await repository.getUserStats();
+      _lastStats = stats;
       emit(VocabularyLoaded(words: words, stats: stats));
     } catch (e) {
       emit(VocabularyError(message: e.toString()));
@@ -41,6 +45,7 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     try {
       final words = await repository.getUserWords();
       final stats = await repository.getUserStats();
+      _lastStats = stats;
       emit(VocabularyLoaded(words: words, stats: stats));
     } catch (e) {
       emit(VocabularyError(message: e.toString()));
@@ -53,7 +58,8 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
   ) async {
     try {
       final words = await repository.searchWords(event.query);
-      final stats = await repository.getUserStats();
+      final stats = _lastStats ?? await repository.getUserStats();
+      _lastStats = stats;
       emit(VocabularyLoaded(
         words: words,
         stats: stats,
@@ -70,7 +76,8 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
   ) async {
     try {
       final words = await repository.getUserWords(status: event.status);
-      final stats = await repository.getUserStats();
+      final stats = _lastStats ?? await repository.getUserStats();
+      _lastStats = stats;
       emit(VocabularyLoaded(
         words: words,
         stats: stats,
@@ -89,6 +96,8 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     try {
       final addedWord = await repository.addWord(event.word);
       emit(WordAdded(word: addedWord));
+      // After mutation, force refresh of stats
+      _lastStats = null;
       add(RefreshVocabulary());
     } catch (e) {
       emit(VocabularyError(message: e.toString()));
@@ -99,12 +108,22 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     UpdateWord event,
     Emitter<VocabularyState> emit,
   ) async {
-    emit(WordUpdating(word: event.word));
+    // Optimistic update: if we are in loaded state, update local list immediately
+    final currentState = state;
+    if (currentState is VocabularyLoaded) {
+      final updated = event.word;
+      final newList = currentState.words.map((w) => w.id == updated.id ? updated : w).toList();
+      emit(currentState.copyWith(words: newList));
+    } else {
+      emit(WordUpdating(word: event.word));
+    }
     try {
       final updatedWord = await repository.updateWord(event.word);
       emit(WordUpdated(word: updatedWord));
+      _lastStats = null;
       add(RefreshVocabulary());
     } catch (e) {
+      // Rollback not implemented (local only), push error to UI
       emit(VocabularyError(message: e.toString()));
     }
   }
@@ -117,6 +136,7 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     try {
       await repository.deleteWord(event.wordId);
       emit(WordDeleted(wordId: event.wordId));
+      _lastStats = null;
       add(RefreshVocabulary());
     } catch (e) {
       emit(VocabularyError(message: e.toString()));
@@ -129,6 +149,7 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
   ) async {
     try {
       await repository.markWordReviewed(event.wordId, event.isCorrect);
+      _lastStats = null;
       add(RefreshVocabulary());
     } catch (e) {
       emit(VocabularyError(message: e.toString()));
@@ -141,6 +162,7 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
   ) async {
     try {
       await repository.addWordsFromText(event.text, event.readingTextId);
+      _lastStats = null;
       add(RefreshVocabulary());
     } catch (e) {
       emit(VocabularyError(message: e.toString()));
@@ -153,6 +175,7 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
   ) async {
     try {
       await repository.syncWords();
+      _lastStats = null;
       add(RefreshVocabulary());
     } catch (e) {
       emit(VocabularyError(message: e.toString()));

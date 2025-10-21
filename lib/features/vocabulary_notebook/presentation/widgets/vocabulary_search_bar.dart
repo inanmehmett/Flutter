@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 
 class VocabularySearchBar extends StatefulWidget {
   final TextEditingController controller;
@@ -16,6 +17,7 @@ class VocabularySearchBar extends StatefulWidget {
 
 class _VocabularySearchBarState extends State<VocabularySearchBar> {
   bool _isSearching = false;
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -25,6 +27,7 @@ class _VocabularySearchBarState extends State<VocabularySearchBar> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     widget.controller.removeListener(_onTextChanged);
     super.dispose();
   }
@@ -36,11 +39,15 @@ class _VocabularySearchBarState extends State<VocabularySearchBar> {
         _isSearching = isSearching;
       });
     }
-    widget.onChanged(widget.controller.text);
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 250), () {
+      widget.onChanged(widget.controller.text.trim());
+    });
   }
 
   void _clearSearch() {
     widget.controller.clear();
+    _debounce?.cancel();
     widget.onChanged('');
   }
 

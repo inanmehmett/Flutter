@@ -56,17 +56,37 @@ class VocabularyWordList extends StatelessWidget {
             final word = words[index];
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: VocabularyWordCard(
-                word: word,
-                onTap: () => _navigateToWordDetail(context, word),
-                onStatusChanged: (newStatus) {
-                  context.read<VocabularyBloc>().add(
-                    UpdateWord(
-                      word: word.copyWith(status: newStatus),
-                    ),
-                  );
+              child: Dismissible(
+                key: ValueKey<int>(word.id),
+                background: _swipeBackground(context, alignLeft: true, color: Colors.green, icon: Icons.check_circle_outline, label: 'Durum +'),
+                secondaryBackground: _swipeBackground(context, alignLeft: false, color: Colors.red, icon: Icons.delete_outline, label: 'Sil'),
+                confirmDismiss: (direction) async {
+                  if (direction == DismissDirection.endToStart) {
+                    _showDeleteConfirmation(context, word);
+                    return false;
+                  } else {
+                    // Cycle status: new_ -> learning -> known
+                    final next = _nextStatus(word.status);
+                    context.read<VocabularyBloc>().add(
+                      UpdateWord(
+                        word: word.copyWith(status: next),
+                      ),
+                    );
+                    return false;
+                  }
                 },
-                onDelete: () => _showDeleteConfirmation(context, word),
+                child: VocabularyWordCard(
+                  word: word,
+                  onTap: () => _navigateToWordDetail(context, word),
+                  onStatusChanged: (newStatus) {
+                    context.read<VocabularyBloc>().add(
+                      UpdateWord(
+                        word: word.copyWith(status: newStatus),
+                      ),
+                    );
+                  },
+                  onDelete: () => _showDeleteConfirmation(context, word),
+                ),
               ),
             );
           },
@@ -110,5 +130,38 @@ class VocabularyWordList extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _swipeBackground(BuildContext context, {required bool alignLeft, required Color color, required IconData icon, required String label}) {
+    final child = Row(
+      mainAxisAlignment: alignLeft ? MainAxisAlignment.start : MainAxisAlignment.end,
+      children: [
+        if (alignLeft) const SizedBox(width: 16),
+        Icon(icon, color: Colors.white),
+        const SizedBox(width: 6),
+        Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        if (!alignLeft) const SizedBox(width: 16),
+      ],
+    );
+    return Container(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: child,
+    );
+  }
+
+  VocabularyStatus _nextStatus(VocabularyStatus s) {
+    switch (s) {
+      case VocabularyStatus.new_:
+        return VocabularyStatus.learning;
+      case VocabularyStatus.learning:
+        return VocabularyStatus.known;
+      case VocabularyStatus.known:
+        return VocabularyStatus.mastered;
+      case VocabularyStatus.mastered:
+        return VocabularyStatus.mastered;
+    }
   }
 }

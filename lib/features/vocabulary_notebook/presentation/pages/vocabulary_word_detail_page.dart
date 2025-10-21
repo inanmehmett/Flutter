@@ -32,7 +32,18 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
   Future<void> _load() async {
     final svc = getIt<VocabLearningService>();
     final list = await svc.listWords();
-    final idx = list.indexWhere((e) => e.id.hashCode == widget.vocabWordId);
+    int _stableId(String input) {
+      BigInt hash = BigInt.parse('1469598103934665603');
+      final BigInt prime = BigInt.parse('1099511628211');
+      final BigInt mask = BigInt.parse('18446744073709551615');
+      for (int i = 0; i < input.length; i++) {
+        hash = (hash ^ BigInt.from(input.codeUnitAt(i))) & mask;
+        hash = (hash * prime) & mask;
+      }
+      final BigInt signedMask = BigInt.parse('9223372036854775807');
+      return (hash & signedMask).toInt();
+    }
+    final idx = list.indexWhere((e) => _stableId(e.id) == widget.vocabWordId);
     if (!mounted) return;
     setState(() {
       _entity = idx != -1 ? list[idx] : null;

@@ -19,21 +19,20 @@ class VocabularyWordCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      borderRadius: BorderRadius.circular(14),
+      elevation: 1,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Kelime ve durum
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Column(
@@ -41,15 +40,13 @@ class VocabularyWordCard extends StatelessWidget {
                       children: [
                         Text(
                           word.word,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.2),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           word.meaning,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          style: TextStyle(
+                            fontSize: 14,
                             color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.8),
                           ),
                         ),
@@ -57,97 +54,25 @@ class VocabularyWordCard extends StatelessWidget {
                     ),
                   ),
                   _buildStatusChip(context),
+                  const SizedBox(width: 4),
+                  _overflowMenu(context),
                 ],
               ),
-              
-              // Kişisel not
-              if (word.personalNote != null && word.personalNote!.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.note_outlined,
-                        size: 16,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          word.personalNote!,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).primaryColor,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              
-              // Örnek cümle
               if (word.exampleSentence != null && word.exampleSentence!.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
                   '"${word.exampleSentence!}"',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  style: TextStyle(
+                    fontSize: 12,
                     color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                     fontStyle: FontStyle.italic,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
-              
-              const SizedBox(height: 12),
-              
-              // Alt bilgiler ve aksiyonlar
-              Row(
-                children: [
-                  // İstatistikler
-                  Expanded(
-                    child: _buildStatsRow(context),
-                  ),
-                  
-                  // Aksiyon butonları
-                  Row(
-                    children: [
-                      _buildActionButton(
-                        context,
-                        icon: Icons.volume_up,
-                        onPressed: () async {
-                          try {
-                            final tts = getIt<FlutterTts>();
-                            await tts.stop();
-                            await tts.setLanguage('en-US');
-                            await tts.speak(word.word);
-                          } catch (_) {}
-                        },
-                        tooltip: 'Seslendir',
-                      ),
-                      const SizedBox(width: 8),
-                      _buildActionButton(
-                        context,
-                        icon: Icons.edit_outlined,
-                        onPressed: onTap,
-                        tooltip: 'Düzenle',
-                      ),
-                      const SizedBox(width: 8),
-                      _buildActionButton(
-                        context,
-                        icon: Icons.delete_outline,
-                        onPressed: onDelete,
-                        tooltip: 'Sil',
-                        color: Colors.red,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+              const SizedBox(height: 10),
+              _buildStatsRow(context),
             ],
           ),
         ),
@@ -243,6 +168,35 @@ class VocabularyWordCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _overflowMenu(BuildContext context) {
+    return PopupMenuButton<String>(
+      itemBuilder: (context) => [
+        const PopupMenuItem(value: 'speak', child: Text('Seslendir')),
+        const PopupMenuItem(value: 'edit', child: Text('Düzenle')),
+        const PopupMenuItem(value: 'delete', child: Text('Sil')),
+      ],
+      onSelected: (value) async {
+        switch (value) {
+          case 'speak':
+            try {
+              final tts = getIt<FlutterTts>();
+              await tts.stop();
+              await tts.setLanguage('en-US');
+              await tts.speak(word.word);
+            } catch (_) {}
+            break;
+          case 'edit':
+            onTap();
+            break;
+          case 'delete':
+            onDelete();
+            break;
+        }
+      },
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     );
   }
 

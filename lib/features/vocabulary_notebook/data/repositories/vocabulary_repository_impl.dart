@@ -8,6 +8,20 @@ import '../../../../core/di/injection.dart';
 class VocabularyRepositoryImpl implements VocabularyRepository {
   final VocabLearningService _svc = getIt<VocabLearningService>();
 
+  int _stableId(String input) {
+    // FNV-1a 64-bit (deterministic across runs/platforms)
+    BigInt hash = BigInt.parse('1469598103934665603');
+    final BigInt prime = BigInt.parse('1099511628211');
+    final BigInt mask = BigInt.parse('18446744073709551615'); // 2^64-1
+    for (int i = 0; i < input.length; i++) {
+      hash = (hash ^ BigInt.from(input.codeUnitAt(i))) & mask;
+      hash = (hash * prime) & mask;
+    }
+    // Keep it positive and within signed 63-bit range for Flutter widgets
+    final BigInt signedMask = BigInt.parse('9223372036854775807'); // 2^63-1
+    return (hash & signedMask).toInt();
+  }
+
   VocabularyStatus _mapProgress(int p) {
     if (p <= 0) return VocabularyStatus.new_;
     if (p == 1) return VocabularyStatus.learning;
@@ -16,7 +30,7 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
 
   VocabularyWord _mapEntity(ue.UserWordEntity e) {
     return VocabularyWord(
-      id: e.id.hashCode,
+      id: _stableId(e.id),
       word: e.word,
       meaning: e.meaningTr,
       personalNote: null,
@@ -53,7 +67,7 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
   @override
   Future<VocabularyWord?> getWordById(int id) async {
     final list = await _svc.listWords();
-    final idx = list.indexWhere((x) => x.id.hashCode == id);
+    final idx = list.indexWhere((x) => _stableId(x.id) == id);
     if (idx == -1) return null;
     return _mapEntity(list[idx]);
   }
@@ -78,7 +92,7 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
   @override
   Future<void> deleteWord(int id) async {
     final list = await _svc.listWords();
-    final idx = list.indexWhere((x) => x.id.hashCode == id);
+    final idx = list.indexWhere((x) => _stableId(x.id) == id);
     if (idx != -1) {
       await _svc.removeWord(list[idx].id);
     }

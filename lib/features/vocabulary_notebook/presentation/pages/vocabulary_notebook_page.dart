@@ -11,6 +11,7 @@ import 'vocabulary_word_detail_page.dart';
 import '../widgets/add_word_fab.dart';
 import '../../data/repositories/vocabulary_repository_impl.dart';
 import '../../domain/repositories/vocabulary_repository.dart';
+import '../widgets/vocabulary_stats_header.dart';
 
 class VocabularyNotebookPage extends StatefulWidget {
   const VocabularyNotebookPage({super.key});
@@ -157,9 +158,13 @@ class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
               onRefresh: () async => _onRefresh(),
               child: CustomScrollView(
                 slivers: [
-                  // İstatistik kartları
+                  // Modern minimal header
                   SliverToBoxAdapter(
-                    child: VocabularyStatsCard(stats: state.stats),
+                    child: VocabularyStatsHeader(
+                      stats: state.stats,
+                      onWorkToday: () => Navigator.of(context).pushNamed('/study/flashcards'),
+                      onQuiz: () => Navigator.of(context).pushNamed('/study/quiz'),
+                    ),
                   ),
                   
                   const SliverToBoxAdapter(
