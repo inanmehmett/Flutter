@@ -81,7 +81,8 @@ class VocabularyQuizPage extends StatelessWidget {
           if (state is VocabularyQuizInitial) {
             // Auto-start quiz when page loads
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              context.read<VocabularyQuizCubit>().startQuiz();
+              // Prefer learning-list driven quiz if available
+              context.read<VocabularyQuizCubit>().startQuizFromLearningList();
             });
             return _buildLoadingView();
           } else if (state is VocabularyQuizLoading) {
@@ -184,9 +185,9 @@ class VocabularyQuizPage extends StatelessWidget {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: () {
-                  context.read<VocabularyQuizCubit>().startQuiz();
-                },
+                  onPressed: () {
+                    context.read<VocabularyQuizCubit>().startQuizFromLearningList();
+                  },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
                   foregroundColor: Colors.white,
@@ -361,7 +362,7 @@ class VocabularyQuizPage extends StatelessWidget {
               height: 56,
               child: ElevatedButton(
                 onPressed: () {
-                  context.read<VocabularyQuizCubit>().startQuiz();
+                  context.read<VocabularyQuizCubit>().startQuizFromLearningList();
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,

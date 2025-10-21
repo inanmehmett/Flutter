@@ -2,6 +2,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/vocabulary_quiz_models.dart';
 import '../../data/services/vocabulary_quiz_service.dart';
+import '../../../../core/di/injection.dart';
+import '../../../vocab/domain/services/vocab_learning_service.dart';
+import '../../../vocab/domain/entities/user_word_entity.dart' as ue;
 
 // States
 abstract class VocabularyQuizState extends Equatable {
@@ -143,6 +146,76 @@ class VocabularyQuizCubit extends Cubit<VocabularyQuizState> {
     } catch (e) {
       emit(VocabularyQuizError(message: e.toString()));
     }
+  }
+
+  /// Start quiz from user's Learning List (Hive) instead of backend
+  Future<void> startQuizFromLearningList({int limit = 10}) async {
+    emit(VocabularyQuizLoading());
+    try {
+      final svc = getIt<VocabLearningService>();
+      final words = await svc.listWords();
+      final filtered = words.where((w) => w.word.isNotEmpty && w.meaningTr.isNotEmpty).toList();
+      if (filtered.length < 4) {
+        emit(const VocabularyQuizError(message: 'Yeterli kelime yok (en az 4)'));
+        return;
+      }
+      filtered.shuffle();
+      final take = filtered.take(limit).toList();
+      _questions = _buildQuestionsFromUserWords(take);
+      _answers = [];
+      _currentQuestionIndex = 0;
+      _quizId = DateTime.now().millisecondsSinceEpoch % 1000000;
+
+      _progress = VocabularyQuizProgress(
+        currentQuestion: 1,
+        totalQuestions: _questions.length,
+        correctAnswers: 0,
+        wrongAnswers: 0,
+        percentage: 0.0,
+        timeSpent: 0,
+      );
+      _timeRemaining = _questions.first.timeLimitSeconds;
+      _questionStartTime = DateTime.now();
+
+      emit(VocabularyQuizStarted(
+        questions: _questions,
+        progress: _progress,
+        currentQuestionIndex: _currentQuestionIndex,
+        timeRemaining: _timeRemaining,
+      ));
+    } catch (e) {
+      emit(VocabularyQuizError(message: e.toString()));
+    }
+  }
+
+  List<VocabularyQuizQuestion> _buildQuestionsFromUserWords(List<ue.UserWordEntity> list) {
+    final questions = <VocabularyQuizQuestion>[];
+    for (var i = 0; i < list.length; i++) {
+      final w = list[i];
+      // build options: 1 correct + 3 distractors
+      final others = list.where((e) => e.id != w.id).map((e) => e.meaningTr).toList();
+      others.shuffle();
+      final optsTexts = <String>{w.meaningTr};
+      for (final t in others) {
+        if (optsTexts.length >= 4) break;
+        optsTexts.add(t);
+      }
+      final optsList = optsTexts.toList()..shuffle();
+      final options = <VocabularyQuizOption>[];
+      for (var j = 0; j < optsList.length; j++) {
+        options.add(VocabularyQuizOption(id: j + 1, text: optsList[j], isCorrect: optsList[j] == w.meaningTr));
+      }
+      questions.add(VocabularyQuizQuestion(
+        id: w.id.hashCode,
+        originalWord: w.word,
+        translatedWord: '',
+        options: options,
+        difficulty: w.cefr ?? 'A1',
+        category: 'learning-list',
+        timeLimitSeconds: 10,
+      ));
+    }
+    return questions;
   }
 
   /// Answer the current question

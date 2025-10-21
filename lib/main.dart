@@ -43,6 +43,9 @@ import 'features/quiz/data/services/vocabulary_quiz_service.dart';
 import 'features/vocabulary_notebook/presentation/pages/vocabulary_notebook_page.dart';
 import 'features/vocabulary_notebook/presentation/bloc/vocabulary_bloc.dart';
 import 'features/vocabulary_notebook/data/repositories/vocabulary_repository_impl.dart';
+import 'features/vocab/presentation/pages/learning_list_page.dart';
+import 'features/vocab/presentation/pages/flashcards_page.dart';
+import 'features/vocab/presentation/pages/quiz_page.dart';
 
 void main() async {
   Logger.info('App starting...');
@@ -178,6 +181,9 @@ class MyApp extends StatelessWidget {
             }
           },
           '/vocabulary': (context) => const VocabularyNotebookPage(),
+          '/learning-list': (context) => const LearningListPage(),
+          '/study/flashcards': (context) => const FlashcardsPage(),
+          '/study/quiz': (context) => const VocabQuizPage(),
         },
       ),
     );

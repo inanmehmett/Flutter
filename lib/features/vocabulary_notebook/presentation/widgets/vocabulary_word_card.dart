@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import '../../../../core/di/injection.dart';
 import '../../domain/entities/vocabulary_word.dart';
 
 class VocabularyWordCard extends StatelessWidget {
@@ -18,7 +20,7 @@ class VocabularyWordCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 2,
+      elevation: 3,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
@@ -114,6 +116,20 @@ class VocabularyWordCard extends StatelessWidget {
                   // Aksiyon butonları
                   Row(
                     children: [
+                      _buildActionButton(
+                        context,
+                        icon: Icons.volume_up,
+                        onPressed: () async {
+                          try {
+                            final tts = getIt<FlutterTts>();
+                            await tts.stop();
+                            await tts.setLanguage('en-US');
+                            await tts.speak(word.word);
+                          } catch (_) {}
+                        },
+                        tooltip: 'Seslendir',
+                      ),
+                      const SizedBox(width: 8),
                       _buildActionButton(
                         context,
                         icon: Icons.edit_outlined,

@@ -23,6 +23,8 @@ import '../../data/services/reading_quiz_service.dart';
 import 'reading_quiz_page.dart';
 import '../../data/phrasal_verbs_tr.dart';
 import '../widgets/daily_media_bar.dart';
+import '../../../../core/widgets/toasts.dart';
+import '../../../vocab/domain/services/vocab_learning_service.dart';
 
 // Anchor data for tooltip positioning
 class TooltipAnchor {
@@ -296,17 +298,17 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
   // Kelimeyi kelime defterine ekle
   Future<void> _addToVocabulary(String word) async {
     try {
-      Logger.debug('📚 [Vocabulary] Adding word to dictionary: "$word"');
-      // TODO: API call to add word to vocabulary
-      // Bu API endpoint'i henüz yok, eklenmeli
-      
-      // Şimdilik sadece log
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Kelime defterine eklendi: $word'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      Logger.debug('📚 [Vocabulary] Adding word to LearningList: "$word"');
+      final meaning = (_wordTranslation ?? '').trim();
+      if (meaning.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Çeviri yükleniyor, lütfen tekrar deneyin')),
+        );
+        return;
+      }
+      final svc = getIt<VocabLearningService>();
+      await svc.addWord(word: word, meaningTr: meaning, tags: const ['reader']);
+      ToastOverlay.show(context, const XpToast(5), channel: 'vocab_add');
     } catch (e) {
       Logger.error('📚 [Vocabulary] Error adding word', e);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1174,6 +1176,12 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                             height: 1.35,
                           ),
                         ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            _iconAction(icon: Icons.star_border_rounded, label: 'Favorilere ekle', onTap: _onAddWordToLearningList, themeManager: themeManager),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -1211,6 +1219,17 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
         ),
       ),
     );
+  }
+
+  Future<void> _onAddWordToLearningList() async {
+    try {
+      final word = (_selectedWord ?? '').trim();
+      final meaning = (_wordTranslation ?? _currentSentenceTranslation ?? '').trim();
+      if (word.isEmpty || meaning.isEmpty) return;
+      final svc = getIt<VocabLearningService>();
+      await svc.addWord(word: word, meaningTr: meaning, tags: const ['reader']);
+      ToastOverlay.show(context, const XpToast(5), channel: 'vocab_add');
+    } catch (_) {}
   }
 
   void _hideSentenceOverlay() {

@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/logger.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/data/models/user_profile.dart';
 import '../../../../core/di/injection.dart';
@@ -107,9 +108,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 cacheManager.removeData('game/badges');
                 cacheManager.removeData('game/goals');
                 cacheManager.removeData('game/leaderboard');
-                print('🔐 [ProfilePage] ✅ All caches cleared on logout');
+                Logger.info('🔐 [ProfilePage] ✅ All caches cleared on logout');
               } catch (e) {
-                print('🔐 [ProfilePage] ⚠️ Error clearing caches: $e');
+                Logger.warning('🔐 [ProfilePage] ⚠️ Error clearing caches: $e');
               }
               
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -403,6 +404,10 @@ class _ProfilePageState extends State<ProfilePage> {
                         GestureDetector(
                           onTap: () => Navigator.pushNamed(context, '/privacy'),
                           child: _settingsTile(context, Icons.privacy_tip_outlined, 'Privacy'),
+                        ),
+                        GestureDetector(
+                          onTap: () => Navigator.pushNamed(context, '/learning-list'),
+                          child: _settingsTile(context, Icons.book_outlined, 'Learning List'),
                         ),
                         const SizedBox(height: 12),
                         _buildStatRow(context, booksCount, profile),

@@ -20,6 +20,14 @@ class BadgeIcon extends StatelessWidget {
     this.imageUrl,
   });
 
+  static const Set<String> _blockedImageBaseNames = {
+    'holiday-hero',
+    'surprise-hero',
+    'ultra-secret',
+    'secret-collector',
+    'legendary-discovery',
+  };
+
   // Static mapping for specific badge names -> fixed icons
   static const Map<String, IconData> _nameIconOverrides = {
     // keys must be normalized (lowercase, Turkish chars simplified)
@@ -35,6 +43,21 @@ class BadgeIcon extends StatelessWidget {
     'gece kusu': Icons.nights_stay_rounded,
     'gece kuşu': Icons.nights_stay_rounded,
     'dikkatli okuyucu': Icons.fact_check_rounded,
+    // Holiday Hero (no PNG) → assign a suitable icon
+    'tatil kahramani': Icons.beach_access_rounded,
+    'holiday hero': Icons.beach_access_rounded,
+    'holiday-hero': Icons.beach_access_rounded,
+    // Secret themed badges (no PNG)
+    'ultra gizli': Icons.lock_rounded,
+    'secret master': Icons.lock_rounded,
+    'secret-master': Icons.lock_rounded,
+    'secret collector': Icons.lock_rounded,
+    'secret-collector': Icons.lock_rounded,
+    // Surprise/Legen­dary themed
+    'surprise hero': Icons.celebration_rounded,
+    'surprise-hero': Icons.celebration_rounded,
+    'legendary discovery': Icons.workspace_premium_rounded,
+    'legendary-discovery': Icons.workspace_premium_rounded,
   };
 
   @override
@@ -44,6 +67,16 @@ class BadgeIcon extends StatelessWidget {
     final Color emblemColor = earned ? Theme.of(context).colorScheme.primary : Colors.grey.shade500;
     final double borderWidth = size * 0.08;
     final Color ring = earned ? ringColor : ringColor.withOpacity(0.35);
+
+    final String? baseName = () {
+      final url = imageUrl ?? '';
+      if (url.isEmpty) return null;
+      final idx = url.lastIndexOf('/');
+      final file = (idx >= 0 ? url.substring(idx + 1) : url).toLowerCase();
+      final dot = file.lastIndexOf('.');
+      return (dot > 0 ? file.substring(0, dot) : file);
+    }();
+    final bool blockNetworkImage = baseName != null && _blockedImageBaseNames.contains(baseName);
 
     return SizedBox(
       width: size,
@@ -63,7 +96,7 @@ class BadgeIcon extends StatelessWidget {
               ],
             ),
           ),
-          if (imageUrl != null && imageUrl!.isNotEmpty)
+          if (imageUrl != null && imageUrl!.isNotEmpty && !blockNetworkImage)
             ClipOval(
               child: Image.network(
                 imageUrl!,
@@ -106,7 +139,6 @@ class BadgeIcon extends StatelessWidget {
     if (key.contains('secret')) return Icons.lock_rounded;
     if (key.contains('special')) return Icons.auto_awesome_rounded;
     if (key.contains('time')) return Icons.av_timer_rounded;
-    if (key.contains('speed')) return Icons.speed_rounded;
     if (key.contains('listen')) return Icons.hearing_rounded;
     if (key.contains('vocab') || key.contains('word')) return Icons.spellcheck_rounded;
     if (key.contains('level')) return Icons.stairs_rounded;

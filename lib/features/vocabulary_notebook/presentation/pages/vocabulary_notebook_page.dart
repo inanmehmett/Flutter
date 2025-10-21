@@ -7,6 +7,7 @@ import '../widgets/vocabulary_stats_card.dart';
 import '../widgets/vocabulary_search_bar.dart';
 import '../widgets/vocabulary_status_filter.dart';
 import '../widgets/vocabulary_word_list.dart';
+import 'vocabulary_word_detail_page.dart';
 import '../widgets/add_word_fab.dart';
 import '../../data/repositories/vocabulary_repository_impl.dart';
 import '../../domain/repositories/vocabulary_repository.dart';

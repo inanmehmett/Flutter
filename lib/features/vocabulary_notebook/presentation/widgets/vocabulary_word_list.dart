@@ -4,6 +4,7 @@ import '../../domain/entities/vocabulary_word.dart';
 import '../bloc/vocabulary_bloc.dart';
 import '../bloc/vocabulary_event.dart';
 import 'vocabulary_word_card.dart';
+import '../pages/vocabulary_word_detail_page.dart';
 
 class VocabularyWordList extends StatelessWidget {
   final List<VocabularyWord> words;
@@ -76,10 +77,9 @@ class VocabularyWordList extends StatelessWidget {
   }
 
   void _navigateToWordDetail(BuildContext context, VocabularyWord word) {
-    // TODO: Navigate to word detail page
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${word.word} detay sayfası yakında gelecek!'),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => VocabularyWordDetailPage(vocabWordId: word.id),
       ),
     );
   }

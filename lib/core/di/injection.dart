@@ -30,6 +30,9 @@ import 'injection.config.dart';
 import '../storage/last_read_manager.dart';
 import '../storage/storage_manager.dart';
 import '../realtime/signalr_service.dart';
+import '../../features/vocab/data/models/user_word.dart';
+import '../../features/vocab/data/datasources/user_word_local_data_source.dart';
+import '../../features/vocab/domain/services/vocab_learning_service.dart';
 
 final getIt = GetIt.instance;
 
@@ -58,6 +61,12 @@ Future<void> configureDependencies() async {
   if (!Hive.isBoxOpen('user_preferences')) {
     await Hive.openBox<String>('user_preferences');
   }
+  if (!Hive.isAdapterRegistered(41)) {
+    Hive.registerAdapter(UserWordModelAdapter());
+  }
+  if (!Hive.isBoxOpen(UserWordLocalDataSource.boxName)) {
+    await Hive.openBox<UserWordModel>(UserWordLocalDataSource.boxName);
+  }
 
   // Register Hive adapters
   if (!Hive.isAdapterRegistered(0)) {
@@ -66,12 +75,6 @@ Future<void> configureDependencies() async {
 
   // Register Duration for CacheManager
   getIt.registerLazySingleton<Duration>(() => const Duration(hours: 24));
-
-  // Register base URL from environment or config
-  // getIt.registerLazySingleton<String>(
-  //   () => const String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:5173'),
-  //   instanceName: 'baseUrl',
-  // );
 
   // Initialize auto-generated dependencies
   await getIt.init();
@@ -138,4 +141,13 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<PageManager>(
     () => PageManager(),
   );
+
+  // Vocab Local + Service
+  if (!getIt.isRegistered<UserWordLocalDataSource>()) {
+    final box = Hive.box<UserWordModel>(UserWordLocalDataSource.boxName);
+    getIt.registerLazySingleton<UserWordLocalDataSource>(() => UserWordLocalDataSource(box));
+  }
+  if (!getIt.isRegistered<VocabLearningService>()) {
+    getIt.registerLazySingleton<VocabLearningService>(() => VocabLearningService(getIt<UserWordLocalDataSource>()));
+  }
 }
