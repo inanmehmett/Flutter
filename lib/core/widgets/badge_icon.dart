@@ -26,6 +26,7 @@ class BadgeIcon extends StatelessWidget {
     'ultra-secret',
     'secret-collector',
     'legendary-discovery',
+    'secret-master',
   };
 
   // Static mapping for specific badge names -> fixed icons

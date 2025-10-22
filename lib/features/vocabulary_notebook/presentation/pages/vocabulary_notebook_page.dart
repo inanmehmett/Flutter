@@ -3,14 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/vocabulary_bloc.dart';
 import '../bloc/vocabulary_event.dart';
 import '../bloc/vocabulary_state.dart';
-import '../widgets/vocabulary_stats_card.dart';
 import '../widgets/vocabulary_search_bar.dart';
 import '../widgets/vocabulary_status_filter.dart';
 import '../widgets/vocabulary_word_list.dart';
-import 'vocabulary_word_detail_page.dart';
 import '../widgets/add_word_fab.dart';
-import '../../data/repositories/vocabulary_repository_impl.dart';
-import '../../domain/repositories/vocabulary_repository.dart';
 import '../widgets/vocabulary_stats_header.dart';
 
 class VocabularyNotebookPage extends StatefulWidget {
@@ -70,31 +66,8 @@ class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
 
   Widget _buildPageContent(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          '📚 Kelime Defterim',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.sync),
-            onPressed: _onRefresh,
-            tooltip: 'Senkronize Et',
-          ),
-          IconButton(
-            icon: const Icon(Icons.analytics_outlined),
-            onPressed: () {
-              // TODO: Navigate to analytics page
-            },
-            tooltip: 'İstatistikler',
-          ),
-        ],
-      ),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      extendBodyBehindAppBar: false,
       body: BlocConsumer<VocabularyBloc, VocabularyState>(
         listener: (context, state) {
           if (state is VocabularyError) {
@@ -171,6 +144,35 @@ class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
               child: CustomScrollView(
                 controller: _scrollController,
                 slivers: [
+                  // iOS-style large title with toolbar
+                  SliverAppBar(
+                    expandedHeight: 100,
+                    floating: false,
+                    pinned: true,
+                    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                    surfaceTintColor: Colors.transparent,
+                    elevation: 0,
+                    flexibleSpace: FlexibleSpaceBar(
+                      titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
+                      title: const Text(
+                        'Kelime Defterim',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                    ),
+                    actions: [
+                      IconButton(
+                        icon: const Icon(Icons.sync_rounded),
+                        onPressed: _onRefresh,
+                        tooltip: 'Senkronize Et',
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                  ),
+                  
                   // Modern minimal header
                   SliverToBoxAdapter(
                     child: VocabularyStatsHeader(
@@ -181,7 +183,7 @@ class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
                   ),
                   
                   const SliverToBoxAdapter(
-                    child: SizedBox(height: 16),
+                    child: SizedBox(height: 20),
                   ),
                   
                   // Arama çubuğu
@@ -196,7 +198,7 @@ class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
                   ),
                   
                   const SliverToBoxAdapter(
-                    child: SizedBox(height: 16),
+                    child: SizedBox(height: 12),
                   ),
                   
                   // Durum filtresi
@@ -211,7 +213,7 @@ class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
                   ),
                   
                   const SliverToBoxAdapter(
-                    child: SizedBox(height: 16),
+                    child: SizedBox(height: 20),
                   ),
                   
                   // Kelime listesi

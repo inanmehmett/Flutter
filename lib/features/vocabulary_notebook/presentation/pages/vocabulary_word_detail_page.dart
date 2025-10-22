@@ -1,6 +1,5 @@
-import 'package:flutter/material.dart';
-import 'dart:ui' as ui;
 import 'dart:math' as math;
+import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData, HapticFeedback;
@@ -132,15 +131,92 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
     final ent = _entity;
     if (ent == null) return;
     try { HapticFeedback.mediumImpact(); } catch (_) {}
-    final ok = await showDialog<bool>(
+    final ok = await showModalBottomSheet<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Silinsin mi?'),
-        content: Text('"${ent.word}" defterden kaldırılacak'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sil')),
-        ],
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        margin: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.delete_rounded,
+                      color: Colors.red,
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Kelimeyi Sil',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 22,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '"${ent.word}" kelimesini defterinizden silmek istediğinizden emin misiniz?',
+                    style: TextStyle(
+                      color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                      height: 1.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            InkWell(
+              onTap: () => Navigator.pop(context, true),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: const Text(
+                  'Sil',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            InkWell(
+              onTap: () => Navigator.pop(context, false),
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'İptal',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
     if (ok == true) {
@@ -161,10 +237,26 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        centerTitle: true,
-        title: const Text('Kelime Detayı'),
+        centerTitle: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Kelime Detayı',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 18,
+            letterSpacing: -0.3,
+          ),
+        ),
         actions: [
-          IconButton(icon: const Icon(Icons.delete_outline), onPressed: _delete),
+          IconButton(
+            icon: const Icon(Icons.delete_rounded),
+            onPressed: _delete,
+            tooltip: 'Sil',
+          ),
+          const SizedBox(width: 8),
         ],
       ),
       body: Container(
@@ -215,11 +307,27 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
                             tag: 'vocab_word_${widget.vocabWordId}',
                             child: Material(
                               type: MaterialType.transparency,
-                              child: Text(e.word, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -0.2)),
+                              child: Text(
+                                e.word,
+                                style: const TextStyle(
+                                  fontSize: 36,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.8,
+                                  height: 1.1,
+                                ),
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 6),
-                          Text(e.meaningTr, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.grey[800])),
+                          const SizedBox(height: 10),
+                          Text(
+                            e.meaningTr,
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.8),
+                              height: 1.3,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -357,36 +465,63 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
   }
 
   Widget _glassCard(BuildContext context, {required Widget child, EdgeInsetsGeometry padding = const EdgeInsets.all(12)}) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.4),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.6)),
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+            spreadRadius: 0,
           ),
-          child: child,
-        ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+            spreadRadius: 0,
+          ),
+        ],
       ),
+      child: child,
     );
   }
 
   Widget _circularIconButton(BuildContext context, {required IconData icon, required VoidCallback onTap, bool active = false}) {
-    return Material(
-      color: active ? Theme.of(context).colorScheme.primary.withOpacity(0.2) : Colors.white.withOpacity(0.6),
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: () {
-          try { HapticFeedback.selectionClick(); } catch (_) {}
-          onTap();
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Icon(icon, size: 20, color: active ? Theme.of(context).colorScheme.primary : Colors.black87),
+    return Container(
+      decoration: BoxDecoration(
+        color: active
+            ? Theme.of(context).colorScheme.primary
+            : Theme.of(context).colorScheme.surface,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: active
+                ? Theme.of(context).colorScheme.primary.withOpacity(0.3)
+                : Colors.black.withOpacity(0.06),
+            blurRadius: active ? 12 : 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () {
+            try { HapticFeedback.selectionClick(); } catch (_) {}
+            onTap();
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Icon(
+              icon,
+              size: 22,
+              color: active ? Colors.white : Theme.of(context).colorScheme.primary,
+            ),
+          ),
         ),
       ),
     );
@@ -395,13 +530,20 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
   Widget _pill(BuildContext context, {required String label, bool subtle = false}) {
     final Color base = subtle ? Colors.black : Theme.of(context).colorScheme.primary;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: base.withOpacity(subtle ? 0.06 : 0.10),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: base.withOpacity(subtle ? 0.10 : 0.20)),
+        color: base.withOpacity(subtle ? 0.08 : 0.12),
+        borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: subtle ? Colors.black87 : base)),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: subtle ? Colors.black87 : base,
+          letterSpacing: 0.1,
+        ),
+      ),
     );
   }
 
@@ -512,18 +654,6 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _chip({required String label}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.grey.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.grey.withOpacity(0.24)),
-      ),
-      child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
     );
   }
 

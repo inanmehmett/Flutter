@@ -55,32 +55,31 @@ class _VocabularySearchBarState extends State<VocabularySearchBar> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: Theme.of(context).brightness == Brightness.dark
+            ? Colors.grey[850]
+            : Colors.grey[100],
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: TextField(
         controller: widget.controller,
         decoration: InputDecoration(
           hintText: 'Kelime ara...',
           hintStyle: TextStyle(
-            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.4),
+            fontSize: 16,
+            fontWeight: FontWeight.w400,
           ),
           prefixIcon: Icon(
-            Icons.search,
-            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+            Icons.search_rounded,
+            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+            size: 22,
           ),
           suffixIcon: _isSearching
               ? IconButton(
                   icon: Icon(
-                    Icons.clear,
-                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                    Icons.clear_rounded,
+                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+                    size: 20,
                   ),
                   onPressed: _clearSearch,
                 )
@@ -88,11 +87,15 @@ class _VocabularySearchBarState extends State<VocabularySearchBar> {
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
-            vertical: 12,
+            vertical: 14,
           ),
         ),
-        style: Theme.of(context).textTheme.bodyMedium,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          fontSize: 16,
+          fontWeight: FontWeight.w400,
+        ),
       ),
     );
   }
 }
+

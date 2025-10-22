@@ -52,41 +52,36 @@ class VocabularyStatusFilter extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected
               ? Theme.of(context).colorScheme.primary
-              : Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected
-                ? Theme.of(context).colorScheme.primary
-                : Theme.of(context).dividerColor,
-            width: 1,
-          ),
+              : Theme.of(context).brightness == Brightness.dark
+                  ? Colors.grey[850]
+                  : Colors.grey[100],
+          borderRadius: BorderRadius.circular(24),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.25),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                    spreadRadius: 0,
                   ),
                 ]
-              : [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
+              : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               emoji,
-              style: const TextStyle(fontSize: 16),
+              style: TextStyle(
+                fontSize: 15,
+                height: 1.0,
+              ),
             ),
             const SizedBox(width: 6),
             Text(
@@ -94,9 +89,11 @@ class VocabularyStatusFilter extends StatelessWidget {
               style: TextStyle(
                 color: isSelected
                     ? Theme.of(context).colorScheme.onPrimary
-                    : Theme.of(context).textTheme.bodyMedium?.color,
+                    : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.85),
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                fontSize: 13,
+                fontSize: 14,
+                letterSpacing: -0.1,
+                height: 1.0,
               ),
             ),
           ],

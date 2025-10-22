@@ -5,12 +5,34 @@ class AddWordFab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FloatingActionButton.extended(
-      onPressed: () => _showAddWordDialog(context),
-      icon: const Icon(Icons.add),
-      label: const Text('Kelime Ekle'),
-      backgroundColor: Theme.of(context).primaryColor,
-      foregroundColor: Colors.white,
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).primaryColor.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: FloatingActionButton.extended(
+        onPressed: () => _showAddWordDialog(context),
+        icon: const Icon(Icons.add_rounded, size: 22),
+        label: const Text(
+          'Kelime Ekle',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+            letterSpacing: -0.2,
+          ),
+        ),
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        highlightElevation: 0,
+      ),
     );
   }
 
@@ -18,9 +40,7 @@ class AddWordFab extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (context) => const AddWordDialog(),
     );
   }
@@ -51,124 +71,205 @@ class _AddWordDialogState extends State<AddWordDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Başlık
-            Row(
-              children: [
-                Icon(
-                  Icons.add_circle_outline,
-                  color: Theme.of(context).primaryColor,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Yeni Kelime Ekle',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 12,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+        ),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[400],
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const Spacer(),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Kelime
-            TextFormField(
-              controller: _wordController,
-              decoration: const InputDecoration(
-                labelText: 'Kelime *',
-                hintText: 'Örn: beautiful',
-                border: OutlineInputBorder(),
               ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Kelime gerekli';
-                }
-                return null;
-              },
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Anlam
-            TextFormField(
-              controller: _meaningController,
-              decoration: const InputDecoration(
-                labelText: 'Anlam *',
-                hintText: 'Örn: güzel, hoş, şık',
-                border: OutlineInputBorder(),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Anlam gerekli';
-                }
-                return null;
-              },
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Kişisel not
-            TextFormField(
-              controller: _noteController,
-              decoration: const InputDecoration(
-                labelText: 'Kişisel Not',
-                hintText: 'Bu kelime hakkında notlarınız...',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 2,
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Örnek cümle
-            TextFormField(
-              controller: _exampleController,
-              decoration: const InputDecoration(
-                labelText: 'Örnek Cümle',
-                hintText: 'Örn: It\'s a beautiful day.',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 2,
-            ),
-            
-            const SizedBox(height: 24),
-            
-            // Butonlar
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
+              // Başlık
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.add_rounded,
+                      color: Theme.of(context).primaryColor,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Yeni Kelime Ekle',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 22,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('İptal'),
+                    icon: const Icon(Icons.close_rounded),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.grey[200],
+                      padding: const EdgeInsets.all(8),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _addWord,
-                    child: const Text('Ekle'),
+                ],
+              ),
+            
+              const SizedBox(height: 16),
+            
+              // Kelime
+              TextFormField(
+                controller: _wordController,
+                decoration: InputDecoration(
+                  labelText: 'Kelime *',
+                  hintText: 'Örn: beautiful',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
+                  filled: true,
+                  fillColor: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.grey[850]
+                      : Colors.grey[50],
                 ),
-              ],
-            ),
-          ],
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Kelime gerekli';
+                  }
+                  return null;
+                },
+              ),
+            
+              const SizedBox(height: 16),
+            
+              // Anlam
+              TextFormField(
+                controller: _meaningController,
+                decoration: InputDecoration(
+                  labelText: 'Anlam *',
+                  hintText: 'Örn: güzel, hoş, şık',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.grey[850]
+                      : Colors.grey[50],
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Anlam gerekli';
+                  }
+                  return null;
+                },
+              ),
+            
+              const SizedBox(height: 16),
+            
+              // Kişisel not
+              TextFormField(
+                controller: _noteController,
+                decoration: InputDecoration(
+                  labelText: 'Kişisel Not',
+                  hintText: 'Bu kelime hakkında notlarınız...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.grey[850]
+                      : Colors.grey[50],
+                ),
+                maxLines: 2,
+              ),
+            
+              const SizedBox(height: 16),
+            
+              // Örnek cümle
+              TextFormField(
+                controller: _exampleController,
+                decoration: InputDecoration(
+                  labelText: 'Örnek Cümle',
+                  hintText: 'Örn: It\'s a beautiful day.',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.grey[850]
+                      : Colors.grey[50],
+                ),
+                maxLines: 2,
+              ),
+            
+              const SizedBox(height: 24),
+            
+              // Butonlar
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'İptal',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _addWord,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Ekle',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -263,6 +263,8 @@ class _ProfilePageState extends State<ProfilePage> {
                         Center(
                           child: Text(
                             profile.displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
                           ),
                         ),
@@ -270,6 +272,8 @@ class _ProfilePageState extends State<ProfilePage> {
                         Center(
                           child: Text(
                             profile.email.isNotEmpty ? profile.email : '—',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(color: Colors.grey[700]),
                           ),
                         ),
@@ -277,6 +281,8 @@ class _ProfilePageState extends State<ProfilePage> {
                         Center(
                           child: Text(
                             profile.userName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(color: Colors.grey[700]),
                           ),
                         ),
