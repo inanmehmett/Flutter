@@ -118,14 +118,6 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
     } catch (_) {}
   }
 
-  Future<void> _updateProgress(int p) async {
-    final ent = _entity;
-    if (ent == null) return;
-    await getIt<VocabLearningService>().updateProgress(ent.id, p);
-    await _load();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Öğrenme durumu güncellendi')));
-  }
 
   Future<void> _delete() async {
     final ent = _entity;
@@ -292,10 +284,11 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
         children: [
           _glassCard(
             context,
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Ana kelime ve anlamı
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -310,66 +303,80 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
                               child: Text(
                                 e.word,
                                 style: const TextStyle(
-                                  fontSize: 36,
+                                  fontSize: 42,
                                   fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.8,
-                                  height: 1.1,
+                                  letterSpacing: -1.0,
+                                  height: 1.0,
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 12),
                           Text(
                             e.meaningTr,
                             style: TextStyle(
-                              fontSize: 20,
+                              fontSize: 22,
                               fontWeight: FontWeight.w600,
-                              color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.8),
+                              color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.85),
                               height: 1.3,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    Row(children: [
-                      _circularIconButton(
-                        context,
-                        icon: Icons.volume_up,
-                        onTap: () async {
-                          try {
-                          if (_speaking) {
-                            await tts.stop();
-                            if (!mounted) return; setState(() { _speaking = false; });
-                          } else {
-                            await tts.setLanguage('en-US');
-                            // Optionally: await tts.awaitSpeakCompletion(true);
-                            await tts.speak(e.word);
-                            if (!mounted) return; setState(() { _speaking = true; });
-                            Future.delayed(const Duration(seconds: 2), () { if (mounted) setState(() { _speaking = false; }); });
-                          }
-                        } catch (_) { if (mounted) setState(() { _speaking = false; }); }
-                        },
-                      active: _speaking,
+                    const SizedBox(width: 16),
+                    // Aksiyon butonları
+                    Column(
+                      children: [
+                        _buildActionButton(
+                          context,
+                          icon: Icons.volume_up_rounded,
+                          label: 'Seslendir',
+                          onTap: () async {
+                            try {
+                              if (_speaking) {
+                                await tts.stop();
+                                if (!mounted) return; 
+                                setState(() { _speaking = false; });
+                              } else {
+                                await tts.setLanguage('en-US');
+                                await tts.speak(e.word);
+                                if (!mounted) return; 
+                                setState(() { _speaking = true; });
+                                Future.delayed(const Duration(seconds: 2), () { 
+                                  if (mounted) setState(() { _speaking = false; }); 
+                                });
+                              }
+                            } catch (_) { 
+                              if (mounted) setState(() { _speaking = false; }); 
+                            }
+                          },
+                          active: _speaking,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildActionButton(
+                          context,
+                          icon: Icons.copy_all_rounded,
+                          label: 'Kopyala',
+                          onTap: () async {
+                            await Clipboard.setData(ClipboardData(text: '${e.word} — ${e.meaningTr}'));
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Kopyalandı'))
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        _buildActionButton(
+                          context,
+                          icon: Icons.ios_share_rounded,
+                          label: 'Paylaş',
+                          onTap: () async {
+                            await Share.share('${e.word} — ${e.meaningTr}${(e.example??'').isNotEmpty ? '\n\n"${e.example}"' : ''}');
+                          },
+                        ),
+                      ],
                     ),
-                      const SizedBox(width: 8),
-                      _circularIconButton(
-                        context,
-                        icon: Icons.copy_all_rounded,
-                        onTap: () async {
-                          await Clipboard.setData(ClipboardData(text: '${e.word} — ${e.meaningTr}'));
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kopyalandı')));
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      _circularIconButton(
-                        context,
-                        icon: Icons.ios_share,
-                        onTap: () async {
-                          await Share.share('${e.word} — ${e.meaningTr}${(e.example??'').isNotEmpty ? '\n\n"${e.example}"' : ''}');
-                        },
-                      ),
-                    ]),
                   ],
                 ),
                 if ((e.imageUrl ?? '').isNotEmpty) ...[
@@ -446,16 +453,150 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
             ),
           ],
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           _glassCard(
             context,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Öğrenme Durumu', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 10),
-                _segmentedProgress(context, selectedIndex: selectedIndex),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.trending_up_rounded,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Öğrenme Durumu', 
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ],
+                ),
+                     const SizedBox(height: 16),
+                     _buildProgressCard(context, selectedIndex),
+                     const SizedBox(height: 16),
+                     _segmentedProgress(context, selectedIndex: selectedIndex),
+                     const SizedBox(height: 16),
+                     _buildResetOptions(context),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressCard(BuildContext context, int selectedIndex) {
+    final progressData = [
+      {'label': 'Yeni', 'icon': Icons.fiber_new, 'color': Colors.blue, 'description': 'Henüz öğrenilmeye başlanmadı'},
+      {'label': 'Öğreniliyor', 'icon': Icons.school, 'color': Colors.orange, 'description': 'Aktif olarak öğreniliyor'},
+      {'label': 'Öğrenildi', 'icon': Icons.check_circle, 'color': Colors.green, 'description': 'Başarıyla öğrenildi'},
+    ];
+
+    final currentData = progressData[selectedIndex];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: (currentData['color'] as Color).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: (currentData['color'] as Color).withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: (currentData['color'] as Color).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                child: Icon(
+                  currentData['icon'] as IconData,
+                  size: 24,
+                  color: currentData['color'] as Color,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      currentData['label'] as String,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: currentData['color'] as Color,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      currentData['description'] as String,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Progress indicator
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: (currentData['color'] as Color).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Center(
+                  child: Text(
+                    '${((selectedIndex + 1) / 3 * 100).toInt()}%',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: currentData['color'] as Color,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Bilgilendirme metni
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Öğrenme durumu quiz sonuçlarına göre otomatik olarak güncellenir.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.8),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -486,6 +627,67 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
         ],
       ),
       child: child,
+    );
+  }
+
+  Widget _buildActionButton(BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool active = false,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        try { HapticFeedback.selectionClick(); } catch (_) {}
+        onTap();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: active
+              ? Theme.of(context).colorScheme.primary
+              : Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: active
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.outline.withOpacity(0.2),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: active
+                  ? Theme.of(context).colorScheme.primary.withOpacity(0.3)
+                  : Colors.black.withOpacity(0.06),
+              blurRadius: active ? 12 : 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: active 
+                  ? Colors.white 
+                  : Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: active 
+                    ? Colors.white 
+                    : Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -601,26 +803,257 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
   }
 
   Widget _segmentedProgress(BuildContext context, {required int selectedIndex}) {
-    final List<bool> isSelected = [selectedIndex == 0, selectedIndex == 1, selectedIndex == 2];
-    return ToggleButtons(
-      isSelected: isSelected,
-      onPressed: (idx) {
-        try { HapticFeedback.selectionClick(); } catch (_) {}
-        _updateProgress(idx);
-      },
-      borderRadius: BorderRadius.circular(12),
-      borderColor: Colors.black.withOpacity(0.12),
-      selectedBorderColor: Theme.of(context).colorScheme.primary,
-      fillColor: Theme.of(context).colorScheme.primary.withOpacity(0.12),
-      selectedColor: Theme.of(context).colorScheme.primary,
-      color: Colors.black87,
-      constraints: const BoxConstraints(minHeight: 40, minWidth: 90),
-      children: const [
-        Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('Yeni')),
-        Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('Öğreniliyor')),
-        Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('Öğrenildi')),
-      ],
+    final progressData = [
+      {'label': 'Yeni', 'icon': Icons.fiber_new, 'color': Colors.blue},
+      {'label': 'Öğreniliyor', 'icon': Icons.school, 'color': Colors.orange},
+      {'label': 'Öğrenildi', 'icon': Icons.check_circle, 'color': Colors.green},
+    ];
+
+    return Row(
+      children: progressData.asMap().entries.map((entry) {
+        final index = entry.key;
+        final data = entry.value;
+        final isSelected = selectedIndex == index;
+
+        return Expanded(
+          child: Container(
+            margin: EdgeInsets.only(
+              right: index < progressData.length - 1 ? 8 : 0,
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? (data['color'] as Color).withOpacity(0.15)
+                  : Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected
+                    ? data['color'] as Color
+                    : Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                width: isSelected ? 2 : 1,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  data['icon'] as IconData,
+                  size: 20,
+                  color: isSelected
+                      ? data['color'] as Color
+                      : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  data['label'] as String,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                    color: isSelected
+                        ? data['color'] as Color
+                        : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                  ),
+                ),
+                if (isSelected) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Mevcut Durum',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: data['color'] as Color,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      }).toList(),
     );
+  }
+
+  Widget _buildResetOptions(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.refresh_rounded,
+                size: 18,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Reset Seçenekleri',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Öğrenme durumunu sıfırlamak için aşağıdaki seçenekleri kullanabilirsiniz:',
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildResetButton(
+                  context,
+                  icon: Icons.restart_alt_rounded,
+                  label: 'Progress Sıfırla',
+                  description: 'Öğrenme durumunu başa al',
+                  onTap: () => _showResetConfirmation(context, 'progress'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildResetButton(
+                  context,
+                  icon: Icons.analytics_outlined,
+                  label: 'İstatistikleri Sıfırla',
+                  description: 'Tüm öğrenme verilerini temizle',
+                  onTap: () => _showResetConfirmation(context, 'stats'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResetButton(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String description,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              description,
+              style: TextStyle(
+                fontSize: 10,
+                color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.6),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showResetConfirmation(BuildContext context, String type) {
+    final String title;
+    final String message;
+    
+    switch (type) {
+      case 'progress':
+        title = 'Progress Sıfırla';
+        message = 'Bu kelimenin öğrenme durumunu başa almak istediğinizden emin misiniz? Bu işlem geri alınamaz.';
+        break;
+      case 'stats':
+        title = 'İstatistikleri Sıfırla';
+        message = 'Bu kelimenin tüm öğrenme verilerini (quiz sonuçları, istatistikler) silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.';
+        break;
+      default:
+        return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('İptal'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _performReset(type);
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text('Sıfırla'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _performReset(String type) {
+    // TODO: Implement reset functionality
+    // This would call the repository to reset the word's learning data
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${type == 'progress' ? 'Progress' : 'İstatistikler'} sıfırlandı'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  String _progressLabel(int p) {
+    if (p <= 0) return 'Yeni';
+    if (p == 1) return 'Öğreniliyor';
+    return 'Öğrenildi';
   }
 
   Widget _bottomBar(BuildContext context, {required int selectedIndex}) {
@@ -634,21 +1067,21 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
               child: OutlinedButton.icon(
                 onPressed: () {
                   try { HapticFeedback.lightImpact(); } catch (_) {}
-                  _updateProgress(math.max(0, selectedIndex - 1));
+                  // Manuel progress değişimi artık yok
                 },
-                icon: const Icon(Icons.arrow_back),
-                label: const Text('Geri'),
+                icon: const Icon(Icons.info_outline),
+                label: const Text('Bilgi'),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: () {
                   try { HapticFeedback.lightImpact(); } catch (_) {}
-                  _updateProgress(math.min(2, selectedIndex + 1));
+                  // Quiz'e yönlendir
                 },
-                icon: const Icon(Icons.check_circle_outline),
-                label: const Text('İlerle'),
+                icon: const Icon(Icons.quiz_outlined),
+                label: const Text('Quiz Yap'),
               ),
             ),
           ],
@@ -656,12 +1089,4 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
       ),
     );
   }
-
-  String _progressLabel(int p) {
-    if (p <= 0) return 'Yeni';
-    if (p == 1) return 'Öğreniliyor';
-    return 'Öğrenildi';
-  }
 }
-
-

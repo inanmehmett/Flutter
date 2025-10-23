@@ -22,6 +22,16 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     on<AddWordsFromText>(_onAddWordsFromText);
     on<SyncWords>(_onSyncWords);
     on<LoadWordsForReview>(_onLoadWordsForReview);
+    on<RecordLearningActivity>(_onRecordLearningActivity);
+    on<LoadWordsNeedingReview>(_onLoadWordsNeedingReview);
+    on<LoadOverdueWords>(_onLoadOverdueWords);
+    on<LoadLearningAnalytics>(_onLoadLearningAnalytics);
+    on<LoadDailyReviewWords>(_onLoadDailyReviewWords);
+    on<LoadReviewStats>(_onLoadReviewStats);
+    on<StartReviewSession>(_onStartReviewSession);
+    on<CompleteReviewSession>(_onCompleteReviewSession);
+    on<LoadNextReviewTime>(_onLoadNextReviewTime);
+    on<LoadReviewStreak>(_onLoadReviewStreak);
   }
 
   Future<void> _onLoadVocabulary(
@@ -64,7 +74,7 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
       _lastStats = stats;
       emit(VocabularyLoaded(
         words: words,
-        stats: stats,
+        stats: stats, 
         searchQuery: event.query,
       ));
     } catch (e) {
@@ -223,5 +233,139 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
       final merged = [...currentState.words, ...more];
       emit(currentState.copyWith(words: merged, hasMore: more.length == 50));
     } catch (_) {}
+  }
+
+  // Yeni öğrenme sistemi metodları
+  Future<void> _onRecordLearningActivity(
+    RecordLearningActivity event,
+    Emitter<VocabularyState> emit,
+  ) async {
+    try {
+      await repository.recordLearningActivity(event.activity);
+      // Activity kaydedildikten sonra stats'i güncelle
+      _lastStats = null;
+      add(RefreshVocabulary());
+    } catch (e) {
+      emit(VocabularyError(message: e.toString()));
+    }
+  }
+
+  Future<void> _onLoadWordsNeedingReview(
+    LoadWordsNeedingReview event,
+    Emitter<VocabularyState> emit,
+  ) async {
+    try {
+      final words = await repository.getWordsNeedingReview(limit: event.limit);
+      final stats = _lastStats ?? await repository.getUserStats();
+      emit(VocabularyLoaded(words: words, stats: stats, hasMore: false));
+    } catch (e) {
+      emit(VocabularyError(message: e.toString()));
+    }
+  }
+
+  Future<void> _onLoadOverdueWords(
+    LoadOverdueWords event,
+    Emitter<VocabularyState> emit,
+  ) async {
+    try {
+      final words = await repository.getOverdueWords(limit: event.limit);
+      final stats = _lastStats ?? await repository.getUserStats();
+      emit(VocabularyLoaded(words: words, stats: stats, hasMore: false));
+    } catch (e) {
+      emit(VocabularyError(message: e.toString()));
+    }
+  }
+
+  Future<void> _onLoadLearningAnalytics(
+    LoadLearningAnalytics event,
+    Emitter<VocabularyState> emit,
+  ) async {
+    try {
+      await repository.getLearningAnalytics();
+      // Analytics'i state'e eklemek için VocabularyLoaded state'ini genişletmek gerekebilir
+      // Şimdilik sadece başarılı olduğunu belirtelim
+      emit(VocabularyLoaded(words: const [], stats: _lastStats ?? await repository.getUserStats()));
+    } catch (e) {
+      emit(VocabularyError(message: e.toString()));
+    }
+  }
+
+  // Aralıklı tekrar sistemi metodları
+  Future<void> _onLoadDailyReviewWords(
+    LoadDailyReviewWords event,
+    Emitter<VocabularyState> emit,
+  ) async {
+    try {
+      final words = await repository.getDailyReviewWords();
+      final stats = _lastStats ?? await repository.getUserStats();
+      emit(VocabularyLoaded(words: words, stats: stats, hasMore: false));
+    } catch (e) {
+      emit(VocabularyError(message: e.toString()));
+    }
+  }
+
+  Future<void> _onLoadReviewStats(
+    LoadReviewStats event,
+    Emitter<VocabularyState> emit,
+  ) async {
+    try {
+      await repository.getReviewStats();
+      final stats = _lastStats ?? await repository.getUserStats();
+      emit(VocabularyLoaded(words: const [], stats: stats, hasMore: false));
+    } catch (e) {
+      emit(VocabularyError(message: e.toString()));
+    }
+  }
+
+  Future<void> _onStartReviewSession(
+    StartReviewSession event,
+    Emitter<VocabularyState> emit,
+  ) async {
+    try {
+      final session = await repository.startReviewSession();
+      final stats = _lastStats ?? await repository.getUserStats();
+      emit(VocabularyLoaded(words: session.words, stats: stats, hasMore: false));
+    } catch (e) {
+      emit(VocabularyError(message: e.toString()));
+    }
+  }
+
+  Future<void> _onCompleteReviewSession(
+    CompleteReviewSession event,
+    Emitter<VocabularyState> emit,
+  ) async {
+    try {
+      await repository.completeReviewSession(event.session);
+      _lastStats = null;
+      add(RefreshVocabulary());
+    } catch (e) {
+      emit(VocabularyError(message: e.toString()));
+    }
+  }
+
+  Future<void> _onLoadNextReviewTime(
+    LoadNextReviewTime event,
+    Emitter<VocabularyState> emit,
+  ) async {
+    try {
+      await repository.getNextReviewTime();
+      final stats = _lastStats ?? await repository.getUserStats();
+      emit(VocabularyLoaded(words: const [], stats: stats, hasMore: false));
+    } catch (e) {
+      emit(VocabularyError(message: e.toString()));
+    }
+  }
+
+  Future<void> _onLoadReviewStreak(
+    LoadReviewStreak event,
+    Emitter<VocabularyState> emit,
+  ) async {
+    try {
+      await repository.getReviewStreak();
+      final stats = _lastStats ?? await repository.getUserStats();
+      emit(VocabularyLoaded(words: const [], stats: stats, hasMore: false));
+    } catch (e) {
+      emit(VocabularyError(message: e.toString()));
+    }
   }
 }

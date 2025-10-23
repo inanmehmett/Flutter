@@ -20,7 +20,7 @@ class VocabularyStatusFilter extends StatelessWidget {
           _buildFilterChip(
             context,
             label: 'Tümü',
-            emoji: '📚',
+            icon: Icons.library_books,
             isSelected: selectedStatus == null,
             onTap: () => onStatusChanged(null),
           ),
@@ -31,7 +31,7 @@ class VocabularyStatusFilter extends StatelessWidget {
               child: _buildFilterChip(
                 context,
                 label: status.displayName,
-                emoji: status.emoji,
+                icon: _getIconForStatus(status),
                 isSelected: selectedStatus == status,
                 onTap: () => onStatusChanged(status),
               ),
@@ -42,10 +42,23 @@ class VocabularyStatusFilter extends StatelessWidget {
     );
   }
 
+  IconData _getIconForStatus(VocabularyStatus status) {
+    switch (status) {
+      case VocabularyStatus.new_:
+        return Icons.fiber_new;
+      case VocabularyStatus.learning:
+        return Icons.school;
+      case VocabularyStatus.known:
+        return Icons.check_circle;
+      case VocabularyStatus.mastered:
+        return Icons.star;
+    }
+  }
+
   Widget _buildFilterChip(
     BuildContext context, {
     required String label,
-    required String emoji,
+    required IconData icon,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
@@ -54,14 +67,14 @@ class VocabularyStatusFilter extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 240),
         curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
         decoration: BoxDecoration(
           color: isSelected
               ? Theme.of(context).colorScheme.primary
               : Theme.of(context).brightness == Brightness.dark
                   ? Colors.grey[850]
                   : Colors.grey[100],
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: isSelected
               ? [
                   BoxShadow(
@@ -76,14 +89,14 @@ class VocabularyStatusFilter extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              emoji,
-              style: TextStyle(
-                fontSize: 15,
-                height: 1.0,
-              ),
+            Icon(
+              icon,
+              size: 18,
+              color: isSelected
+                  ? Theme.of(context).colorScheme.onPrimary
+                  : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Text(
               label,
               style: TextStyle(

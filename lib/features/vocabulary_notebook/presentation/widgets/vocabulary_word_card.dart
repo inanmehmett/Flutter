@@ -85,6 +85,8 @@ class VocabularyWordCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
                     _buildStatusChip(context),
+                    const SizedBox(width: 8),
+                    _buildSpeakButton(context),
                     const SizedBox(width: 4),
                     _overflowMenu(context),
                   ],
@@ -124,23 +126,28 @@ class VocabularyWordCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => _showStatusMenu(context),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: _getStatusColor(context).withOpacity(0.12),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: _getStatusColor(context).withOpacity(0.2),
+            width: 1,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              word.status.emoji,
-              style: const TextStyle(fontSize: 13),
+            Icon(
+              _getIconForStatus(word.status),
+              size: 14,
+              color: _getStatusColor(context),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 6),
             Text(
               word.status.displayName,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: _getStatusColor(context),
                 letterSpacing: 0.2,
@@ -152,60 +159,161 @@ class VocabularyWordCard extends StatelessWidget {
     );
   }
 
+  Widget _buildSpeakButton(BuildContext context) {
+    return GestureDetector(
+      onTap: () async {
+        try {
+          final tts = getIt<FlutterTts>();
+          await tts.stop();
+          await tts.setLanguage('en-US');
+          await tts.speak(word.word);
+        } catch (_) {}
+      },
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Icon(
+          Icons.volume_up_rounded,
+          size: 16,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      ),
+    );
+  }
+
   Widget _buildStatsRow(BuildContext context) {
-    return Row(
-      children: [
-        if (word.reviewCount > 0) ...[
-          Icon(
-            Icons.analytics_rounded,
-            size: 15,
-            color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.5),
-          ),
-          const SizedBox(width: 5),
-          Text(
-            '${(word.accuracyRate * 100).toStringAsFixed(0)}%',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: _getAccuracyColor(context),
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          // Progress indicator
+          if (word.reviewCount > 0) ...[
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: _getAccuracyColor(context).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Stack(
+                children: [
+                  Center(
+                    child: Text(
+                      '${(word.accuracyRate * 100).toStringAsFixed(0)}%',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: _getAccuracyColor(context),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Doğruluk Oranı',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  LinearProgressIndicator(
+                    value: word.accuracyRate,
+                    backgroundColor: _getAccuracyColor(context).withOpacity(0.2),
+                    valueColor: AlwaysStoppedAnimation<Color>(_getAccuracyColor(context)),
+                    minHeight: 4,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+          ],
+          
+          // Review count
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.quiz_outlined,
+                  size: 12,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${word.reviewCount}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 14),
-        ],
-        Icon(
-          Icons.access_time_rounded,
-          size: 15,
-          color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.5),
-        ),
-        const SizedBox(width: 5),
-        Text(
-          _formatDate(word.addedAt),
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            fontSize: 12,
-            color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.65),
+          
+          const SizedBox(width: 8),
+          
+          // Date
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.access_time_rounded,
+                  size: 12,
+                  color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.6),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _formatDate(word.addedAt),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.6),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _overflowMenu(BuildContext context) {
     return PopupMenuButton<String>(
       itemBuilder: (context) => [
-        const PopupMenuItem(value: 'speak', child: Text('Seslendir')),
         const PopupMenuItem(value: 'edit', child: Text('Düzenle')),
         const PopupMenuItem(value: 'delete', child: Text('Sil')),
       ],
       onSelected: (value) async {
         switch (value) {
-          case 'speak':
-            try {
-              final tts = getIt<FlutterTts>();
-              await tts.stop();
-              await tts.setLanguage('en-US');
-              await tts.speak(word.word);
-            } catch (_) {}
-            break;
           case 'edit':
             onTap();
             break;
@@ -274,9 +382,10 @@ class VocabularyWordCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Center(
-                              child: Text(
-                                status.emoji,
-                                style: const TextStyle(fontSize: 20),
+                              child: Icon(
+                                _getIconForStatus(status),
+                                size: 20,
+                                color: _getStatusColor(context, status: status),
                               ),
                             ),
                           ),
@@ -310,6 +419,19 @@ class VocabularyWordCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  IconData _getIconForStatus(VocabularyStatus status) {
+    switch (status) {
+      case VocabularyStatus.new_:
+        return Icons.fiber_new;
+      case VocabularyStatus.learning:
+        return Icons.school;
+      case VocabularyStatus.known:
+        return Icons.check_circle;
+      case VocabularyStatus.mastered:
+        return Icons.star;
+    }
   }
 
   Color _getStatusColor(BuildContext context, {VocabularyStatus? status}) {

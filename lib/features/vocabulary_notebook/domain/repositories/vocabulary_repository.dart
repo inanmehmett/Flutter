@@ -1,5 +1,7 @@
 import '../entities/vocabulary_word.dart';
 import '../entities/vocabulary_stats.dart';
+import '../entities/learning_activity.dart';
+import '../services/review_session.dart';
 
 abstract class VocabularyRepository {
   // Kelime işlemleri
@@ -37,4 +39,28 @@ abstract class VocabularyRepository {
 
   // Senkronizasyon
   Future<void> syncWords();
+
+  // Yeni öğrenme sistemi metodları
+  Future<void> recordLearningActivity(LearningActivity activity);
+  
+  Future<List<LearningActivity>> getWordActivities(int wordId, {int limit = 10});
+  
+  Future<List<VocabularyWord>> getWordsNeedingReview({int limit = 20});
+  
+  Future<List<VocabularyWord>> getOverdueWords({int limit = 10});
+  
+  Future<Map<String, dynamic>> getLearningAnalytics();
+
+  // Aralıklı tekrar sistemi metodları
+  Future<List<VocabularyWord>> getDailyReviewWords();
+  
+  Future<ReviewStats> getReviewStats();
+  
+  Future<ReviewSession> startReviewSession();
+  
+  Future<void> completeReviewSession(ReviewSession session);
+  
+  Future<DateTime> getNextReviewTime();
+  
+  Future<int> getReviewStreak();
 }

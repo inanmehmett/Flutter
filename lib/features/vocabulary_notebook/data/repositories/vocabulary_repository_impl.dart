@@ -1,6 +1,9 @@
 import '../../domain/entities/vocabulary_word.dart';
 import '../../domain/entities/vocabulary_stats.dart';
+import '../../domain/entities/learning_activity.dart';
 import '../../domain/repositories/vocabulary_repository.dart';
+import '../../domain/services/spaced_repetition_service.dart';
+import '../../domain/services/review_session.dart';
 import '../../../vocab/domain/services/vocab_learning_service.dart';
 import '../../../vocab/domain/entities/user_word_entity.dart' as ue;
 import '../../../../core/di/injection.dart';
@@ -41,6 +44,10 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
       lastReviewedAt: null,
       reviewCount: 0,
       correctCount: 0,
+      consecutiveCorrectCount: 0,
+      nextReviewAt: null,
+      difficultyLevel: 0.5,
+      recentActivities: const [],
     );
   }
 
@@ -156,5 +163,183 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
   @override
   Future<void> syncWords() async {
     return;
+  }
+
+  // Yeni öğrenme sistemi metodları
+  @override
+  Future<void> recordLearningActivity(LearningActivity activity) async {
+    // Şimdilik boş implementasyon - gelecekte local storage'a kaydedilecek
+    return;
+  }
+
+  @override
+  Future<List<LearningActivity>> getWordActivities(int wordId, {int limit = 10}) async {
+    // Şimdilik boş liste döndür - gelecekte local storage'dan alınacak
+    return [];
+  }
+
+  @override
+  Future<List<VocabularyWord>> getWordsNeedingReview({int limit = 20}) async {
+    final list = await _svc.listWords();
+    final words = list.map(_mapEntity).toList();
+    
+    // Review'e ihtiyacı olan kelimeleri filtrele
+    final reviewWords = words.where((word) => word.needsReview).toList();
+    
+    // Limit uygula
+    return reviewWords.take(limit).toList();
+  }
+
+  @override
+  Future<List<VocabularyWord>> getOverdueWords({int limit = 10}) async {
+    final list = await _svc.listWords();
+    final words = list.map(_mapEntity).toList();
+    
+    // Geciken kelimeleri filtrele
+    final overdueWords = words.where((word) => word.isOverdue).toList();
+    
+    // Limit uygula
+    return overdueWords.take(limit).toList();
+  }
+
+  @override
+  Future<Map<String, dynamic>> getLearningAnalytics() async {
+    final list = await _svc.listWords();
+    final words = list.map(_mapEntity).toList();
+    
+    final totalWords = words.length;
+    final newWords = words.where((w) => w.status == VocabularyStatus.new_).length;
+    final learningWords = words.where((w) => w.status == VocabularyStatus.learning).length;
+    final knownWords = words.where((w) => w.status == VocabularyStatus.known).length;
+    final masteredWords = words.where((w) => w.status == VocabularyStatus.mastered).length;
+    
+    final wordsNeedingReview = words.where((w) => w.needsReview).length;
+    final overdueWords = words.where((w) => w.isOverdue).length;
+    
+    // Ortalama doğruluk oranı
+    final totalAccuracy = words.fold<double>(0.0, (sum, word) => sum + word.accuracyRate);
+    final averageAccuracy = totalWords > 0 ? totalAccuracy / totalWords : 0.0;
+    
+    // Bugün eklenen kelimeler
+    final today = DateTime.now();
+    final wordsAddedToday = words.where((w) => 
+      w.addedAt.year == today.year && 
+      w.addedAt.month == today.month && 
+      w.addedAt.day == today.day
+    ).length;
+    
+    // Bugün review edilen kelimeler (şimdilik 0)
+    final wordsReviewedToday = 0;
+    
+    // Streak hesaplama (basit implementasyon)
+    final streakDays = _calculateStreakDays(words);
+    
+    return {
+      'totalWords': totalWords,
+      'newWords': newWords,
+      'learningWords': learningWords,
+      'knownWords': knownWords,
+      'masteredWords': masteredWords,
+      'wordsNeedingReview': wordsNeedingReview,
+      'overdueWords': overdueWords,
+      'averageAccuracy': averageAccuracy,
+      'wordsAddedToday': wordsAddedToday,
+      'wordsReviewedToday': wordsReviewedToday,
+      'streakDays': streakDays,
+      'learningProgress': totalWords > 0 ? (knownWords + masteredWords) / totalWords : 0.0,
+      'difficultyDistribution': _calculateDifficultyDistribution(words),
+    };
+  }
+
+  int _calculateStreakDays(List<VocabularyWord> words) {
+    // Basit streak hesaplama - son 30 günde kelime eklenen günleri say
+    final now = DateTime.now();
+    int streak = 0;
+    
+    for (int i = 0; i < 30; i++) {
+      final checkDate = now.subtract(Duration(days: i));
+      final hasWordsOnDate = words.any((word) => 
+        word.addedAt.year == checkDate.year &&
+        word.addedAt.month == checkDate.month &&
+        word.addedAt.day == checkDate.day
+      );
+      
+      if (hasWordsOnDate) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    
+    return streak;
+  }
+
+  Map<String, int> _calculateDifficultyDistribution(List<VocabularyWord> words) {
+    final distribution = <String, int>{
+      'easy': 0,
+      'medium': 0,
+      'hard': 0,
+    };
+    
+    for (final word in words) {
+      if (word.difficultyLevel < 0.3) {
+        distribution['easy'] = distribution['easy']! + 1;
+      } else if (word.difficultyLevel < 0.7) {
+        distribution['medium'] = distribution['medium']! + 1;
+      } else {
+        distribution['hard'] = distribution['hard']! + 1;
+      }
+    }
+    
+    return distribution;
+  }
+
+  // Aralıklı tekrar sistemi metodları
+  @override
+  Future<List<VocabularyWord>> getDailyReviewWords() async {
+    final list = await _svc.listWords();
+    final words = list.map(_mapEntity).toList();
+    return SpacedRepetitionService.getDailyReviewWords(words);
+  }
+
+  @override
+  Future<ReviewStats> getReviewStats() async {
+    final list = await _svc.listWords();
+    final words = list.map(_mapEntity).toList();
+    return SpacedRepetitionService.calculateReviewStats(words);
+  }
+
+  @override
+  Future<ReviewSession> startReviewSession() async {
+    final reviewWords = await getDailyReviewWords();
+    return SpacedRepetitionService.startReviewSession(reviewWords);
+  }
+
+  @override
+  Future<void> completeReviewSession(ReviewSession session) async {
+    // Session tamamlandığında kelimeleri güncelle
+    for (final result in session.results) {
+      final word = session.words.firstWhere((w) => w.id.toString() == result.wordId);
+      final updatedWord = SpacedRepetitionService.processReviewResult(
+        word: word,
+        isCorrect: result.isCorrect,
+        responseTimeMs: result.responseTimeMs,
+      );
+      await updateWord(updatedWord);
+    }
+  }
+
+  @override
+  Future<DateTime> getNextReviewTime() async {
+    final list = await _svc.listWords();
+    final words = list.map(_mapEntity).toList();
+    return SpacedRepetitionService.calculateOptimalReviewTime(words);
+  }
+
+  @override
+  Future<int> getReviewStreak() async {
+    final list = await _svc.listWords();
+    final words = list.map(_mapEntity).toList();
+    return SpacedRepetitionService.calculateReviewStreak(words);
   }
 }

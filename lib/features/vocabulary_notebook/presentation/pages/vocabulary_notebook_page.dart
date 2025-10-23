@@ -8,6 +8,7 @@ import '../widgets/vocabulary_status_filter.dart';
 import '../widgets/vocabulary_word_list.dart';
 import '../widgets/add_word_fab.dart';
 import '../widgets/vocabulary_stats_header.dart';
+import 'vocabulary_study_page.dart';
 
 class VocabularyNotebookPage extends StatefulWidget {
   const VocabularyNotebookPage({super.key});
@@ -177,8 +178,22 @@ class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
                   SliverToBoxAdapter(
                     child: VocabularyStatsHeader(
                       stats: state.stats,
-                      onWorkToday: () => Navigator.of(context).pushNamed('/study/flashcards'),
-                      onQuiz: () => Navigator.of(context).pushNamed('/study/quiz'),
+                      onWorkToday: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => BlocProvider.value(
+                            value: context.read<VocabularyBloc>(),
+                            child: const VocabularyStudyPage(),
+                          ),
+                        ),
+                      ),
+                      onQuiz: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => BlocProvider.value(
+                            value: context.read<VocabularyBloc>(),
+                            child: const VocabularyStudyPage(),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                   

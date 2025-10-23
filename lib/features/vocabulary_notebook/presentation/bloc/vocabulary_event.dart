@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/vocabulary_word.dart';
+import '../../domain/entities/learning_activity.dart';
+import '../../domain/services/review_session.dart';
 
 abstract class VocabularyEvent extends Equatable {
   const VocabularyEvent();
@@ -95,3 +97,53 @@ class LoadWordsForReview extends VocabularyEvent {
 }
 
 class LoadMoreVocabulary extends VocabularyEvent {}
+
+// Yeni öğrenme sistemi event'leri
+class RecordLearningActivity extends VocabularyEvent {
+  final LearningActivity activity;
+
+  const RecordLearningActivity({required this.activity});
+
+  @override
+  List<Object?> get props => [activity];
+}
+
+class LoadWordsNeedingReview extends VocabularyEvent {
+  final int limit;
+
+  const LoadWordsNeedingReview({this.limit = 20});
+
+  @override
+  List<Object?> get props => [limit];
+}
+
+class LoadOverdueWords extends VocabularyEvent {
+  final int limit;
+
+  const LoadOverdueWords({this.limit = 10});
+
+  @override
+  List<Object?> get props => [limit];
+}
+
+class LoadLearningAnalytics extends VocabularyEvent {}
+
+// Aralıklı tekrar sistemi event'leri
+class LoadDailyReviewWords extends VocabularyEvent {}
+
+class LoadReviewStats extends VocabularyEvent {}
+
+class StartReviewSession extends VocabularyEvent {}
+
+class CompleteReviewSession extends VocabularyEvent {
+  final ReviewSession session;
+
+  const CompleteReviewSession({required this.session});
+
+  @override
+  List<Object?> get props => [session];
+}
+
+class LoadNextReviewTime extends VocabularyEvent {}
+
+class LoadReviewStreak extends VocabularyEvent {}

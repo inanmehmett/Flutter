@@ -32,6 +32,7 @@ dependencies:
   signalr_core: ^1.1.2
   lottie: ^3.1.0
   animated_text_kit: ^4.2.2
+  uuid: ^4.2.1
 
 dev_dependencies:
   flutter_test:
