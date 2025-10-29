@@ -6,9 +6,12 @@ import '../bloc/vocabulary_state.dart';
 import '../widgets/vocabulary_search_bar.dart';
 import '../widgets/vocabulary_status_filter.dart';
 import '../widgets/vocabulary_word_list.dart';
-import '../widgets/add_word_fab.dart';
 import '../widgets/vocabulary_stats_header.dart';
 import 'vocabulary_study_page.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_shadows.dart';
 
 class VocabularyNotebookPage extends StatefulWidget {
   const VocabularyNotebookPage({super.key});
@@ -63,6 +66,69 @@ class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
   @override
   Widget build(BuildContext context) {
     return _buildPageContent(context);
+  }
+
+  Widget _buildModernHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: SafeArea(
+        top: true,
+        bottom: false,
+        child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [AppColors.primary, AppColors.accent],
+          ),
+          borderRadius: BorderRadius.circular(AppRadius.cardRadius),
+          boxShadow: AppShadows.cardShadow,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Kelime Defterim',
+                    style: AppTypography.title1.copyWith(
+                      color: AppColors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.bookmark_added_rounded,
+                        size: 18,
+                        color: AppColors.textQuaternary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Kelimelerini düzenle, tekrar et ve ilerlemeni gör',
+                          style: AppTypography.subhead.copyWith(
+                            color: AppColors.textQuaternary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        ),
+      ),
+    );
   }
 
   Widget _buildPageContent(BuildContext context) {
@@ -145,33 +211,9 @@ class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
               child: CustomScrollView(
                 controller: _scrollController,
                 slivers: [
-                  // iOS-style large title with toolbar
-                  SliverAppBar(
-                    expandedHeight: 100,
-                    floating: false,
-                    pinned: true,
-                    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                    surfaceTintColor: Colors.transparent,
-                    elevation: 0,
-                    flexibleSpace: FlexibleSpaceBar(
-                      titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
-                      title: const Text(
-                        'Kelime Defterim',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                    ),
-                    actions: [
-                      IconButton(
-                        icon: const Icon(Icons.sync_rounded),
-                        onPressed: _onRefresh,
-                        tooltip: 'Senkronize Et',
-                      ),
-                      const SizedBox(width: 4),
-                    ],
+                  // Modern gradient header
+                  SliverToBoxAdapter(
+                    child: _buildModernHeader(context),
                   ),
                   
                   // Modern minimal header
@@ -258,7 +300,6 @@ class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
           );
         },
       ),
-      floatingActionButton: const AddWordFab(),
     );
   }
 

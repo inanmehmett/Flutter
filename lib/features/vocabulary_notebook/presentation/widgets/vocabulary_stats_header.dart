@@ -27,14 +27,26 @@ class VocabularyStatsHeader extends StatelessWidget {
         children: [
           _todayBanner(context, primary, surface, text),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: _miniStat(context, label: 'Toplam', value: stats.totalWords.toString(), icon: Icons.menu_book_outlined)),
-              const SizedBox(width: 8),
-              Expanded(child: _miniStat(context, label: 'Tekrar', value: stats.wordsNeedingReview.toString(), icon: Icons.refresh_outlined)),
-              const SizedBox(width: 8),
-              Expanded(child: _progressStat(context, label: 'İlerleme', progress: stats.learningProgress)),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final double maxWidth = constraints.maxWidth;
+              final int columns = maxWidth < 360 ? 2 : 3;
+              final double spacing = 8.0;
+              final double totalSpacing = spacing * (columns - 1);
+              final double itemWidth = (maxWidth - totalSpacing) / columns;
+
+              final items = <Widget>[
+                SizedBox(width: itemWidth, child: _miniStat(context, label: 'Toplam', value: stats.totalWords.toString(), icon: Icons.menu_book_outlined)),
+                SizedBox(width: itemWidth, child: _miniStat(context, label: 'Tekrar', value: stats.wordsNeedingReview.toString(), icon: Icons.refresh_outlined)),
+                SizedBox(width: itemWidth, child: _progressStat(context, label: 'İlerleme', progress: stats.learningProgress)),
+              ];
+
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: items,
+              );
+            },
           ),
         ],
       ),

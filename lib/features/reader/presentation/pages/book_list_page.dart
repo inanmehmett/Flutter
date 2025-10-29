@@ -127,50 +127,94 @@ class _BookListPageState extends State<BookListPage> {
 
   Widget _buildModernAppBar() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        boxShadow: AppShadows.cardShadow,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+      color: AppColors.background,
+      child: Container
+        (
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [AppColors.primary, AppColors.accent],
+          ),
+          borderRadius: BorderRadius.circular(AppRadius.cardRadius),
+          boxShadow: AppShadows.cardShadow,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Kitaplar',
+                    style: AppTypography.title1.copyWith(
+                      color: AppColors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.auto_stories_rounded,
+                        size: 18,
+                        color: AppColors.textQuaternary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Okuma yolculuğunuza devam edin',
+                          style: AppTypography.subhead.copyWith(
+                            color: AppColors.textQuaternary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Row(
               children: [
-                Text(
-                  '📚 Kitaplar',
-                  style: AppTypography.title1.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.bold,
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.refresh_rounded, color: AppColors.white),
+                    tooltip: 'Yenile',
+                    onPressed: () {
+                      final vm = Provider.of<BookListViewModel>(context, listen: false);
+                      vm.refreshBooks();
+                    },
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'İngilizce öğrenmeye devam edin',
-                  style: AppTypography.subhead.copyWith(
-                    color: AppColors.textSecondary,
+                const SizedBox(width: 8),
+                if (kDebugMode)
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.bug_report_rounded, color: AppColors.white),
+                      onPressed: () {
+                        final viewModel = Provider.of<BookListViewModel>(context, listen: false);
+                        viewModel.debugBooks();
+                      },
+                      tooltip: 'Debug Books',
+                    ),
                   ),
-                ),
               ],
             ),
-          ),
-          if (kDebugMode)
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(AppRadius.buttonRadius),
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.bug_report, color: AppColors.primary),
-                onPressed: () {
-                  final viewModel = Provider.of<BookListViewModel>(context, listen: false);
-                  viewModel.debugBooks();
-                },
-                tooltip: 'Debug Books',
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
