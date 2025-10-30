@@ -33,7 +33,8 @@ class VocabularyStatsHeader extends StatelessWidget {
               final int columns = maxWidth < 360 ? 2 : 3;
               final double spacing = 8.0;
               final double totalSpacing = spacing * (columns - 1);
-              final double itemWidth = (maxWidth - totalSpacing) / columns;
+              // Subtract a tiny epsilon to avoid fractional rounding overflow on some devices
+              final double itemWidth = ((maxWidth - totalSpacing - 0.5) / columns).floorToDouble();
 
               final items = <Widget>[
                 SizedBox(width: itemWidth, child: _miniStat(context, label: 'Toplam', value: stats.totalWords.toString(), icon: Icons.menu_book_outlined)),
@@ -274,13 +275,17 @@ class VocabularyStatsHeader extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              Text(
-                '$percent%',
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  letterSpacing: -0.5,
+              Flexible(
+                child: Text(
+                  '$percent%',
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    letterSpacing: -0.5,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ),
             ],

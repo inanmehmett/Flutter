@@ -5,6 +5,7 @@ import '../bloc/vocabulary_bloc.dart';
 import '../bloc/vocabulary_event.dart';
 import 'vocabulary_word_card.dart';
 import '../pages/vocabulary_word_detail_page.dart';
+import '../pages/vocabulary_study_page.dart';
 
 class VocabularyWordList extends StatelessWidget {
   final List<VocabularyWord> words;
@@ -69,7 +70,8 @@ class VocabularyWordList extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                    mainAxisSize: MainAxisSize.max,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         Icons.lightbulb_outline_rounded,
@@ -77,15 +79,38 @@ class VocabularyWordList extends StatelessWidget {
                         color: Theme.of(context).colorScheme.primary,
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        'İpucu: Kitap okurken kelimelere dokunun',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
+                      Flexible(
+                        child: Text(
+                          'İpucu: Kitap okurken kelimelere dokunun',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          softWrap: false,
                         ),
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => BlocProvider.value(
+                            value: context.read<VocabularyBloc>(),
+                            child: const VocabularyStudyPage(),
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.play_circle_fill_rounded),
+                    label: const Text('Bugün Çalış'),
                   ),
                 ),
               ],

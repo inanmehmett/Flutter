@@ -363,7 +363,7 @@ class _HomePageState extends State<HomePage> {
               button: true,
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.of(context).pushNamed('/vocabulary');
+                  Navigator.of(context).pushReplacementNamed('/vocabulary');
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.surface,

@@ -84,7 +84,7 @@ class VocabularyWordCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    _buildStatusChip(context),
+                    Flexible(child: _buildStatusChip(context)),
                     const SizedBox(width: 8),
                     _buildSpeakButton(context),
                     const SizedBox(width: 4),
@@ -144,13 +144,18 @@ class VocabularyWordCard extends StatelessWidget {
               color: _getStatusColor(context),
             ),
             const SizedBox(width: 6),
-            Text(
-              word.status.displayName,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: _getStatusColor(context),
-                letterSpacing: 0.2,
+            Flexible(
+              child: Text(
+                word.status.displayName,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: _getStatusColor(context),
+                  letterSpacing: 0.2,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                softWrap: false,
               ),
             ),
           ],

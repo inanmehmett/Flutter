@@ -8,6 +8,7 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
   final VocabularyRepository repository;
   // Cache last known stats to avoid redundant fetches on local-only changes
   VocabularyStats? _lastStats;
+  bool _isLoadingMore = false;
 
   VocabularyBloc({required this.repository}) : super(VocabularyInitial()) {
     on<LoadVocabulary>(_onLoadVocabulary);
@@ -222,8 +223,9 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     Emitter<VocabularyState> emit,
   ) async {
     final currentState = state;
-    if (currentState is! VocabularyLoaded || !currentState.hasMore) return;
+    if (currentState is! VocabularyLoaded || !currentState.hasMore || _isLoadingMore) return;
     try {
+      _isLoadingMore = true;
       final offset = currentState.words.length;
       final more = await repository.getUserWords(
         status: currentState.selectedStatus,
@@ -232,7 +234,9 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
       );
       final merged = [...currentState.words, ...more];
       emit(currentState.copyWith(words: merged, hasMore: more.length == 50));
-    } catch (_) {}
+    } catch (_) {} finally {
+      _isLoadingMore = false;
+    }
   }
 
   // Yeni öğrenme sistemi metodları

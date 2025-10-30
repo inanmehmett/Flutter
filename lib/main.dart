@@ -180,7 +180,7 @@ class MyApp extends StatelessWidget {
               return Scaffold(body: Center(child: Text('No book data!')));
             }
           },
-          '/vocabulary': (context) => const VocabularyNotebookPage(),
+          '/vocabulary': (context) => const AppShell(initialIndex: 2),
           '/learning-list': (context) => const LearningListPage(),
           '/study/flashcards': (context) => const FlashcardsPage(),
           '/study/quiz': (context) => const VocabQuizPage(),
@@ -206,8 +206,7 @@ class _AppShellState extends State<AppShell> {
   final _pages = const [
     HomePage(showBottomNav: false),
     BookListPage(showBottomNav: false),
-    // Vocabulary page - will be replaced dynamically
-    Scaffold(body: Center(child: Text('Vocabulary Page - Coming Soon!', style: TextStyle(fontSize: 24)))),
+    VocabularyNotebookPage(),
     // Quiz page - will be replaced dynamically  
     Scaffold(body: Center(child: Text('Quiz Page - Coming Soon!', style: TextStyle(fontSize: 24)))),
     ProfilePage(),
@@ -294,7 +293,7 @@ class _AppShellState extends State<AppShell> {
         setState(() => _currentIndex = index);
         break;
       case 2: // Vocabulary Notebook
-        Navigator.of(context).pushNamed('/vocabulary');
+        setState(() => _currentIndex = index);
         break;
       case 3: // Quiz
         Navigator.of(context).push(

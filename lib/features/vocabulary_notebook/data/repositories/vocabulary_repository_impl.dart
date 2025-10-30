@@ -118,7 +118,7 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
       await _svc.removeWord(list[idx].id);
     }
     // Remove from local store as well
-    // No direct remove API; overwrite with nothing by ignoring
+    _store.removeWord(id);
   }
 
   @override

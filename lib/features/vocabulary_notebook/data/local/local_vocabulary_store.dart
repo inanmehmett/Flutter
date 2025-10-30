@@ -40,6 +40,10 @@ class LocalVocabularyStore {
 
   VocabularyWord? getById(int id) => _wordStateById[id];
 
+  void removeWord(int id) {
+    _wordStateById.remove(id);
+  }
+
   void appendActivity(int wordId, LearningActivity activity, {int keep = 10}) {
     final current = _wordStateById[wordId];
     if (current == null) return;

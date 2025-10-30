@@ -1000,17 +1000,25 @@ class _StatsStrip extends StatelessWidget {
                       children: [
                         Icon(Icons.local_fire_department, color: Theme.of(context).colorScheme.primary, size: 20),
                         const SizedBox(width: 8),
-                        Text(
-                          streak,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                        Flexible(
+                          child: Text(
+                            streak,
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
                         ),
                         if (longestStreak != null && longestStreak! > 0) ...[
                           const SizedBox(width: 8),
                           Text('•', style: TextStyle(color: Colors.grey[600])),
                           const SizedBox(width: 8),
-                          Text(
-                            'en uzun ${longestStreak} gün',
-                            style: TextStyle(color: Colors.grey[700], fontSize: 13, fontWeight: FontWeight.w500),
+                          Flexible(
+                            child: Text(
+                              'en uzun ${longestStreak} gün',
+                              style: TextStyle(color: Colors.grey[700], fontSize: 13, fontWeight: FontWeight.w500),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
                           ),
                         ],
                       ],

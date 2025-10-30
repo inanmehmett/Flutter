@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/vocabulary_bloc.dart';
 import '../bloc/vocabulary_event.dart';
@@ -23,6 +24,7 @@ class VocabularyNotebookPage extends StatefulWidget {
 class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -33,6 +35,7 @@ class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
@@ -40,11 +43,15 @@ class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
   }
 
   void _onSearchChanged(String query) {
-    if (query.isEmpty) {
-      context.read<VocabularyBloc>().add(LoadVocabulary());
-    } else {
-      context.read<VocabularyBloc>().add(SearchWords(query: query));
-    }
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      if (query.isEmpty) {
+        context.read<VocabularyBloc>().add(LoadVocabulary());
+      } else {
+        context.read<VocabularyBloc>().add(SearchWords(query: query));
+      }
+    });
   }
 
   void _onStatusFilterChanged(status) {
