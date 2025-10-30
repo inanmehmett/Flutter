@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:image/image.dart' as img;
@@ -76,15 +77,7 @@ class _ProfilePageState extends State<ProfilePage> {
         title: const Text('Profil'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            tooltip: 'Çıkış Yap',
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              context.read<AuthBloc>().add(LogoutRequested());
-            },
-          ),
-        ],
+        actions: const [],
       ),
       body: SafeArea(
         child: BlocListener<AuthBloc, AuthState>(
@@ -269,22 +262,34 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        Center(
-                          child: Text(
-                            profile.email.isNotEmpty ? profile.email : '—',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: Colors.grey[700]),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Center(
-                          child: Text(
-                            profile.userName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: Colors.grey[700]),
-                          ),
+                        Builder(
+                          builder: (context) {
+                            final String display = profile.displayName.trim();
+                            final String username = profile.userName.trim();
+                            final String email = profile.email.trim();
+                            final bool isSameName = display.isNotEmpty && username.isNotEmpty && display.toLowerCase() == username.toLowerCase();
+                            // Priority: show email if available; otherwise show @username only if it's different from display name
+                            if (email.isNotEmpty) {
+                              return Center(
+                                child: Text(
+                                  email,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(color: Colors.grey[700]),
+                                ),
+                              );
+                            } else if (username.isNotEmpty && !isSameName) {
+                              return Center(
+                                child: Text(
+                                  '@$username',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(color: Colors.grey[700]),
+                                ),
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          },
                         ),
                         const SizedBox(height: 8),
                         Center(
@@ -417,6 +422,45 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                         const SizedBox(height: 12),
                         _buildStatRow(context, booksCount, profile),
+                        const SizedBox(height: 24),
+                        SafeArea(
+                          top: false,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: SizedBox(
+                              height: 52,
+                              child: CupertinoTheme(
+                                data: CupertinoTheme.of(context).copyWith(
+                                  primaryColor: CupertinoColors.systemRed,
+                                ),
+                                child: CupertinoButton(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  color: CupertinoColors.systemRed,
+                                  borderRadius: BorderRadius.circular(14),
+                                  onPressed: () {
+                                    context.read<AuthBloc>().add(LogoutRequested());
+                                  },
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      Icon(CupertinoIcons.power, color: CupertinoColors.white, size: 20),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Çıkış Yap',
+                                        style: TextStyle(
+                                          color: CupertinoColors.white,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -944,33 +988,34 @@ class _StatsStrip extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Column(
-                  children: [
-                    Icon(Icons.local_fire_department, color: Theme.of(context).colorScheme.primary, size: 24),
-                    const SizedBox(height: 6),
-                    Text(
-                      streak, 
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold, 
-                        fontSize: 22,
-                      ),
-                      textAlign: TextAlign.center,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.07),
+                      borderRadius: BorderRadius.circular(24),
                     ),
-                    const SizedBox(height: 2),
-                    const Text('Streak', style: TextStyle(color: Colors.grey, fontSize: 14)),
-                    if (streakDays != null && streakDays! > 0 && longestStreak != null && longestStreak! > 0) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        'En uzun: ${longestStreak} gün',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.local_fire_department, color: Theme.of(context).colorScheme.primary, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          streak,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                         ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ],
+                        if (longestStreak != null && longestStreak! > 0) ...[
+                          const SizedBox(width: 8),
+                          Text('•', style: TextStyle(color: Colors.grey[600])),
+                          const SizedBox(width: 8),
+                          Text(
+                            'en uzun ${longestStreak} gün',
+                            style: TextStyle(color: Colors.grey[700], fontSize: 13, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],
