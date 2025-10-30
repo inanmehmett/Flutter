@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/vocabulary_word.dart';
 import '../../domain/entities/vocabulary_stats.dart';
+import '../../domain/services/review_session.dart';
 
 abstract class VocabularyState extends Equatable {
   const VocabularyState();
@@ -55,6 +56,15 @@ class VocabularyError extends VocabularyState {
 
   @override
   List<Object?> get props => [message];
+}
+
+class ReviewSessionLoaded extends VocabularyState {
+  final ReviewSession session;
+
+  const ReviewSessionLoaded({required this.session});
+
+  @override
+  List<Object?> get props => [session];
 }
 
 class WordAdding extends VocabularyState {

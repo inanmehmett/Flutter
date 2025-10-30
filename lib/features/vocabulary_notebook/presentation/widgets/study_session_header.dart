@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import '../../domain/services/review_session.dart';
 import '../../domain/entities/study_mode.dart';
 import 'study_mode_selector.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_shadows.dart';
 
 class StudySessionHeader extends StatelessWidget {
   final StudyMode mode;
@@ -18,109 +22,76 @@ class StudySessionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Mode selector
-          StudyModeSelector(
-            selectedMode: mode,
-            onModeChanged: onModeChanged,
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Session info
-          Row(
-            children: [
-              Expanded(
-                child: _buildInfoCard(
-                  context,
-                  icon: Icons.school_outlined,
-                  label: 'Mod',
-                  value: _getModeDisplayName(mode),
-                  color: Theme.of(context).colorScheme.primary,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: SafeArea(
+        top: true,
+        bottom: false,
+        child: Column(
+          children: [
+            // Modern gradient header
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppColors.primary, AppColors.accent],
                 ),
+                borderRadius: BorderRadius.circular(AppRadius.cardRadius),
+                boxShadow: AppShadows.cardShadow,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildInfoCard(
-                  context,
-                  icon: Icons.timer_outlined,
-                  label: 'Tahmini Süre',
-                  value: '${_calculateEstimatedTime()} dk',
-                  color: Colors.orange,
-                ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Çalışma Modu',
+                          style: AppTypography.title1.copyWith(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.school_rounded,
+                              size: 18,
+                              color: AppColors.textQuaternary,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '${session.totalWords} kelime • ${_calculateEstimatedTime()} dk',
+                                style: AppTypography.subhead.copyWith(
+                                  color: AppColors.textQuaternary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildInfoCard(
-                  context,
-                  icon: Icons.flag_outlined,
-                  label: 'Hedef',
-                  value: '${session.totalWords} kelime',
-                  color: Colors.green,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoCard(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withOpacity(0.2),
-          width: 1,
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Mode selector
+            StudyModeSelector(
+              selectedMode: mode,
+              onModeChanged: onModeChanged,
+            ),
+          ],
         ),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            icon,
-            size: 20,
-            color: color,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
       ),
     );
   }

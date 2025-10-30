@@ -127,10 +127,9 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: BlocConsumer<VocabularyBloc, VocabularyState>(
         listener: (context, state) {
-          if (state is VocabularyLoaded && state.words.isNotEmpty) {
-            final session = SpacedRepetitionService.startReviewSession(state.words);
+          if (state is ReviewSessionLoaded) {
             setState(() {
-              _currentSession = session;
+              _currentSession = state.session;
             });
             _cardController.forward();
           }

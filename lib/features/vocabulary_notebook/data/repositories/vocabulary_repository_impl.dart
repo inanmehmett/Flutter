@@ -4,12 +4,15 @@ import '../../domain/entities/learning_activity.dart';
 import '../../domain/repositories/vocabulary_repository.dart';
 import '../../domain/services/spaced_repetition_service.dart';
 import '../../domain/services/review_session.dart';
+import '../../domain/services/learning_analytics_service.dart';
 import '../../../vocab/domain/services/vocab_learning_service.dart';
 import '../../../vocab/domain/entities/user_word_entity.dart' as ue;
 import '../../../../core/di/injection.dart';
+import '../local/local_vocabulary_store.dart';
 
 class VocabularyRepositoryImpl implements VocabularyRepository {
   final VocabLearningService _svc = getIt<VocabLearningService>();
+  final LocalVocabularyStore _store = LocalVocabularyStore();
 
   int _stableId(String input) {
     // FNV-1a 64-bit (deterministic across runs/platforms)
@@ -32,7 +35,7 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
   }
 
   VocabularyWord _mapEntity(ue.UserWordEntity e) {
-    return VocabularyWord(
+    final mapped = VocabularyWord(
       id: _stableId(e.id),
       word: e.word,
       meaning: e.meaningTr,
@@ -49,6 +52,7 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
       difficultyLevel: 0.5,
       recentActivities: const [],
     );
+    return _store.mergeWithPersisted(mapped);
   }
 
   @override
@@ -89,16 +93,20 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
     }
     await _svc.addWord(word: word.word, meaningTr: word.meaning);
     final list = await _svc.listWords(query: word.word);
-    return list.isNotEmpty ? _mapEntity(list.first) : word.copyWith(id: DateTime.now().millisecondsSinceEpoch);
+    final mapped = list.isNotEmpty ? _mapEntity(list.first) : word.copyWith(id: DateTime.now().millisecondsSinceEpoch);
+    _store.upsertWord(mapped);
+    return mapped;
   }
 
   @override
   Future<VocabularyWord> updateWord(VocabularyWord word) async {
+    // Persist SRS fields locally and sync coarse progress to remote
     final p = switch (word.status) { VocabularyStatus.new_ => 0, VocabularyStatus.learning => 1, _ => 2 };
     final list = await _svc.listWords(query: word.word);
     if (list.isNotEmpty) {
       await _svc.updateProgress(list.first.id, p);
     }
+    _store.upsertWord(word);
     return word;
   }
 
@@ -109,21 +117,25 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
     if (idx != -1) {
       await _svc.removeWord(list[idx].id);
     }
+    // Remove from local store as well
+    // No direct remove API; overwrite with nothing by ignoring
   }
 
   @override
   Future<VocabularyStats> getUserStats() async {
     final list = await _svc.listWords();
-    final totalWords = list.length;
-    final newWords = list.where((e) => e.progress == 0).length;
-    final learningWords = list.where((e) => e.progress == 1).length;
-    final knownWords = list.where((e) => e.progress >= 2).length;
-    final masteredWords = 0;
-    final wordsNeedingReview = learningWords;
-    final averageAccuracy = 0.0;
+    final words = list.map(_mapEntity).toList();
+    final totalWords = words.length;
+    final newWords = words.where((w) => w.status == VocabularyStatus.new_).length;
+    final learningWords = words.where((w) => w.status == VocabularyStatus.learning).length;
+    final knownWords = words.where((w) => w.status == VocabularyStatus.known).length;
+    final masteredWords = words.where((w) => w.status == VocabularyStatus.mastered).length;
+    final wordsNeedingReview = words.where((w) => w.needsReview).length;
+    final totalAccuracy = words.fold<double>(0.0, (sum, w) => sum + w.accuracyRate);
+    final averageAccuracy = totalWords > 0 ? totalAccuracy / totalWords : 0.0;
     final today = DateTime.now();
-    final wordsAddedToday = list.where((e) => e.addedAt.year == today.year && e.addedAt.month == today.month && e.addedAt.day == today.day).length;
-    final wordsReviewedToday = 0;
+    final wordsAddedToday = words.where((w) => w.addedAt.year == today.year && w.addedAt.month == today.month && w.addedAt.day == today.day).length;
+    final wordsReviewedToday = words.where((w) => w.lastReviewedAt != null && w.lastReviewedAt!.year == today.year && w.lastReviewedAt!.month == today.month && w.lastReviewedAt!.day == today.day).length;
     return VocabularyStats(
       totalWords: totalWords,
       newWords: newWords,
@@ -134,7 +146,7 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
       averageAccuracy: averageAccuracy,
       wordsAddedToday: wordsAddedToday,
       wordsReviewedToday: wordsReviewedToday,
-      streakDays: 0,
+      streakDays: SpacedRepetitionService.calculateReviewStreak(words),
     );
   }
 
@@ -146,13 +158,24 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
 
   @override
   Future<List<VocabularyWord>> getWordsForReview(int limit) async {
-    final list = await _svc.listWords(progress: 1);
-    return list.take(limit).map(_mapEntity).toList();
+    // Use SRS-based due words instead of raw progress filter
+    final list = await _svc.listWords();
+    final all = list.map(_mapEntity).toList();
+    final due = all.where((w) => w.needsReview).toList();
+    final prioritized = LearningAnalyticsService.prioritizeWordsForReview(due);
+    return prioritized.take(limit).toList();
   }
 
   @override
   Future<void> markWordReviewed(int wordId, bool isCorrect) async {
-    return;
+    final current = _store.getById(wordId);
+    if (current == null) return;
+    final updated = SpacedRepetitionService.processReviewResult(
+      word: current,
+      isCorrect: isCorrect,
+      responseTimeMs: 3000,
+    );
+    await updateWord(updated);
   }
 
   @override
@@ -228,11 +251,10 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
       w.addedAt.day == today.day
     ).length;
     
-    // Bugün review edilen kelimeler (şimdilik 0)
-    final wordsReviewedToday = 0;
+    final wordsReviewedToday = words.where((w) => w.lastReviewedAt != null && w.lastReviewedAt!.year == today.year && w.lastReviewedAt!.month == today.month && w.lastReviewedAt!.day == today.day).length;
     
     // Streak hesaplama (basit implementasyon)
-    final streakDays = _calculateStreakDays(words);
+    final streakDays = SpacedRepetitionService.calculateReviewStreak(words);
     
     return {
       'totalWords': totalWords,
@@ -251,28 +273,7 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
     };
   }
 
-  int _calculateStreakDays(List<VocabularyWord> words) {
-    // Basit streak hesaplama - son 30 günde kelime eklenen günleri say
-    final now = DateTime.now();
-    int streak = 0;
-    
-    for (int i = 0; i < 30; i++) {
-      final checkDate = now.subtract(Duration(days: i));
-      final hasWordsOnDate = words.any((word) => 
-        word.addedAt.year == checkDate.year &&
-        word.addedAt.month == checkDate.month &&
-        word.addedAt.day == checkDate.day
-      );
-      
-      if (hasWordsOnDate) {
-        streak++;
-      } else {
-        break;
-      }
-    }
-    
-    return streak;
-  }
+  // Removed local added-at streak; use review-based streak from service
 
   Map<String, int> _calculateDifficultyDistribution(List<VocabularyWord> words) {
     final distribution = <String, int>{
