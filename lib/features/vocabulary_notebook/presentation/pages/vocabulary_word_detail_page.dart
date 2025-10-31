@@ -3,218 +3,117 @@ import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData, HapticFeedback;
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/injection.dart';
-import '../../../vocab/domain/services/vocab_learning_service.dart';
-import '../../../vocab/domain/entities/user_word_entity.dart' as ue;
-import '../../../../core/network/network_manager.dart';
+import '../../data/repositories/vocabulary_repository_impl.dart';
+import '../../domain/entities/vocabulary_word.dart';
+import '../bloc/vocabulary_bloc.dart';
+import '../bloc/vocabulary_event.dart';
 
 class VocabularyWordDetailPage extends StatefulWidget {
-  final int vocabWordId; // Notebook VocabularyWord.id (hash of ue.UserWordEntity.id)
-  const VocabularyWordDetailPage({super.key, required this.vocabWordId});
+  final int vocabWordId;
+  final VocabularyWord? initialWord;
+  const VocabularyWordDetailPage({super.key, required this.vocabWordId, this.initialWord});
 
   @override
   State<VocabularyWordDetailPage> createState() => _VocabularyWordDetailPageState();
 }
 
 class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
-  ue.UserWordEntity? _entity;
+  VocabularyWord? _word;
   bool _loading = true;
-  bool _descExpanded = false;
   bool _speaking = false;
 
   @override
   void initState() {
     super.initState();
+    // Use initial word if provided for immediate render
+    if (widget.initialWord != null) {
+      _word = widget.initialWord;
+      _loading = false;
+    }
+    // Fetch latest in background
     _load();
   }
 
   Future<void> _load() async {
-    final svc = getIt<VocabLearningService>();
-    final list = await svc.listWords();
-    int _stableId(String input) {
-      BigInt hash = BigInt.parse('1469598103934665603');
-      final BigInt prime = BigInt.parse('1099511628211');
-      final BigInt mask = BigInt.parse('18446744073709551615');
-      for (int i = 0; i < input.length; i++) {
-        hash = (hash ^ BigInt.from(input.codeUnitAt(i))) & mask;
-        hash = (hash * prime) & mask;
-      }
-      final BigInt signedMask = BigInt.parse('9223372036854775807');
-      return (hash & signedMask).toInt();
-    }
-    final idx = list.indexWhere((e) => _stableId(e.id) == widget.vocabWordId);
-    if (!mounted) return;
-    setState(() {
-      _entity = idx != -1 ? list[idx] : null;
-      _loading = false;
-    });
-
-    // Enrich from backend if critical fields are missing
-    if (_entity != null && ((_entity!.description == null || _entity!.description!.isEmpty) || (_entity!.synonyms.isEmpty && _entity!.antonyms.isEmpty))) {
-      await _enrichFromBackend(_entity!);
-    }
-  }
-
-  Future<void> _enrichFromBackend(ue.UserWordEntity e) async {
     try {
-      final nm = getIt<NetworkManager>();
-      // Fetch all vocabulary (or optimize later with a search endpoint)
-      final resp = await nm.get('/api/ApiVocabulary');
-      final root = resp.data is Map<String, dynamic> ? resp.data as Map<String, dynamic> : {};
-      final list = (root['data'] as List<dynamic>? ?? []);
-      final lower = e.word.toLowerCase();
-      Map<String, dynamic>? match;
-      for (final item in list) {
-        final m = item as Map<String, dynamic>;
-        final ow = (m['originalWord'] ?? m['OriginalWord'] ?? '').toString().toLowerCase();
-        if (ow == lower) { match = m; break; }
-      }
-      if (match == null) return;
-      final desc = (match['description'] ?? match['Description'])?.toString();
-      final ex = (match['exampleSentence'] ?? match['ExampleSentence'])?.toString();
-      final audioUrl = (match['audioUrl'] ?? match['AudioUrl'])?.toString();
-      final imageUrl = (match['imageUrl'] ?? match['ImageUrl'])?.toString();
-      final category = (match['category'] ?? match['Category'])?.toString();
-      final syns = ((match['synonyms'] ?? match['Synonyms']) as List<dynamic>?)?.map((x) {
-        if (x is String) return x; if (x is Map<String, dynamic>) return (x['text'] ?? x['Text'] ?? x['word'] ?? '').toString(); return x.toString();
-      }).where((s) => s.toString().isNotEmpty).cast<String>().toList() ?? <String>[];
-      final ants = ((match['antonyms'] ?? match['Antonyms']) as List<dynamic>?)?.map((x) {
-        if (x is String) return x; if (x is Map<String, dynamic>) return (x['text'] ?? x['Text'] ?? x['word'] ?? '').toString(); return x.toString();
-      }).where((s) => s.toString().isNotEmpty).cast<String>().toList() ?? <String>[];
-
-      // Map backend numeric wordLevel to CEFR if local empty
-      String? cefr = _entity?.cefr;
-      if (cefr == null || cefr.isEmpty) {
-        final dynamic wl = match['wordLevel'] ?? match['WordLevel'];
-        if (wl != null) {
-          int? lvlNum;
-          if (wl is num) lvlNum = wl.toInt();
-          if (wl is String) lvlNum = int.tryParse(wl);
-          if (lvlNum != null) {
-            cefr = switch (lvlNum) { 1 => 'A1', 2 => 'A2', 3 => 'B1', 4 => 'B2', 5 => 'C1', 6 => 'C2', _ => '' };
-          }
-        }
-      }
-
-      await getIt<VocabLearningService>().updateDetails(e.id,
-        description: desc,
-        example: ex,
-        audioUrl: audioUrl,
-        imageUrl: imageUrl,
-        category: category,
-        synonyms: syns,
-        antonyms: ants,
-        cefr: cefr,
-      );
-
+      final repository = getIt<VocabularyRepositoryImpl>();
+      final word = await repository.getWordById(widget.vocabWordId);
       if (!mounted) return;
-      // Reload local entity after update
-      final svc = getIt<VocabLearningService>();
-      final fresh = await svc.listWords();
-      final idx = fresh.indexWhere((x) => x.id == e.id);
-      if (idx != -1) {
-        setState(() { _entity = fresh[idx]; });
+      setState(() {
+        _word = word ?? _word; // keep existing if null
+        _loading = _word == null; // still loading only if nothing to show
+      });
+      if (word == null && mounted) {
+        // Show error message if word not found
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Kelime bulunamadı'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        });
       }
-    } catch (_) {}
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        // Keep existing word if we already have one (e.g., initialWord)
+        _word = _word;
+      });
+      
+      // Show error message with more details
+      final errorMsg = e.toString().contains('Kelime yüklenemedi')
+          ? e.toString()
+          : 'Kelime yüklenirken bir hata oluştu: ${e.toString()}';
+      
+      if (_word == null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(errorMsg),
+                duration: const Duration(seconds: 4),
+                action: SnackBarAction(
+                  label: 'Tekrar Dene',
+                  onPressed: () => _load(),
+                ),
+              ),
+            );
+          }
+        });
+      }
+    }
   }
 
+  String _formatDuration(Duration duration) {
+    if (duration.inDays > 0) {
+      return '${duration.inDays} gün';
+    } else if (duration.inHours > 0) {
+      return '${duration.inHours} saat';
+    } else if (duration.inMinutes > 0) {
+      return '${duration.inMinutes} dakika';
+    }
+    return 'Şimdi';
+  }
 
-  Future<void> _delete() async {
-    final ent = _entity;
-    if (ent == null) return;
-    try { HapticFeedback.mediumImpact(); } catch (_) {}
-    final ok = await showModalBottomSheet<bool>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        margin: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.delete_rounded,
-                      color: Colors.red,
-                      size: 32,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Kelimeyi Sil',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 22,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '"${ent.word}" kelimesini defterinizden silmek istediğinizden emin misiniz?',
-                    style: TextStyle(
-                      color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
-                      height: 1.5,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            InkWell(
-              onTap: () => Navigator.pop(context, true),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: const Text(
-                  'Sil',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-            const Divider(height: 1),
-            InkWell(
-              onTap: () => Navigator.pop(context, false),
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text(
-                  'İptal',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (ok == true) {
-      await getIt<VocabLearningService>().removeWord(ent.id);
-      if (!mounted) return;
-      Navigator.pop(context, true);
+  String _formatDate(DateTime? date) {
+    if (date == null) return 'Henüz yok';
+    final now = DateTime.now();
+    final diff = date.difference(now);
+    if (diff.isNegative) {
+      return 'Geçmiş';
+    }
+    if (diff.inDays == 0) {
+      return 'Bugün';
+    } else if (diff.inDays == 1) {
+      return 'Yarın';
+    } else {
+      return '${diff.inDays} gün sonra';
     }
   }
 
@@ -225,58 +124,55 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
     return MediaQuery(
       data: mq.copyWith(textScaleFactor: clampedScale),
       child: Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: false,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Kelime Detayı',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 18,
-            letterSpacing: -0.3,
+        extendBodyBehindAppBar: true,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: false,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+            onPressed: () => Navigator.pop(context),
           ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_rounded),
-            onPressed: _delete,
-            tooltip: 'Sil',
+          title: const Text(
+            'Kelime Detayı',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 18,
+              letterSpacing: -0.3,
+            ),
           ),
-          const SizedBox(width: 8),
-        ],
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.delete_rounded),
+              onPressed: _delete,
+              tooltip: 'Sil',
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                Theme.of(context).colorScheme.background,
+              ],
+            ),
+          ),
+          child: _loading
+              ? _buildSkeleton(context)
+              : (_word == null)
+                  ? const Center(child: Text('Kelime bulunamadı'))
+                  : _buildContent(context, _word!),
+        ),
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Theme.of(context).colorScheme.primary.withOpacity(0.05),
-              Theme.of(context).colorScheme.background,
-            ],
-          ),
-        ),
-        child: _loading
-            ? _buildSkeleton(context)
-            : (_entity == null)
-                ? const Center(child: Text('Kelime bulunamadı'))
-                : _buildContent(context, _entity!),
-      ),
-      bottomNavigationBar: _entity == null
-          ? null
-          : _bottomBar(context, selectedIndex: _entity!.progress.clamp(0, 2)),
-    ));
+    );
   }
 
-  Widget _buildContent(BuildContext context, ue.UserWordEntity e) {
+  Widget _buildContent(BuildContext context, VocabularyWord word) {
     final tts = getIt<FlutterTts>();
-    final int selectedIndex = e.progress.clamp(0, 2);
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 16, 16, 24),
       child: Column(
@@ -297,11 +193,11 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Hero(
-                            tag: 'vocab_word_${widget.vocabWordId}',
+                            tag: 'vocab_word_${word.id}',
                             child: Material(
                               type: MaterialType.transparency,
                               child: Text(
-                                e.word,
+                                word.word,
                                 style: const TextStyle(
                                   fontSize: 42,
                                   fontWeight: FontWeight.w800,
@@ -313,7 +209,7 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            e.meaningTr,
+                            word.meaning,
                             style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w600,
@@ -336,19 +232,19 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
                             try {
                               if (_speaking) {
                                 await tts.stop();
-                                if (!mounted) return; 
+                                if (!mounted) return;
                                 setState(() { _speaking = false; });
                               } else {
                                 await tts.setLanguage('en-US');
-                                await tts.speak(e.word);
-                                if (!mounted) return; 
+                                await tts.speak(word.word);
+                                if (!mounted) return;
                                 setState(() { _speaking = true; });
-                                Future.delayed(const Duration(seconds: 2), () { 
-                                  if (mounted) setState(() { _speaking = false; }); 
+                                Future.delayed(const Duration(seconds: 2), () {
+                                  if (mounted) setState(() { _speaking = false; });
                                 });
                               }
-                            } catch (_) { 
-                              if (mounted) setState(() { _speaking = false; }); 
+                            } catch (_) {
+                              if (mounted) setState(() { _speaking = false; });
                             }
                           },
                           active: _speaking,
@@ -359,7 +255,7 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
                           icon: Icons.copy_all_rounded,
                           label: 'Kopyala',
                           onTap: () async {
-                            await Clipboard.setData(ClipboardData(text: '${e.word} — ${e.meaningTr}'));
+                            await Clipboard.setData(ClipboardData(text: '${word.word} — ${word.meaning}'));
                             if (!mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('Kopyalandı'))
@@ -372,38 +268,24 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
                           icon: Icons.ios_share_rounded,
                           label: 'Paylaş',
                           onTap: () async {
-                            await Share.share('${e.word} — ${e.meaningTr}${(e.example??'').isNotEmpty ? '\n\n"${e.example}"' : ''}');
+                            await Share.share('${word.word} — ${word.meaning}${(word.exampleSentence ?? '').isNotEmpty ? '\n\n"${word.exampleSentence}"' : ''}');
                           },
                         ),
                       ],
                     ),
                   ],
                 ),
-                if ((e.imageUrl ?? '').isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      e.imageUrl!,
-                      height: 140,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                    ),
-                  ),
-                ],
-                if ((e.description ?? '').isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  _descriptionBlock(context, e.description!),
-                ],
-                if ((e.example ?? '').isNotEmpty) ...[
+                if ((word.exampleSentence ?? '').isNotEmpty) ...[
                   const SizedBox(height: 12),
                   GestureDetector(
                     onLongPress: () async {
-                      await Clipboard.setData(ClipboardData(text: e.example!));
-                      if (!mounted) return; ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Örnek cümle kopyalandı')));
+                      await Clipboard.setData(ClipboardData(text: word.exampleSentence!));
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Örnek cümle kopyalandı'))
+                      );
                     },
-                    child: _pill(context, label: '"${e.example}"', subtle: true),
+                    child: _pill(context, label: '"${word.exampleSentence}"', subtle: true),
                   ),
                 ],
                 const SizedBox(height: 14),
@@ -411,49 +293,115 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    if ((e.partOfSpeech ?? '').isNotEmpty) _pill(context, label: e.partOfSpeech!),
-                    if ((e.cefr ?? '').isNotEmpty) _pill(context, label: 'CEFR: ${e.cefr!}'),
-                    if ((e.category ?? '').isNotEmpty) _pill(context, label: e.category!),
-                    _pill(context, label: _progressLabel(e.progress)),
-                    for (final t in e.tags) _pill(context, label: t),
+                    _pill(context, label: word.status.displayName),
+                    if (word.personalNote != null && word.personalNote!.isNotEmpty)
+                      _pill(context, label: 'Not: ${word.personalNote}'),
                   ],
                 ),
               ],
             ),
           ),
 
-          if (e.synonyms.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            _glassCard(
-              context,
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Eş Anlamlılar', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 8),
-                  Wrap(spacing: 8, runSpacing: 8, children: e.synonyms.map((s) => _pill(context, label: s)).toList()),
-                ],
-              ),
+          // SRS İstatistikleri
+          const SizedBox(height: 16),
+          _glassCard(
+            context,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.analytics_outlined,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Öğrenme İstatistikleri',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Review Count
+                _buildStatRow(
+                  context,
+                  'Toplam Tekrar',
+                  '${word.reviewCount}',
+                  Icons.repeat_rounded,
+                  Colors.blue,
+                ),
+                const SizedBox(height: 12),
+                // Correct Count
+                _buildStatRow(
+                  context,
+                  'Doğru Cevap',
+                  '${word.correctCount}',
+                  Icons.check_circle_rounded,
+                  Colors.green,
+                ),
+                const SizedBox(height: 12),
+                // Accuracy Rate
+                _buildStatRow(
+                  context,
+                  'Başarı Oranı',
+                  '${(word.accuracyRate * 100).toStringAsFixed(1)}%',
+                  Icons.trending_up_rounded,
+                  Colors.orange,
+                ),
+                const SizedBox(height: 12),
+                // Consecutive Correct Count
+                _buildStatRow(
+                  context,
+                  'Ardışık Doğru',
+                  '${word.consecutiveCorrectCount}',
+                  Icons.stars_rounded,
+                  Colors.purple,
+                ),
+                const SizedBox(height: 12),
+                // Difficulty Level
+                _buildStatRow(
+                  context,
+                  'Zorluk Seviyesi',
+                  '${(word.difficultyLevel * 100).toStringAsFixed(0)}%',
+                  Icons.speed_rounded,
+                  Colors.red,
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 16),
+                // Last Reviewed At
+                _buildStatRow(
+                  context,
+                  'Son Tekrar',
+                  word.lastReviewedAt != null
+                      ? '${_formatDate(word.lastReviewedAt)} (${word.lastReviewedAt!.day}/${word.lastReviewedAt!.month}/${word.lastReviewedAt!.year})'
+                      : 'Henüz yapılmadı',
+                  Icons.schedule_rounded,
+                  Colors.teal,
+                ),
+                const SizedBox(height: 12),
+                // Next Review At
+                _buildStatRow(
+                  context,
+                  'Sonraki Tekrar',
+                  word.nextReviewAt != null
+                      ? '${_formatDate(word.nextReviewAt)} (${_formatDuration(word.timeUntilNextReview)})'
+                      : 'Hemen',
+                  Icons.calendar_today_rounded,
+                  word.needsReview ? Colors.orange : Colors.blue,
+                ),
+              ],
             ),
-          ],
-          if (e.antonyms.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            _glassCard(
-              context,
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Zıt Anlamlılar', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 8),
-                  Wrap(spacing: 8, runSpacing: 8, children: e.antonyms.map((s) => _pill(context, label: s)).toList()),
-                ],
-              ),
-            ),
-          ],
+          ),
 
-          const SizedBox(height: 20),
+          // Öğrenme Durumu
+          const SizedBox(height: 16),
           _glassCard(
             context,
             padding: const EdgeInsets.all(20),
@@ -469,7 +417,7 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Öğrenme Durumu', 
+                      'Öğrenme Durumu',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                         fontSize: 18,
@@ -477,12 +425,8 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
                     ),
                   ],
                 ),
-                     const SizedBox(height: 16),
-                     _buildProgressCard(context, selectedIndex),
-                     const SizedBox(height: 16),
-                     _segmentedProgress(context, selectedIndex: selectedIndex),
-                     const SizedBox(height: 16),
-                     _buildResetOptions(context),
+                const SizedBox(height: 16),
+                _buildStatusCard(context, word),
               ],
             ),
           ),
@@ -491,14 +435,50 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
     );
   }
 
-  Widget _buildProgressCard(BuildContext context, int selectedIndex) {
-    final progressData = [
-      {'label': 'Yeni', 'icon': Icons.fiber_new, 'color': Colors.blue, 'description': 'Henüz öğrenilmeye başlanmadı'},
-      {'label': 'Öğreniliyor', 'icon': Icons.school, 'color': Colors.orange, 'description': 'Aktif olarak öğreniliyor'},
-      {'label': 'Öğrenildi', 'icon': Icons.check_circle, 'color': Colors.green, 'description': 'Başarıyla öğrenildi'},
-    ];
+  Widget _buildStatRow(
+    BuildContext context,
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
 
-    final currentData = progressData[selectedIndex];
+  Widget _buildStatusCard(BuildContext context, VocabularyWord word) {
+    final statusData = {
+      VocabularyStatus.new_: {'label': 'Yeni', 'icon': Icons.fiber_new, 'color': Colors.blue, 'description': 'Henüz öğrenilmeye başlanmadı'},
+      VocabularyStatus.learning: {'label': 'Öğreniliyor', 'icon': Icons.school, 'color': Colors.orange, 'description': 'Aktif olarak öğreniliyor'},
+      VocabularyStatus.known: {'label': 'Biliyorum', 'icon': Icons.check_circle, 'color': Colors.green, 'description': 'Başarıyla öğrenildi'},
+      VocabularyStatus.mastered: {'label': 'Uzman', 'icon': Icons.star, 'color': Colors.purple, 'description': 'Mükemmel seviyede'},
+    };
+
+    final currentData = statusData[word.status]!;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -551,54 +531,7 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
                   ],
                 ),
               ),
-              // Progress indicator
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: (currentData['color'] as Color).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Center(
-                  child: Text(
-                    '${((selectedIndex + 1) / 3 * 100).toInt()}%',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: currentData['color'] as Color,
-                    ),
-                  ),
-                ),
-              ),
             ],
-          ),
-          const SizedBox(height: 12),
-          // Bilgilendirme metni
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.info_outline,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Öğrenme durumu quiz sonuçlarına göre otomatik olarak güncellenir.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.8),
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),
@@ -670,8 +603,8 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
             Icon(
               icon,
               size: 20,
-              color: active 
-                  ? Colors.white 
+              color: active
+                  ? Colors.white
                   : Theme.of(context).colorScheme.primary,
             ),
             const SizedBox(height: 4),
@@ -680,50 +613,12 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: active 
-                    ? Colors.white 
+                color: active
+                    ? Colors.white
                     : Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _circularIconButton(BuildContext context, {required IconData icon, required VoidCallback onTap, bool active = false}) {
-    return Container(
-      decoration: BoxDecoration(
-        color: active
-            ? Theme.of(context).colorScheme.primary
-            : Theme.of(context).colorScheme.surface,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: active
-                ? Theme.of(context).colorScheme.primary.withOpacity(0.3)
-                : Colors.black.withOpacity(0.06),
-            blurRadius: active ? 12 : 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: () {
-            try { HapticFeedback.selectionClick(); } catch (_) {}
-            onTap();
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Icon(
-              icon,
-              size: 22,
-              color: active ? Colors.white : Theme.of(context).colorScheme.primary,
-            ),
-          ),
         ),
       ),
     );
@@ -774,319 +669,102 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
     );
   }
 
-  Widget _descriptionBlock(BuildContext context, String text) {
-    final int maxLines = _descExpanded ? 999 : 3;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AnimatedSize(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeInOut,
-          alignment: Alignment.topLeft,
-          child: Text(
-            text,
-            maxLines: maxLines,
-            overflow: _descExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
-            style: TextStyle(color: Colors.grey[800], height: 1.35),
-          ),
-        ),
-        const SizedBox(height: 4),
-        GestureDetector(
-          onTap: () {
-            try { HapticFeedback.selectionClick(); } catch (_) {}
-            setState(() => _descExpanded = !_descExpanded);
-          },
-          child: Text(_descExpanded ? 'Daha az' : 'Daha fazla', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600)),
-        )
-      ],
-    );
-  }
-
-  Widget _segmentedProgress(BuildContext context, {required int selectedIndex}) {
-    final progressData = [
-      {'label': 'Yeni', 'icon': Icons.fiber_new, 'color': Colors.blue},
-      {'label': 'Öğreniliyor', 'icon': Icons.school, 'color': Colors.orange},
-      {'label': 'Öğrenildi', 'icon': Icons.check_circle, 'color': Colors.green},
-    ];
-
-    return Row(
-      children: progressData.asMap().entries.map((entry) {
-        final index = entry.key;
-        final data = entry.value;
-        final isSelected = selectedIndex == index;
-
-        return Expanded(
-          child: Container(
-            margin: EdgeInsets.only(
-              right: index < progressData.length - 1 ? 8 : 0,
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? (data['color'] as Color).withOpacity(0.15)
-                  : Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isSelected
-                    ? data['color'] as Color
-                    : Theme.of(context).colorScheme.outline.withOpacity(0.2),
-                width: isSelected ? 2 : 1,
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  data['icon'] as IconData,
-                  size: 20,
-                  color: isSelected
-                      ? data['color'] as Color
-                      : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  data['label'] as String,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                    color: isSelected
-                        ? data['color'] as Color
-                        : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
-                  ),
-                ),
-                if (isSelected) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Mevcut Durum',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: data['color'] as Color,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildResetOptions(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.refresh_rounded,
-                size: 18,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Reset Seçenekleri',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Öğrenme durumunu sıfırlamak için aşağıdaki seçenekleri kullanabilirsiniz:',
-            style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildResetButton(
-                  context,
-                  icon: Icons.restart_alt_rounded,
-                  label: 'Progress Sıfırla',
-                  description: 'Öğrenme durumunu başa al',
-                  onTap: () => _showResetConfirmation(context, 'progress'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildResetButton(
-                  context,
-                  icon: Icons.analytics_outlined,
-                  label: 'İstatistikleri Sıfırla',
-                  description: 'Tüm öğrenme verilerini temizle',
-                  onTap: () => _showResetConfirmation(context, 'stats'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildResetButton(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required String description,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(12),
+  Future<void> _delete() async {
+    final word = _word;
+    if (word == null) return;
+    try { HapticFeedback.mediumImpact(); } catch (_) {}
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        margin: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
-            width: 1,
-          ),
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                Icon(
-                  icon,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).textTheme.bodyMedium?.color,
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.delete_rounded,
+                      color: Colors.red,
+                      size: 32,
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Kelimeyi Sil',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 22,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '"${word.word}" kelimesini defterinizden silmek istediğinizden emin misiniz?',
+                    style: TextStyle(
+                      color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                      height: 1.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            InkWell(
+              onTap: () => Navigator.pop(context, true),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: const Text(
+                  'Sil',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-              ],
+              ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              description,
-              style: TextStyle(
-                fontSize: 10,
-                color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.6),
+            const Divider(height: 1),
+            InkWell(
+              onTap: () => Navigator.pop(context, false),
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'İptal',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
           ],
         ),
       ),
     );
-  }
-
-  void _showResetConfirmation(BuildContext context, String type) {
-    final String title;
-    final String message;
-    
-    switch (type) {
-      case 'progress':
-        title = 'Progress Sıfırla';
-        message = 'Bu kelimenin öğrenme durumunu başa almak istediğinizden emin misiniz? Bu işlem geri alınamaz.';
-        break;
-      case 'stats':
-        title = 'İstatistikleri Sıfırla';
-        message = 'Bu kelimenin tüm öğrenme verilerini (quiz sonuçları, istatistikler) silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.';
-        break;
-      default:
-        return;
+    if (ok == true) {
+      context.read<VocabularyBloc>().add(DeleteWord(wordId: word.id));
+      if (!mounted) return;
+      Navigator.pop(context, true);
     }
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('İptal'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _performReset(type);
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
-            ),
-            child: const Text('Sıfırla'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _performReset(String type) {
-    // TODO: Implement reset functionality
-    // This would call the repository to reset the word's learning data
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${type == 'progress' ? 'Progress' : 'İstatistikler'} sıfırlandı'),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-
-  String _progressLabel(int p) {
-    if (p <= 0) return 'Yeni';
-    if (p == 1) return 'Öğreniliyor';
-    return 'Öğrenildi';
-  }
-
-  Widget _bottomBar(BuildContext context, {required int selectedIndex}) {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        child: Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  try { HapticFeedback.lightImpact(); } catch (_) {}
-                  // Manuel progress değişimi artık yok
-                },
-                icon: const Icon(Icons.info_outline),
-                label: const Text('Bilgi'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  try { HapticFeedback.lightImpact(); } catch (_) {}
-                  // Quiz'e yönlendir
-                },
-                icon: const Icon(Icons.quiz_outlined),
-                label: const Text('Quiz Yap'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

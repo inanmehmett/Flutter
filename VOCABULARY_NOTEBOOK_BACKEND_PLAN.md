@@ -57,16 +57,16 @@
 ### 3) Plan (Sprint Kırılımı)
 
 #### Sprint 1: Veri Modeli ve CRUD
-1. EF Core modelleri + migration
-2. `IUserVocabularyService` + `UserVocabularyService` → CRUD, arama, sayfalama, filtre
-3. `ApiUserVocabularyController` → CRUD uçları (response standardı, logging)
-4. Mobil repository → list/add/update/delete uçlarına bağlama
+1. EF Core modelleri + migration — [x] (modeller eklendi, migration sonraki committe)
+2. `IUserVocabularyService` + `UserVocabularyService` → CRUD, arama, sayfalama, filtre — [x]
+3. `ApiUserVocabularyController` → CRUD uçları (response standardı, logging) — [x]
+4. Mobil repository → list/add/update/delete uçlarına bağlama — [x]
 
 #### Sprint 2: Review + Stats
-1. Review endpoint → doğrulama ve accuracy/mastery güncellemeleri
-2. Session/SessionItem temel kayıtları
-3. Stats endpoint → toplam, status dağılım, bugün eklenen/tekrar, ilerleme%
-4. Mobil çalışma akışı → review çağrıları + istatistik entegrasyonu
+1. Review endpoint → doğrulama ve accuracy/mastery güncellemeleri — [x]
+2. Session/SessionItem temel kayıtları — [x]
+3. Stats endpoint → toplam, status dağılım, bugün eklenen/tekrar, ilerleme% — [x]
+4. Mobil çalışma akışı → review çağrıları + istatistik entegrasyonu — [x]
 
 #### Sprint 3: Stabilizasyon + UX
 1. Hata yönetimi (409, doğrulama), retry politikaları
@@ -77,26 +77,27 @@
 
 ### 4) Uygulama Adımları (Adım Adım)
 
-1) EF Core veritabanı şemasını ekle ve migration oluştur
+1) EF Core veritabanı şemasını ekle ve migration oluştur — [~] (modeller eklendi, migration çıkarılacak)
 
-2) `IUserVocabularyService` + `UserVocabularyService`
+2) `IUserVocabularyService` + `UserVocabularyService` — [x]
    - CRUD (create/update/delete soft), get/list
    - Arama (LIKE), statü filtreleri, offset/limit sayfalama
 
-3) `ApiUserVocabularyController`
+3) `ApiUserVocabularyController` — [x]
    - CRUD uçları + `GET /stats`
    - Response standardı `{ success, message, data }`
 
-4) Mobil `VocabularyRepositoryImpl` entegrasyonu
+4) Mobil `VocabularyRepositoryImpl` entegrasyonu — [x]
    - list/add/update/delete → yeni endpoint’ler
    - Mevcut Bloc ve UI’yi bozmayacak adapter katmanı
 
-5) Review endpoint + mobil bağlama
+5) Review endpoint + mobil bağlama — [x]
    - `POST /{id}/review { isCorrect }`
    - Doğru/yanlış sonrası yerel state güncelleme
 
-6) Stats hesaplama ve mobil entegrasyon
+6) Stats hesaplama ve mobil entegrasyon — [x]
    - Dashboard/başlıkta gösterilen istatistikler
+   - Oturum başlat/tamamla + item kaydı — [x]
 
 7) Test ve Hata Yönetimi
    - Service ve Controller unit/integration testleri

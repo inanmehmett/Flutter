@@ -24,7 +24,9 @@ import 'reading_quiz_page.dart';
 import '../../data/phrasal_verbs_tr.dart';
 import '../widgets/daily_media_bar.dart';
 import '../../../../core/widgets/toasts.dart';
-import '../../../vocab/domain/services/vocab_learning_service.dart';
+import '../../../vocabulary_notebook/presentation/bloc/vocabulary_bloc.dart';
+import '../../../vocabulary_notebook/presentation/bloc/vocabulary_event.dart';
+import '../../../vocabulary_notebook/domain/entities/vocabulary_word.dart';
 
 // Anchor data for tooltip positioning
 class TooltipAnchor {
@@ -306,8 +308,18 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
         );
         return;
       }
-      final svc = getIt<VocabLearningService>();
-      await svc.addWord(word: word, meaningTr: meaning, tags: const ['reader']);
+      final readingTextId = _readerBloc.pageManager.bookId;
+      final vocabWord = VocabularyWord(
+        id: 0,
+        word: word,
+        meaning: meaning,
+        status: VocabularyStatus.new_,
+        readingTextId: readingTextId,
+        addedAt: DateTime.now(),
+        reviewCount: 0,
+        correctCount: 0,
+      );
+      context.read<VocabularyBloc>().add(AddWord(word: vocabWord));
       ToastOverlay.show(context, const XpToast(5), channel: 'vocab_add');
     } catch (e) {
       Logger.error('📚 [Vocabulary] Error adding word', e);
@@ -1226,8 +1238,18 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
       final word = (_selectedWord ?? '').trim();
       final meaning = (_wordTranslation ?? _currentSentenceTranslation ?? '').trim();
       if (word.isEmpty || meaning.isEmpty) return;
-      final svc = getIt<VocabLearningService>();
-      await svc.addWord(word: word, meaningTr: meaning, tags: const ['reader']);
+      final readingTextId = _readerBloc.pageManager.bookId;
+      final vocabWord = VocabularyWord(
+        id: 0,
+        word: word,
+        meaning: meaning,
+        status: VocabularyStatus.new_,
+        readingTextId: readingTextId,
+        addedAt: DateTime.now(),
+        reviewCount: 0,
+        correctCount: 0,
+      );
+      context.read<VocabularyBloc>().add(AddWord(word: vocabWord));
       ToastOverlay.show(context, const XpToast(5), channel: 'vocab_add');
     } catch (_) {}
   }

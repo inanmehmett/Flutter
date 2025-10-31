@@ -33,6 +33,7 @@ import '../realtime/signalr_service.dart';
 import '../../features/vocab/data/models/user_word.dart';
 import '../../features/vocab/data/datasources/user_word_local_data_source.dart';
 import '../../features/vocab/domain/services/vocab_learning_service.dart';
+import '../../features/vocabulary_notebook/data/repositories/vocabulary_repository_impl.dart';
 
 final getIt = GetIt.instance;
 
@@ -149,5 +150,10 @@ Future<void> configureDependencies() async {
   }
   if (!getIt.isRegistered<VocabLearningService>()) {
     getIt.registerLazySingleton<VocabLearningService>(() => VocabLearningService(getIt<UserWordLocalDataSource>()));
+  }
+
+  // Register VocabularyRepository for Vocabulary Notebook feature
+  if (!getIt.isRegistered<VocabularyRepositoryImpl>()) {
+    getIt.registerLazySingleton<VocabularyRepositoryImpl>(() => VocabularyRepositoryImpl());
   }
 }

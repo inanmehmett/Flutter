@@ -84,9 +84,24 @@ class VocabularyWordCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Flexible(child: _buildStatusChip(context)),
+                    GestureDetector(
+                      onTap: () => _showStatusMenu(context),
+                      behavior: HitTestBehavior.opaque,
+                      child: _buildStatusChip(context),
+                    ),
                     const SizedBox(width: 8),
-                    _buildSpeakButton(context),
+                    GestureDetector(
+                      onTap: () async {
+                        try {
+                          final tts = getIt<FlutterTts>();
+                          await tts.stop();
+                          await tts.setLanguage('en-US');
+                          await tts.speak(word.word);
+                        } catch (_) {}
+                      },
+                      behavior: HitTestBehavior.opaque,
+                      child: _buildSpeakButton(context),
+                    ),
                     const SizedBox(width: 4),
                     _overflowMenu(context),
                   ],
@@ -123,69 +138,56 @@ class VocabularyWordCard extends StatelessWidget {
   }
 
   Widget _buildStatusChip(BuildContext context) {
-    return GestureDetector(
-      onTap: () => _showStatusMenu(context),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: _getStatusColor(context).withOpacity(0.12),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: _getStatusColor(context).withOpacity(0.2),
-            width: 1,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: _getStatusColor(context).withOpacity(0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _getStatusColor(context).withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            _getIconForStatus(word.status),
+            size: 14,
+            color: _getStatusColor(context),
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              _getIconForStatus(word.status),
-              size: 14,
-              color: _getStatusColor(context),
-            ),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                word.status.displayName,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: _getStatusColor(context),
-                  letterSpacing: 0.2,
-                ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-                softWrap: false,
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              word.status.displayName,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: _getStatusColor(context),
+                letterSpacing: 0.2,
               ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              softWrap: false,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildSpeakButton(BuildContext context) {
-    return GestureDetector(
-      onTap: () async {
-        try {
-          final tts = getIt<FlutterTts>();
-          await tts.stop();
-          await tts.setLanguage('en-US');
-          await tts.speak(word.word);
-        } catch (_) {}
-      },
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Icon(
-          Icons.volume_up_rounded,
-          size: 16,
-          color: Theme.of(context).colorScheme.primary,
-        ),
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Icon(
+        Icons.volume_up_rounded,
+        size: 16,
+        color: Theme.of(context).colorScheme.primary,
       ),
     );
   }
@@ -279,7 +281,38 @@ class VocabularyWordCard extends StatelessWidget {
           
           const SizedBox(width: 8),
           
-          // Date
+          // Next review time (if available)
+          if (word.nextReviewAt != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.amber.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.alarm_rounded,
+                    size: 12,
+                    color: Colors.amber,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _formatNextReview(word.nextReviewAt!),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.amber,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+
+          // Added date
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
@@ -469,5 +502,14 @@ class VocabularyWordCard extends StatelessWidget {
     if (difference < 7) return '$difference gün önce';
     if (difference < 30) return '${(difference / 7).round()} hafta önce';
     return '${(difference / 30).round()} ay önce';
+  }
+
+  String _formatNextReview(DateTime when) {
+    final now = DateTime.now();
+    if (when.isBefore(now)) return 'Şimdi';
+    final diff = when.difference(now);
+    if (diff.inMinutes < 60) return '${diff.inMinutes} dk';
+    if (diff.inHours < 24) return '${diff.inHours} sa';
+    return '${diff.inDays} gün';
   }
 }
