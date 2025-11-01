@@ -325,16 +325,16 @@ class _QuizWidgetState extends State<QuizWidget>
     if (widget.compact) {
       // Compact layout - no scroll, fixed heights, auto-submit
       return Padding(
-        padding: const EdgeInsets.all(12.0), // Reduced padding
+        padding: const EdgeInsets.all(10.0), // Minimal padding
         child: Column(
           children: [
-            // Word card - smaller fixed height
+            // Word card - minimal fixed height
             SizedBox(
-              height: 135, // Further reduced for perfect fit
+              height: 125, // Minimal for no overflow
               child: _buildCompactWordCard(context),
             ),
 
-            const SizedBox(height: 8), // Reduced spacing
+            const SizedBox(height: 6), // Minimal spacing
 
             // Answer options - 2x2 grid (compact)
             Expanded(
@@ -578,7 +578,7 @@ class _QuizWidgetState extends State<QuizWidget>
 
   Widget _buildCompactWordCard(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -601,7 +601,7 @@ class _QuizWidgetState extends State<QuizWidget>
           Text(
             widget.word.word,
             style: TextStyle(
-              fontSize: 32, // Reduced from 48
+              fontSize: 30, // Further reduced
               fontWeight: FontWeight.w900,
               letterSpacing: 0.5,
               color: _showResult
@@ -613,13 +613,13 @@ class _QuizWidgetState extends State<QuizWidget>
             overflow: TextOverflow.ellipsis,
           ),
 
-          const SizedBox(height: 12), // Reduced spacing
+          const SizedBox(height: 10), // Minimal spacing
 
           // Compact speak button
           GestureDetector(
             onTap: _speakWord,
             child: Container(
-              padding: const EdgeInsets.all(10), // Reduced padding
+              padding: const EdgeInsets.all(8), // Minimal padding
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -635,7 +635,7 @@ class _QuizWidgetState extends State<QuizWidget>
               ),
               child: Icon(
                 Icons.volume_up_rounded,
-                size: 22, // Reduced size
+                size: 20, // Smaller icon
                 color: Theme.of(context).colorScheme.primary,
               ),
             ),
