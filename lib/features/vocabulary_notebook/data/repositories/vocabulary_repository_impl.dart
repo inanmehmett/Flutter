@@ -654,11 +654,8 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
 
   @override
   Future<void> completeReviewSession(ReviewSession session) async {
-    // Session tamamlandığında kelimeleri güncelle
-    for (final result in session.results) {
-      final word = session.words.firstWhere((w) => w.id.toString() == result.wordId);
-      await markWordReviewed(word.id, result.isCorrect);
-    }
+    // NOTE: Individual reviews are saved in real-time via MarkWordReviewed event
+    // This method only finalizes the session metadata
     try {
       if (_activeSessionId != null) {
         final correct = session.results.where((r) => r.isCorrect).length;
@@ -671,7 +668,9 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
           'durationSeconds': secs.clamp(0, 36000),
         }));
       }
-    } catch (_) {} finally {
+    } catch (_) {
+      // Session completion is optional - individual reviews are already saved
+    } finally {
       _activeSessionId = null;
     }
   }

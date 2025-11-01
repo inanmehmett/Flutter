@@ -414,13 +414,14 @@ USER ACTION
 
 **ALL 3 MODES SAVE TO BACKEND! ✅**
 
-| Mode | Widget | Backend Call | Statistics Updated |
-|------|--------|--------------|-------------------|
-| **Çalış** (Study) | QuizWidget | ✅ PUT /api/.../review | ✅ ReviewCount, CorrectCount, Status |
-| **Pratik** (Practice) | PracticeWidget | ✅ PUT /api/.../review | ✅ ReviewCount, CorrectCount, Status |
+| Mode                  | Widget          | Backend Call           | Statistics Updated                   |
+| --------------------- | --------------- | ---------------------- | ------------------------------------ |
+| **Çalış** (Study)     | QuizWidget      | ✅ PUT /api/.../review | ✅ ReviewCount, CorrectCount, Status |
+| **Pratik** (Practice) | PracticeWidget  | ✅ PUT /api/.../review | ✅ ReviewCount, CorrectCount, Status |
 | **Kart** (Flashcards) | FlashcardWidget | ✅ PUT /api/.../review | ✅ ReviewCount, CorrectCount, Status |
 
 **Code Location:**
+
 ```dart
 // vocabulary_repository_impl.dart (Line 656-661)
 Future<void> completeReviewSession(ReviewSession session) async {
@@ -431,6 +432,7 @@ Future<void> completeReviewSession(ReviewSession session) async {
 ```
 
 **Flow:**
+
 1. User answers in ANY mode (Study/Practice/Flashcards)
 2. Widget calls `onAnswerSubmitted(isCorrect, time)`
 3. Study page stores result in session

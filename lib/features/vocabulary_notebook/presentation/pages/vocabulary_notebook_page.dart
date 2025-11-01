@@ -234,7 +234,10 @@ class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
                             child: const VocabularyStudyPage(),
                           ),
                         ),
-                      ),
+                      ).then((_) {
+                        // Refresh stats after study session
+                        context.read<VocabularyBloc>().add(RefreshVocabulary());
+                      }),
                       onQuiz: () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (context) => BlocProvider.value(
@@ -242,7 +245,10 @@ class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
                             child: const VocabularyStudyPage(),
                           ),
                         ),
-                      ),
+                      ).then((_) {
+                        // Refresh stats after study session
+                        context.read<VocabularyBloc>().add(RefreshVocabulary());
+                      }),
                     ),
                   ),
                   
