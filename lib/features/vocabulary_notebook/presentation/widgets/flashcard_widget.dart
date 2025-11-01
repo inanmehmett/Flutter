@@ -166,9 +166,27 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
     );
   }
 
+  void _handleSwipeGesture(DragEndDetails details) {
+    if (_showAnswer) return;
+    
+    final velocity = details.primaryVelocity ?? 0;
+    final threshold = 500.0; // Swipe speed threshold
+    
+    if (velocity.abs() < threshold) return;
+    
+    if (velocity < 0) {
+      // Swipe left → Don't know
+      _submitAnswer(false);
+    } else {
+      // Swipe right → Know
+      _submitAnswer(true);
+    }
+  }
+
   Widget _buildFlashcard(BuildContext context) {
     return GestureDetector(
       onTap: _flipCard,
+      onHorizontalDragEnd: _handleSwipeGesture,
       child: AnimatedBuilder(
         animation: _flipAnimation,
         builder: (context, child) {
@@ -358,32 +376,73 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
   }
 
   Widget _buildActionButtons(BuildContext context) {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () => _submitAnswer(false),
-            icon: const Icon(Icons.close),
-            label: const Text('Bilmiyorum'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.red,
-              side: const BorderSide(color: Colors.red),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
+        // Swipe hint
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.swipe_left_rounded,
+                size: 20,
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.4),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Kaydırarak cevapla',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Icon(
+                Icons.swipe_right_rounded,
+                size: 20,
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.4),
+              ),
+            ],
           ),
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: () => _submitAnswer(true),
-            icon: const Icon(Icons.check),
-            label: const Text('Biliyorum'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
+        
+        // Buttons
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _submitAnswer(false),
+                icon: const Icon(Icons.close_rounded),
+                label: const Text('Bilmiyorum'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red, width: 2),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: () => _submitAnswer(true),
+                icon: const Icon(Icons.check_rounded),
+                label: const Text('Biliyorum'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );

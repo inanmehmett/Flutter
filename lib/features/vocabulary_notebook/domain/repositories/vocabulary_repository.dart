@@ -56,7 +56,7 @@ abstract class VocabularyRepository {
   
   Future<ReviewStats> getReviewStats();
   
-  Future<ReviewSession> startReviewSession();
+  Future<ReviewSession> startReviewSession({String? modeFilter});
   
   Future<void> completeReviewSession(ReviewSession session);
   

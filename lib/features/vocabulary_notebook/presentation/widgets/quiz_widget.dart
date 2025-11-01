@@ -5,17 +5,29 @@ import '../../../../core/di/injection.dart';
 import '../../domain/services/tts_service.dart';
 import '../../domain/services/quiz_answer_generator.dart';
 import '../constants/study_constants.dart';
+import 'quiz_timer.dart';
+
+/// Quiz score update callback
+typedef ScoreUpdateCallback = void Function(int score, int bonus, int streak);
 
 class QuizWidget extends StatefulWidget {
   final VocabularyWord word;
   final Function(bool isCorrect, int responseTimeMs) onAnswerSubmitted;
   final bool practiceMode;
+  
+  // Quiz mode specific
+  final bool showTimer;
+  final Duration? timerDuration;
+  final ScoreUpdateCallback? onScoreUpdate;
 
   const QuizWidget({
     super.key,
     required this.word,
     required this.onAnswerSubmitted,
     this.practiceMode = false,
+    this.showTimer = false,
+    this.timerDuration,
+    this.onScoreUpdate,
   });
 
   @override
@@ -30,6 +42,12 @@ class _QuizWidgetState extends State<QuizWidget>
   DateTime? _startTime;
   List<QuizAnswer>? _quizOptions;
   bool _isLoadingOptions = true;
+  
+  // Quiz mode specific
+  final GlobalKey<QuizTimerState> _timerKey = GlobalKey<QuizTimerState>();
+  int _currentScore = 0;
+  int _consecutiveCorrect = 0;
+  int? _lastBonus;
   
   late AnimationController _shakeController;
   late AnimationController _resultController;
@@ -101,6 +119,13 @@ class _QuizWidgetState extends State<QuizWidget>
         _quizOptions = options;
         _isLoadingOptions = false;
       });
+      
+      // Start timer when options are loaded (quiz mode)
+      if (widget.showTimer && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _timerKey.currentState?.start();
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       
@@ -114,6 +139,13 @@ class _QuizWidgetState extends State<QuizWidget>
         ]..shuffle();
         _isLoadingOptions = false;
       });
+      
+      // Start timer even with fallback options
+      if (widget.showTimer && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _timerKey.currentState?.start();
+        });
+      }
     }
   }
 
@@ -138,6 +170,11 @@ class _QuizWidgetState extends State<QuizWidget>
   void _submitAnswer() async {
     if (_selectedAnswer == null || _showResult || _quizOptions == null) return;
 
+    // Stop timer if running
+    if (widget.showTimer) {
+      _timerKey.currentState?.stop();
+    }
+
     final selectedOption = _quizOptions!.firstWhere((opt) => opt.text == _selectedAnswer);
     final isCorrect = selectedOption.isCorrect;
     final responseTime = DateTime.now().difference(_startTime!).inMilliseconds;
@@ -146,6 +183,19 @@ class _QuizWidgetState extends State<QuizWidget>
       _showResult = true;
       _isCorrect = isCorrect;
     });
+
+    // Calculate score for quiz mode
+    if (widget.showTimer && isCorrect) {
+      final score = _calculateScore(responseTime);
+      _currentScore += score.total;
+      _consecutiveCorrect++;
+      _lastBonus = score.speedBonus + score.streakBonus;
+      
+      widget.onScoreUpdate?.call(_currentScore, _lastBonus!, _consecutiveCorrect);
+    } else if (!isCorrect) {
+      _consecutiveCorrect = 0;
+      _lastBonus = null;
+    }
 
     if (isCorrect) {
       HapticFeedback.mediumImpact();
@@ -161,6 +211,53 @@ class _QuizWidgetState extends State<QuizWidget>
     if (mounted) {
       widget.onAnswerSubmitted(isCorrect, responseTime);
     }
+  }
+
+  /// Calculate score with speed bonus and streak bonus
+  ({int base, int speedBonus, int streakBonus, int total}) _calculateScore(int responseTimeMs) {
+    const basePoints = 100;
+    
+    // Speed bonus: Faster = more points
+    int speedBonus = 0;
+    final seconds = responseTimeMs / 1000;
+    final timerDuration = widget.timerDuration?.inSeconds ?? 10;
+    final remainingSeconds = _timerKey.currentState?.remainingSeconds ?? 0;
+    
+    if (remainingSeconds > 0) {
+      // 10-20 points per second remaining
+      speedBonus = (remainingSeconds * 15).toInt();
+    }
+    
+    // Streak bonus: Consecutive correct answers
+    final streakBonus = _consecutiveCorrect * 10;
+    
+    final total = basePoints + speedBonus + streakBonus;
+    
+    return (
+      base: basePoints,
+      speedBonus: speedBonus,
+      streakBonus: streakBonus,
+      total: total,
+    );
+  }
+
+  void _handleTimeout() {
+    if (_showResult) return;
+    
+    setState(() {
+      _showResult = true;
+      _isCorrect = false;
+    });
+    
+    _consecutiveCorrect = 0;
+    HapticFeedback.heavyImpact();
+    _shakeController.forward();
+    
+    Future.delayed(StudyConstants.resultDisplayDelay, () {
+      if (mounted) {
+        widget.onAnswerSubmitted(false, widget.timerDuration?.inMilliseconds ?? 10000);
+      }
+    });
   }
 
   Future<void> _speakWord() async {
@@ -259,10 +356,12 @@ class _QuizWidgetState extends State<QuizWidget>
       builder: (context, child) {
         return Transform.translate(
           offset: Offset(_shakeAnimation.value, 0),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(28),
-            decoration: BoxDecoration(
+          child: Stack(
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(28),
+                decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -419,6 +518,20 @@ class _QuizWidgetState extends State<QuizWidget>
                 ],
               ],
             ),
+              ),
+              // Timer overlay (top-right)
+              if (widget.showTimer && !_showResult) ...[
+                Positioned(
+                  top: 16,
+                  right: 16,
+                  child: QuizTimer(
+                    key: _timerKey,
+                    duration: widget.timerDuration ?? const Duration(seconds: 10),
+                    onTimeout: _handleTimeout,
+                  ),
+                ),
+              ],
+            ],
           ),
         );
       },

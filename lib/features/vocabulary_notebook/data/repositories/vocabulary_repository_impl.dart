@@ -611,7 +611,7 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
   }
 
   @override
-  Future<ReviewSession> startReviewSession() async {
+  Future<ReviewSession> startReviewSession({String? modeFilter}) async {
     try {
       final resp = await _retry(() => _net.post('/api/ApiUserVocabulary/session/start', data: {}));
       final data = resp.data['data'] as Map<String, dynamic>?;
@@ -619,7 +619,36 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
     } catch (_) {
       _activeSessionId = null;
     }
-    final reviewWords = await getDailyReviewWords();
+    
+    // Get words based on mode filter
+    List<VocabularyWord> reviewWords;
+    switch (modeFilter) {
+      case 'due':
+        // Review mode: Only due words
+        reviewWords = await getDailyReviewWords();
+        break;
+      case 'all':
+        // Quiz mode: All words, randomized
+        reviewWords = await getUserWords(limit: 50);
+        reviewWords.shuffle();
+        break;
+      case 'difficult':
+        // Practice mode: Difficult words (high difficulty or low consecutive correct)
+        final allWords = await getUserWords(limit: 100);
+        reviewWords = allWords.where((w) =>
+          w.difficultyLevel > 0.6 || w.consecutiveCorrectCount < 2
+        ).toList();
+        if (reviewWords.isEmpty) {
+          // Fallback: use words that need review
+          reviewWords = await getDailyReviewWords();
+        }
+        break;
+      default:
+        // Flashcard mode: Random batch
+        reviewWords = await getUserWords(limit: 20);
+        reviewWords.shuffle();
+    }
+    
     return SpacedRepetitionService.startReviewSession(reviewWords);
   }
 

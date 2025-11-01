@@ -326,7 +326,7 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     Emitter<VocabularyState> emit,
   ) async {
     try {
-      final session = await repository.startReviewSession();
+      final session = await repository.startReviewSession(modeFilter: event.modeFilter);
       emit(ReviewSessionLoaded(session: session));
     } catch (e) {
       emit(VocabularyError(message: e.toString()));

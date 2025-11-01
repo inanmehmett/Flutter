@@ -133,7 +133,14 @@ class LoadDailyReviewWords extends VocabularyEvent {}
 
 class LoadReviewStats extends VocabularyEvent {}
 
-class StartReviewSession extends VocabularyEvent {}
+class StartReviewSession extends VocabularyEvent {
+  final String? modeFilter; // 'due', 'all', 'difficult'
+
+  const StartReviewSession({this.modeFilter});
+
+  @override
+  List<Object?> get props => [modeFilter];
+}
 
 class CompleteReviewSession extends VocabularyEvent {
   final ReviewSession session;
