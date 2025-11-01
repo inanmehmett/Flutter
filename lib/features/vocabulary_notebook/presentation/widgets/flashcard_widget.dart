@@ -61,6 +61,21 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
   }
 
   @override
+  void didUpdateWidget(FlashcardWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reset state when word changes
+    if (oldWidget.word.id != widget.word.id) {
+      setState(() {
+        _isFlipped = false;
+        _showAnswer = false;
+        _startTime = DateTime.now();
+      });
+      _flipController.reset();
+      _resultController.reset();
+    }
+  }
+
+  @override
   void dispose() {
     _flipController.dispose();
     _resultController.dispose();
@@ -96,7 +111,8 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
 
     _resultController.forward();
 
-    await Future.delayed(StudyConstants.flashcardResultDelay);
+    // Shorter delay for faster transitions
+    await Future.delayed(const Duration(milliseconds: 1200));
     
     if (mounted) {
       widget.onAnswerSubmitted(isCorrect, responseTime);
@@ -454,7 +470,7 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
         return Transform.scale(
           scale: _resultAnimation.value,
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12), // Reduced from 16
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
@@ -463,18 +479,19 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
               ),
             ),
             child: Column(
+              mainAxisSize: MainAxisSize.min, // Prevent expansion
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
                   Icons.check_circle,
-                  size: 48,
+                  size: 40, // Reduced from 48
                   color: Colors.green,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8), // Reduced from 12
                 Text(
                   'Sonraki kelimeye geçiliyor...',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 14, // Reduced from 16
                     fontWeight: FontWeight.w600,
                     color: Theme.of(context).textTheme.bodyLarge?.color,
                   ),
