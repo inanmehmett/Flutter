@@ -377,65 +377,66 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
 
   Widget _buildActionButtons(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // Swipe hint
+        // Swipe hint - more compact
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.only(bottom: 6),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 Icons.swipe_left_rounded,
-                size: 20,
+                size: 16,
                 color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.4),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Text(
                 'Kaydırarak cevapla',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: FontWeight.w500,
                   color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Icon(
                 Icons.swipe_right_rounded,
-                size: 20,
+                size: 16,
                 color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.4),
               ),
             ],
           ),
         ),
         
-        // Buttons
+        // Buttons - reduced padding
         Row(
           children: [
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: () => _submitAnswer(false),
-                icon: const Icon(Icons.close_rounded),
+                icon: const Icon(Icons.close_rounded, size: 18),
                 label: const Text('Bilmiyorum'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.red,
                   side: const BorderSide(color: Colors.red, width: 2),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Expanded(
               child: FilledButton.icon(
                 onPressed: () => _submitAnswer(true),
-                icon: const Icon(Icons.check_rounded),
+                icon: const Icon(Icons.check_rounded, size: 18),
                 label: const Text('Biliyorum'),
                 style: FilledButton.styleFrom(
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
