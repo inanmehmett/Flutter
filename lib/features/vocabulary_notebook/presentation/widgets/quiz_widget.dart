@@ -66,6 +66,26 @@ class _QuizWidgetState extends State<QuizWidget>
     _loadQuizOptions();
   }
 
+  @override
+  void didUpdateWidget(QuizWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reset state when word changes
+    if (oldWidget.word.id != widget.word.id) {
+      setState(() {
+        _selectedAnswer = null;
+        _showResult = false;
+        _isCorrect = false;
+        _startTime = DateTime.now();
+        _isLoadingOptions = true;
+      });
+      _shakeController.reset();
+      _resultController.reset();
+      _successController.reset();
+      _timerKey.currentState?.reset();
+      _loadQuizOptions();
+    }
+  }
+
   void _initAnimations() {
     _shakeController = AnimationController(
       duration: StudyConstants.shakeDuration,

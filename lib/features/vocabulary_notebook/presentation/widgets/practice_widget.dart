@@ -52,6 +52,29 @@ class _PracticeWidgetState extends State<PracticeWidget>
     });
   }
 
+  @override
+  void didUpdateWidget(PracticeWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reset state when word changes
+    if (oldWidget.word.id != widget.word.id) {
+      setState(() {
+        _controller.clear();
+        _currentAttempt = 0;
+        _currentHint = null;
+        _showResult = false;
+        _isCorrect = false;
+        _startTime = DateTime.now();
+      });
+      _shakeController.reset();
+      _hintController.reset();
+      _successController.reset();
+      // Refocus input
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _focusNode.requestFocus();
+      });
+    }
+  }
+
   void _initAnimations() {
     _shakeController = AnimationController(
       duration: StudyConstants.shakeDuration,

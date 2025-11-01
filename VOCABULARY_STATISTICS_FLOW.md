@@ -5,6 +5,7 @@
 ### 1️⃣ **Backend: Statistics Calculation & Storage**
 
 #### **Database Fields (UserVocabulary)**
+
 Located in: `DailyEnglish/DataAccess/DbModels/UserVocabulary.cs`
 
 ```csharp
@@ -25,6 +26,7 @@ public string Status { get; set; }             // new_ → learning → known �
 #### **Statistics Calculation (UserVocabularyService.cs)**
 
 **A. GetStatsAsync** - Overall Statistics
+
 ```csharp
 Location: Line 111-122
 
@@ -44,6 +46,7 @@ Returns:
 ```
 
 **B. ReviewAsync** - Per-Word Statistics Update
+
 ```csharp
 Location: Line 124-172
 
@@ -64,6 +67,7 @@ When user answers:
 ```
 
 **C. CalculateNextReview** - Spaced Repetition Logic
+
 ```csharp
 Location: Line 212-235
 
@@ -83,9 +87,11 @@ Difficulty scaling:
 ### 2️⃣ **Mobile: Statistics Fetching**
 
 #### **Repository Layer**
+
 Located in: `Flutter/lib/features/vocabulary_notebook/data/repositories/vocabulary_repository_impl.dart`
 
 **A. getUserStats()** - Line 358-407
+
 ```dart
 Flow:
 1. Call backend: GET /api/ApiUserVocabulary/stats
@@ -99,6 +105,7 @@ Flow:
 ```
 
 **B. markWordReviewed()** - Line 462-510
+
 ```dart
 Flow:
 1. Call backend: PUT /api/ApiUserVocabulary/{id}/review
@@ -110,6 +117,7 @@ Flow:
 ```
 
 **C. Local Fallback Statistics**
+
 ```dart
 When API fails:
 - Count words by status from local store
@@ -123,10 +131,12 @@ When API fails:
 ### 3️⃣ **Mobile: Statistics Display**
 
 #### **A. Vocabulary List Header**
+
 Widget: `VocabularyStatsHeader`
 Location: `lib/features/vocabulary_notebook/presentation/widgets/vocabulary_stats_header.dart`
 
 **Displays:**
+
 ```
 ┌──────────────────────────────────┐
 │ 🔥 Bugün Çalışılacak             │
@@ -141,18 +151,21 @@ Location: `lib/features/vocabulary_notebook/presentation/widgets/vocabulary_stat
 ```
 
 **Data Source:**
+
 - `stats.totalWords` - Total count
 - `stats.wordsNeedingReview` - Due for review
 - `stats.learningProgress` - (known + mastered) / total
 - `stats.wordsAddedToday` - Added today
 
 #### **B. Word Detail Page**
+
 Widget: `VocabularyWordDetailPage`
 Location: `lib/features/vocabulary_notebook/presentation/pages/vocabulary_word_detail_page.dart`
 
 **Displays (Line 403-445):**
 
 **For New Words (reviewCount == 0):**
+
 ```
 ┌─────────────────────────────────┐
 │ 🎯 Yeni Kelime                  │
@@ -161,6 +174,7 @@ Location: `lib/features/vocabulary_notebook/presentation/pages/vocabulary_word_d
 ```
 
 **For Reviewed Words:**
+
 ```
 📊 İstatistikler:
 - Toplam Tekrar: 15 times
@@ -171,6 +185,7 @@ Location: `lib/features/vocabulary_notebook/presentation/pages/vocabulary_word_d
 ```
 
 **Learning Status Timeline (Line 477-534):**
+
 ```
 Progress: ████████░░░░ 60%
 
@@ -178,6 +193,7 @@ new_ → learning → known → mastered
 ```
 
 **Next Review Info (Line 536-583):**
+
 ```
 📅 Sonraki Tekrar:
 - Overdue: 🔴 2 saat gecikmiş!
@@ -186,6 +202,7 @@ new_ → learning → known → mastered
 ```
 
 **Data Source:**
+
 - `word.reviewCount` - Total reviews
 - `word.correctCount` - Correct answers
 - `word.accuracyRate` - correctCount / reviewCount
@@ -196,10 +213,12 @@ new_ → learning → known → mastered
 - `word.status` - Current learning status
 
 #### **C. Word Card in List**
+
 Widget: `VocabularyWordCard`
 Location: `lib/features/vocabulary_notebook/presentation/widgets/vocabulary_word_card.dart`
 
 **Displays:**
+
 ```
 ┌────────────────────────────┐
 │ BEAUTIFUL        [new_] 🔊 │
@@ -209,6 +228,7 @@ Location: `lib/features/vocabulary_notebook/presentation/widgets/vocabulary_word
 ```
 
 **Data Source:**
+
 - `word.status` - Status badge color
 - `word.nextReviewAt` - Time until next review
 
@@ -217,11 +237,13 @@ Location: `lib/features/vocabulary_notebook/presentation/widgets/vocabulary_word
 ### 4️⃣ **State Management: BLoC Pattern**
 
 #### **VocabularyBloc**
+
 Location: `lib/features/vocabulary_notebook/presentation/bloc/vocabulary_bloc.dart`
 
 **Statistics Updates:**
 
 **A. Load Vocabulary** (Line 40-52)
+
 ```dart
 emit(VocabularyLoading());
 words = await repository.getUserWords();
@@ -230,6 +252,7 @@ emit(VocabularyLoaded(words, stats));
 ```
 
 **B. After Review** (Line 145-165)
+
 ```dart
 1. Call repository.markWordReviewed(wordId, isCorrect)
 2. Backend updates: ReviewCount, CorrectCount, Status
@@ -238,6 +261,7 @@ emit(VocabularyLoaded(words, stats));
 ```
 
 **C. After Add Word** (Line 105-140)
+
 ```dart
 1. Call repository.addWord(word)
 2. Refresh stats: repository.getUserStats()
@@ -245,6 +269,7 @@ emit(VocabularyLoaded(words, stats));
 ```
 
 #### **VocabularyState**
+
 Location: `lib/features/vocabulary_notebook/presentation/bloc/vocabulary_state.dart`
 
 ```dart
@@ -327,79 +352,117 @@ USER ACTION
 
 ### 6️⃣ **Key Statistics Metrics**
 
-| Metric | Calculation | Where Used | Purpose |
-|--------|-------------|------------|---------|
-| **ReviewCount** | Total attempts | Detail page, sorting | Show engagement |
-| **CorrectCount** | Sum of correct | Detail page | Show success |
-| **AccuracyRate** | CorrectCount / ReviewCount | Detail page, difficulty | Measure performance |
-| **ConsecutiveCorrect** | Streak counter | Detail page, status evolution | Track mastery |
-| **Difficulty** | Dynamic (0.0-1.0) | Scheduling, sorting | Adapt intervals |
-| **Status** | Evolves with reviews | Badges, filters | Learning stage |
-| **NextReviewAt** | Calculated interval | "Due" filter, badges | Spaced repetition |
-| **TodayAdded** | Count(CreatedAt >= today) | Header | Daily progress |
-| **TodayReviewed** | Count(ReviewedAt >= today) | Header | Daily activity |
-| **LearningProgress** | (known + mastered) / total | Header | Overall mastery |
+| Metric                 | Calculation                | Where Used                    | Purpose             |
+| ---------------------- | -------------------------- | ----------------------------- | ------------------- |
+| **ReviewCount**        | Total attempts             | Detail page, sorting          | Show engagement     |
+| **CorrectCount**       | Sum of correct             | Detail page                   | Show success        |
+| **AccuracyRate**       | CorrectCount / ReviewCount | Detail page, difficulty       | Measure performance |
+| **ConsecutiveCorrect** | Streak counter             | Detail page, status evolution | Track mastery       |
+| **Difficulty**         | Dynamic (0.0-1.0)          | Scheduling, sorting           | Adapt intervals     |
+| **Status**             | Evolves with reviews       | Badges, filters               | Learning stage      |
+| **NextReviewAt**       | Calculated interval        | "Due" filter, badges          | Spaced repetition   |
+| **TodayAdded**         | Count(CreatedAt >= today)  | Header                        | Daily progress      |
+| **TodayReviewed**      | Count(ReviewedAt >= today) | Header                        | Daily activity      |
+| **LearningProgress**   | (known + mastered) / total | Header                        | Overall mastery     |
 
 ---
 
 ### 7️⃣ **Statistics Update Triggers**
 
-| Event | Updates | Backend Call | UI Refresh |
-|-------|---------|--------------|------------|
-| **Add Word** | todayAdded++ | POST /api/ApiUserVocabulary | ✅ Auto |
-| **Review Word** | reviewCount++, correctCount++, status, etc. | PUT /api/.../review | ✅ Auto |
-| **Delete Word** | total--, status counts | DELETE /api/... | ✅ Auto |
-| **Manual Status Change** | NextReviewAt recalculated | PUT /api/... | ✅ Auto |
-| **Page Load** | - | GET /api/.../stats | ✅ Auto |
-| **Pull to Refresh** | - | GET /api/.../stats | ✅ Manual |
+| Event                    | Updates                                     | Backend Call                | UI Refresh |
+| ------------------------ | ------------------------------------------- | --------------------------- | ---------- |
+| **Add Word**             | todayAdded++                                | POST /api/ApiUserVocabulary | ✅ Auto    |
+| **Review Word**          | reviewCount++, correctCount++, status, etc. | PUT /api/.../review         | ✅ Auto    |
+| **Delete Word**          | total--, status counts                      | DELETE /api/...             | ✅ Auto    |
+| **Manual Status Change** | NextReviewAt recalculated                   | PUT /api/...                | ✅ Auto    |
+| **Page Load**            | -                                           | GET /api/.../stats          | ✅ Auto    |
+| **Pull to Refresh**      | -                                           | GET /api/.../stats          | ✅ Manual  |
 
 ---
 
 ### 8️⃣ **Clean Code Principles Applied**
 
 ✅ **Single Responsibility**
+
 - Backend: Calculation & persistence
 - Repository: API communication & caching
 - BLoC: State management
 - Widgets: Display only
 
 ✅ **Separation of Concerns**
+
 - Statistics logic: Backend (C#)
 - Data fetching: Repository (Dart)
 - State: BLoC (Dart)
 - UI: Widgets (Flutter)
 
 ✅ **Consistency**
+
 - All stats from single endpoint: `/stats`
 - All updates trigger stats refresh
 - Fallback to local calculation if offline
 
 ✅ **Performance**
-- Stats cached in BLoC (_lastStats)
+
+- Stats cached in BLoC (\_lastStats)
 - Only refresh when needed
 - Parallel API calls where possible
 
 ---
 
-### 9️⃣ **Summary**
+### 9️⃣ **Which Study Modes Save Statistics?**
+
+**ALL 3 MODES SAVE TO BACKEND! ✅**
+
+| Mode | Widget | Backend Call | Statistics Updated |
+|------|--------|--------------|-------------------|
+| **Çalış** (Study) | QuizWidget | ✅ PUT /api/.../review | ✅ ReviewCount, CorrectCount, Status |
+| **Pratik** (Practice) | PracticeWidget | ✅ PUT /api/.../review | ✅ ReviewCount, CorrectCount, Status |
+| **Kart** (Flashcards) | FlashcardWidget | ✅ PUT /api/.../review | ✅ ReviewCount, CorrectCount, Status |
+
+**Code Location:**
+```dart
+// vocabulary_repository_impl.dart (Line 656-661)
+Future<void> completeReviewSession(ReviewSession session) async {
+  for (final result in session.results) {
+    await markWordReviewed(word.id, result.isCorrect); ← ALL modes call this!
+  }
+}
+```
+
+**Flow:**
+1. User answers in ANY mode (Study/Practice/Flashcards)
+2. Widget calls `onAnswerSubmitted(isCorrect, time)`
+3. Study page stores result in session
+4. Session complete → Loop through ALL results
+5. Each result calls `markWordReviewed` → Backend updates
+6. Statistics refresh automatically
+
+**Result: All study modes contribute equally to learning statistics! 📊**
+
+---
+
+### 🔟 **Summary**
 
 **How Statistics Are Determined:**
+
 - ✅ Backend calculates from UserVocabulary table
 - ✅ Real-time aggregation (GroupBy, Count)
 - ✅ Accuracy = CorrectCount / ReviewCount
 - ✅ Progress = (known + mastered) / total
 
 **How Statistics Are Saved:**
+
 - ✅ Automatic on every review (ReviewAsync)
 - ✅ Immediate DB persistence
 - ✅ Audit trail in UserVocabularyReview table
 - ✅ Optimistic UI updates
 
 **How Statistics Are Displayed:**
+
 - ✅ VocabularyStatsHeader (list page)
 - ✅ VocabularyWordDetailPage (per word)
 - ✅ VocabularyWordCard (mini stats)
 - ✅ Auto-refresh after any action
 
 **Result: Clean, efficient, real-time statistics system! 📊**
-
