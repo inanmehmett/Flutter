@@ -61,7 +61,10 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
       word: e.word,
       meaning: e.meaningTr,
       personalNote: null,
+      description: e.description,
       exampleSentence: e.example,
+      synonyms: e.synonyms,
+      antonyms: e.antonyms,
       status: _mapProgress(e.progress),
       readingTextId: null,
       addedAt: e.addedAt,
@@ -95,6 +98,8 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
     final word = (e['word'] ?? '') as String;
     final meaning = (e['meaning'] ?? '') as String;
     final notes = e['notes'] as String?;
+    final description = e['description'] as String?;
+    final exampleSentence = e['exampleSentence'] as String?;
     final createdAt = DateTime.tryParse((e['createdAt'] ?? '') as String) ?? DateTime.now();
     final lastReviewedAt = DateTime.tryParse((e['lastReviewedAt'] ?? '') as String? ?? '');
     final nextReviewAt = DateTime.tryParse((e['nextReviewAt'] ?? '') as String? ?? '');
@@ -102,6 +107,11 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
     final correctCount = (e['correctCount'] as num?)?.toInt() ?? 0;
     final consecutive = (e['consecutiveCorrectCount'] as num?)?.toInt() ?? 0;
     final difficulty = (e['difficulty'] as num?)?.toDouble() ?? 0.5;
+    
+    // Parse synonyms and antonyms from backend
+    final synonymsList = (e['synonyms'] as List<dynamic>?)?.map((s) => s.toString()).toList() ?? <String>[];
+    final antonymsList = (e['antonyms'] as List<dynamic>?)?.map((a) => a.toString()).toList() ?? <String>[];
+    
     return _store.mergeWithPersisted(
       VocabularyWord(
         id: id,
@@ -116,7 +126,10 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
         nextReviewAt: nextReviewAt,
         difficultyLevel: difficulty,
         personalNote: (notes != null && notes.isNotEmpty) ? notes : null,
-        exampleSentence: null,
+        description: (description != null && description.isNotEmpty) ? description : null,
+        exampleSentence: (exampleSentence != null && exampleSentence.isNotEmpty) ? exampleSentence : null,
+        synonyms: synonymsList,
+        antonyms: antonymsList,
         readingTextId: null,
         recentActivities: const [],
       ),

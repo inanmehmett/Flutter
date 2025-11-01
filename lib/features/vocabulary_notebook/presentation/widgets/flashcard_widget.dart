@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import '../../domain/entities/vocabulary_word.dart';
 import '../../../../core/di/injection.dart';
+import '../../domain/services/tts_service.dart';
+import '../constants/study_constants.dart';
 
 class FlashcardWidget extends StatefulWidget {
   final VocabularyWord word;
@@ -34,25 +35,25 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
     _startTime = DateTime.now();
     
     _flipController = AnimationController(
-      duration: const Duration(milliseconds: 600),
+      duration: StudyConstants.cardFlipDuration,
       vsync: this,
     );
     _resultController = AnimationController(
-      duration: const Duration(milliseconds: 300),
+      duration: StudyConstants.resultAnimationDuration,
       vsync: this,
     );
 
     _flipAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
+      begin: StudyConstants.scaleAnimationBegin,
+      end: StudyConstants.scaleAnimationEnd,
     ).animate(CurvedAnimation(
       parent: _flipController,
       curve: Curves.easeInOut,
     ));
 
     _resultAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
+      begin: StudyConstants.scaleAnimationBegin,
+      end: StudyConstants.scaleAnimationEnd,
     ).animate(CurvedAnimation(
       parent: _resultController,
       curve: Curves.easeOutBack,
@@ -78,7 +79,7 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
     });
   }
 
-  void _submitAnswer(bool isCorrect) {
+  void _submitAnswer(bool isCorrect) async {
     if (_showAnswer) return;
 
     final responseTime = DateTime.now().difference(_startTime!).inMilliseconds;
@@ -88,58 +89,80 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
     });
 
     if (isCorrect) {
-      HapticFeedback.lightImpact();
+      HapticFeedback.mediumImpact();
     } else {
       HapticFeedback.heavyImpact();
     }
 
     _resultController.forward();
 
-    // Delay before submitting
-    Future.delayed(const Duration(milliseconds: 2000), () {
+    await Future.delayed(StudyConstants.flashcardResultDelay);
+    
+    if (mounted) {
       widget.onAnswerSubmitted(isCorrect, responseTime);
-    });
+    }
   }
 
-  void _speakWord() async {
+  Future<void> _speakWord() async {
     try {
-      final tts = getIt<FlutterTts>();
-      await tts.stop();
-      await tts.setLanguage('en-US');
-      await tts.speak(widget.word.word);
+      final ttsService = getIt<TtsService>();
+      final result = await ttsService.speak(widget.word.word);
+      
+      if (result.isFailure && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.errorMessage ?? StudyConstants.ttsErrorMessage),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     } catch (e) {
-      // Handle TTS error silently
+      debugPrint('TTS error: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Flashcard
-          Expanded(
-            flex: 4,
-            child: _buildFlashcard(context),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompactHeight = constraints.maxHeight < 500;
+        
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              // Flashcard
+              Flexible(
+                flex: isCompactHeight ? 3 : 4,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: constraints.maxHeight * 0.7,
+                  ),
+                  child: _buildFlashcard(context),
+                ),
+              ),
+
+              SizedBox(height: isCompactHeight ? 12 : 24),
+
+              // Action buttons
+              if (!_showAnswer) ...[
+                SizedBox(
+                  height: 60,
+                  child: _buildActionButtons(context),
+                ),
+              ] else ...[
+                SizedBox(
+                  height: 100,
+                  child: _buildResultButtons(context),
+                ),
+              ],
+            ],
           ),
-
-          const SizedBox(height: 24),
-
-          // Action buttons
-          if (!_showAnswer) ...[
-            Expanded(
-              flex: 1,
-              child: _buildActionButtons(context),
-            ),
-          ] else ...[
-            Expanded(
-              flex: 1,
-              child: _buildResultButtons(context),
-            ),
-          ],
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -150,8 +173,9 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
         animation: _flipAnimation,
         builder: (context, child) {
           final isShowingFront = _flipAnimation.value < 0.5;
-          final frontScale = isShowingFront ? 1.0 : 0.0;
-          final backScale = isShowingFront ? 0.0 : 1.0;
+          // Clamp values to ensure they stay within valid range [0.0, 1.0]
+          final frontScale = (isShowingFront ? 1.0 : 0.0).clamp(0.0, 1.0);
+          final backScale = (isShowingFront ? 0.0 : 1.0).clamp(0.0, 1.0);
 
           return Stack(
             children: [
@@ -221,14 +245,15 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
               ),
 
               // Back side
-              Transform.scale(
-                scale: backScale,
-                child: Opacity(
-                  opacity: backScale,
-                  child: _buildCardSide(
-                    context,
-                    isFront: false,
-                    child: Column(
+              if (!isShowingFront) // Only render when needed for performance
+                Transform.scale(
+                  scale: backScale,
+                  child: Opacity(
+                    opacity: backScale,
+                    child: _buildCardSide(
+                      context,
+                      isFront: false,
+                      child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         // Meaning

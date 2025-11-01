@@ -34,6 +34,8 @@ import '../../features/vocab/data/models/user_word.dart';
 import '../../features/vocab/data/datasources/user_word_local_data_source.dart';
 import '../../features/vocab/domain/services/vocab_learning_service.dart';
 import '../../features/vocabulary_notebook/data/repositories/vocabulary_repository_impl.dart';
+import '../../features/vocabulary_notebook/domain/services/tts_service.dart';
+import '../../features/vocabulary_notebook/domain/services/quiz_answer_generator.dart';
 
 final getIt = GetIt.instance;
 
@@ -155,5 +157,19 @@ Future<void> configureDependencies() async {
   // Register VocabularyRepository for Vocabulary Notebook feature
   if (!getIt.isRegistered<VocabularyRepositoryImpl>()) {
     getIt.registerLazySingleton<VocabularyRepositoryImpl>(() => VocabularyRepositoryImpl());
+  }
+
+  // Register TTS Service
+  if (!getIt.isRegistered<TtsService>()) {
+    final flutterTts = getIt<FlutterTts>();
+    getIt.registerLazySingleton<TtsService>(() => TtsService(flutterTts));
+  }
+
+  // Register Quiz Answer Generator
+  if (!getIt.isRegistered<QuizAnswerGenerator>()) {
+    final repository = getIt<VocabularyRepositoryImpl>();
+    getIt.registerLazySingleton<QuizAnswerGenerator>(
+      () => QuizAnswerGenerator(repository),
+    );
   }
 }

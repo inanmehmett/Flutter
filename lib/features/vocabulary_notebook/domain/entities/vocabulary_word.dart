@@ -41,7 +41,10 @@ class VocabularyWord extends Equatable {
   final String word;
   final String meaning;
   final String? personalNote;
+  final String? description; // Tanım/açıklama
   final String? exampleSentence;
+  final List<String> synonyms; // Eş anlamlılar
+  final List<String> antonyms; // Zıt anlamlılar
   final VocabularyStatus status;
   final int? readingTextId;
   final DateTime addedAt;
@@ -58,7 +61,10 @@ class VocabularyWord extends Equatable {
     required this.word,
     required this.meaning,
     this.personalNote,
+    this.description,
     this.exampleSentence,
+    this.synonyms = const [],
+    this.antonyms = const [],
     required this.status,
     this.readingTextId,
     required this.addedAt,
@@ -112,7 +118,10 @@ class VocabularyWord extends Equatable {
     String? word,
     String? meaning,
     String? personalNote,
+    String? description,
     String? exampleSentence,
+    List<String>? synonyms,
+    List<String>? antonyms,
     VocabularyStatus? status,
     int? readingTextId,
     DateTime? addedAt,
@@ -129,7 +138,10 @@ class VocabularyWord extends Equatable {
       word: word ?? this.word,
       meaning: meaning ?? this.meaning,
       personalNote: personalNote ?? this.personalNote,
+      description: description ?? this.description,
       exampleSentence: exampleSentence ?? this.exampleSentence,
+      synonyms: synonyms ?? this.synonyms,
+      antonyms: antonyms ?? this.antonyms,
       status: status ?? this.status,
       readingTextId: readingTextId ?? this.readingTextId,
       addedAt: addedAt ?? this.addedAt,
@@ -149,7 +161,10 @@ class VocabularyWord extends Equatable {
         word,
         meaning,
         personalNote,
+        description,
         exampleSentence,
+        synonyms,
+        antonyms,
         status,
         readingTextId,
         addedAt,

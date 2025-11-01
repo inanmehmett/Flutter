@@ -302,6 +302,76 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
             ),
           ),
 
+          // Sözlük Bilgisi (Açıklama, Eş/Zıt Anlamlılar)
+          if ((word.description != null && word.description!.isNotEmpty) ||
+              (word.synonyms.isNotEmpty) ||
+              (word.antonyms.isNotEmpty)) ...[
+            const SizedBox(height: 16),
+            _glassCard(
+              context,
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.menu_book_rounded,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Sözlük Bilgisi',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 18,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (word.description != null && word.description!.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      word.description!,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5),
+                    ),
+                  ],
+                  if (word.synonyms.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      'Eş Anlamlılar',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: word.synonyms
+                          .map((s) => _pill(context, label: s))
+                          .toList(),
+                    ),
+                  ],
+                  if (word.antonyms.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      'Zıt Anlamlılar',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: word.antonyms
+                          .map((a) => _pill(context, label: a, subtle: true))
+                          .toList(),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+
           // SRS İstatistikleri
           const SizedBox(height: 16),
           _glassCard(
@@ -328,74 +398,66 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                // Review Count
-                _buildStatRow(
-                  context,
-                  'Toplam Tekrar',
-                  '${word.reviewCount}',
-                  Icons.repeat_rounded,
-                  Colors.blue,
-                ),
-                const SizedBox(height: 12),
-                // Correct Count
-                _buildStatRow(
-                  context,
-                  'Doğru Cevap',
-                  '${word.correctCount}',
-                  Icons.check_circle_rounded,
-                  Colors.green,
-                ),
-                const SizedBox(height: 12),
-                // Accuracy Rate
-                _buildStatRow(
-                  context,
-                  'Başarı Oranı',
-                  '${(word.accuracyRate * 100).toStringAsFixed(1)}%',
-                  Icons.trending_up_rounded,
-                  Colors.orange,
-                ),
-                const SizedBox(height: 12),
-                // Consecutive Correct Count
-                _buildStatRow(
-                  context,
-                  'Ardışık Doğru',
-                  '${word.consecutiveCorrectCount}',
-                  Icons.stars_rounded,
-                  Colors.purple,
-                ),
-                const SizedBox(height: 12),
-                // Difficulty Level
-                _buildStatRow(
-                  context,
-                  'Zorluk Seviyesi',
-                  '${(word.difficultyLevel * 100).toStringAsFixed(0)}%',
-                  Icons.speed_rounded,
-                  Colors.red,
-                ),
-                const SizedBox(height: 16),
-                const Divider(),
-                const SizedBox(height: 16),
-                // Last Reviewed At
-                _buildStatRow(
-                  context,
-                  'Son Tekrar',
-                  word.lastReviewedAt != null
-                      ? '${_formatDate(word.lastReviewedAt)} (${word.lastReviewedAt!.day}/${word.lastReviewedAt!.month}/${word.lastReviewedAt!.year})'
-                      : 'Henüz yapılmadı',
-                  Icons.schedule_rounded,
-                  Colors.teal,
-                ),
-                const SizedBox(height: 12),
-                // Next Review At
-                _buildStatRow(
-                  context,
-                  'Sonraki Tekrar',
-                  word.nextReviewAt != null
-                      ? '${_formatDate(word.nextReviewAt)} (${_formatDuration(word.timeUntilNextReview)})'
-                      : 'Hemen',
-                  Icons.calendar_today_rounded,
-                  word.needsReview ? Colors.orange : Colors.blue,
-                ),
+                
+                // Yeni kelime - henüz çalışılmadıysa özel UI göster
+                if (word.reviewCount == 0) ...[
+                  _buildNewWordPrompt(context),
+                ] else ...[
+                  // İstatistik verileri
+                  _buildStatRow(
+                    context,
+                    'Toplam Tekrar',
+                    '${word.reviewCount}',
+                    Icons.repeat_rounded,
+                    Colors.blue,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildStatRow(
+                    context,
+                    'Doğru Cevap',
+                    '${word.correctCount}',
+                    Icons.check_circle_rounded,
+                    Colors.green,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildStatRow(
+                    context,
+                    'Başarı Oranı',
+                    '${(word.accuracyRate * 100).toStringAsFixed(1)}%',
+                    Icons.trending_up_rounded,
+                    Colors.orange,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildStatRow(
+                    context,
+                    'Ardışık Doğru',
+                    '${word.consecutiveCorrectCount}',
+                    Icons.stars_rounded,
+                    Colors.purple,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildStatRow(
+                    context,
+                    'Zorluk Seviyesi',
+                    _getDifficultyLabel(word.difficultyLevel),
+                    Icons.speed_rounded,
+                    _getDifficultyColor(word.difficultyLevel),
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const SizedBox(height: 16),
+                  _buildStatRow(
+                    context,
+                    'Son Tekrar',
+                    word.lastReviewedAt != null
+                        ? _formatDateTime(word.lastReviewedAt!)
+                        : 'Henüz yapılmadı',
+                    Icons.schedule_rounded,
+                    Colors.teal,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildNextReviewInfo(context, word),
+                ],
               ],
             ),
           ),
@@ -435,6 +497,155 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
     );
   }
 
+  Widget _buildNewWordPrompt(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Theme.of(context).colorScheme.primary.withOpacity(0.1),
+            Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.rocket_launch_rounded,
+            size: 48,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Yeni Kelime!',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Bu kelimeyi henüz çalışmadınız.\nÇalışmaya başlamak için Kelime Defterim sayfasındaki çalışma bölümüne gidin.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              height: 1.5,
+              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+            ),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: () {
+              // Kelime Defteri çalışma sayfasına yönlendir
+              Navigator.pop(context);
+            },
+            icon: const Icon(Icons.school_rounded),
+            label: const Text('Çalışmaya Başla'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNextReviewInfo(BuildContext context, VocabularyWord word) {
+    final isOverdue = word.isOverdue;
+    final isDue = word.needsReview;
+    final color = isOverdue ? Colors.red : (isDue ? Colors.orange : Colors.blue);
+    final icon = isOverdue ? Icons.warning_rounded : (isDue ? Icons.notification_important_rounded : Icons.calendar_today_rounded);
+    
+    String message;
+    if (word.nextReviewAt == null) {
+      message = 'Hemen çalışılabilir';
+    } else if (isOverdue) {
+      message = 'Gecikmiş! ${_formatDateTime(word.nextReviewAt!)}';
+    } else if (isDue) {
+      message = 'Çalışma zamanı! ${_formatDateTime(word.nextReviewAt!)}';
+    } else {
+      message = '${_formatDateTime(word.nextReviewAt!)} (${_formatDuration(word.timeUntilNextReview)})';
+    }
+    
+    return Column(
+      children: [
+        _buildStatRow(
+          context,
+          'Sonraki Tekrar',
+          message,
+          icon,
+          color,
+        ),
+        if (isDue || isOverdue) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: color.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline_rounded, size: 18, color: color),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    isOverdue 
+                        ? 'Bu kelime tekrarı geçmiş! En kısa sürede çalışmanız önerilir.'
+                        : 'Bu kelime bugün çalışılmaya hazır.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: color,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  String _getDifficultyLabel(double difficulty) {
+    if (difficulty < 0.3) return 'Kolay';
+    if (difficulty < 0.7) return 'Orta';
+    return 'Zor';
+  }
+
+  Color _getDifficultyColor(double difficulty) {
+    if (difficulty < 0.3) return Colors.green;
+    if (difficulty < 0.7) return Colors.orange;
+    return Colors.red;
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+    
+    if (difference.inDays == 0) {
+      if (difference.inHours == 0) {
+        return '${difference.inMinutes} dk önce';
+      }
+      return '${difference.inHours} saat önce';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} gün önce';
+    } else {
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    }
+  }
+
   Widget _buildStatRow(
     BuildContext context,
     String label,
@@ -459,11 +670,14 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         ),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: color,
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
           ),
         ),
       ],
@@ -472,21 +686,23 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
 
   Widget _buildStatusCard(BuildContext context, VocabularyWord word) {
     final statusData = {
-      VocabularyStatus.new_: {'label': 'Yeni', 'icon': Icons.fiber_new, 'color': Colors.blue, 'description': 'Henüz öğrenilmeye başlanmadı'},
-      VocabularyStatus.learning: {'label': 'Öğreniliyor', 'icon': Icons.school, 'color': Colors.orange, 'description': 'Aktif olarak öğreniliyor'},
-      VocabularyStatus.known: {'label': 'Biliyorum', 'icon': Icons.check_circle, 'color': Colors.green, 'description': 'Başarıyla öğrenildi'},
-      VocabularyStatus.mastered: {'label': 'Uzman', 'icon': Icons.star, 'color': Colors.purple, 'description': 'Mükemmel seviyede'},
+      VocabularyStatus.new_: {'label': 'Yeni', 'icon': Icons.fiber_new, 'color': Colors.blue, 'description': 'Henüz öğrenilmeye başlanmadı', 'progress': 0.0},
+      VocabularyStatus.learning: {'label': 'Öğreniliyor', 'icon': Icons.school, 'color': Colors.orange, 'description': 'Aktif olarak öğreniliyor', 'progress': 0.33},
+      VocabularyStatus.known: {'label': 'Biliyorum', 'icon': Icons.check_circle, 'color': Colors.green, 'description': 'Başarıyla öğrenildi', 'progress': 0.66},
+      VocabularyStatus.mastered: {'label': 'Uzman', 'icon': Icons.star, 'color': Colors.purple, 'description': 'Mükemmel seviyede', 'progress': 1.0},
     };
 
     final currentData = statusData[word.status]!;
+    final color = currentData['color'] as Color;
+    final progress = currentData['progress'] as double;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: (currentData['color'] as Color).withOpacity(0.1),
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: (currentData['color'] as Color).withOpacity(0.3),
+          color: color.withOpacity(0.3),
           width: 1,
         ),
       ),
@@ -498,13 +714,13 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
                 width: 50,
                 height: 50,
                 decoration: BoxDecoration(
-                  color: (currentData['color'] as Color).withOpacity(0.2),
+                  color: color.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(25),
                 ),
                 child: Icon(
                   currentData['icon'] as IconData,
                   size: 24,
-                  color: currentData['color'] as Color,
+                  color: color,
                 ),
               ),
               const SizedBox(width: 16),
@@ -517,7 +733,7 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: currentData['color'] as Color,
+                        color: color,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -533,7 +749,100 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          // Progress indicator
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Öğrenme İlerlemesi',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                    ),
+                  ),
+                  Text(
+                    '${(progress * 100).toInt()}%',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: color,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 8,
+                  backgroundColor: color.withOpacity(0.2),
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Status progression
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildProgressStep('Yeni', VocabularyStatus.new_, word.status, Colors.blue),
+                  _buildProgressArrow(),
+                  _buildProgressStep('Öğreniyorum', VocabularyStatus.learning, word.status, Colors.orange),
+                  _buildProgressArrow(),
+                  _buildProgressStep('Biliyorum', VocabularyStatus.known, word.status, Colors.green),
+                  _buildProgressArrow(),
+                  _buildProgressStep('Uzman', VocabularyStatus.mastered, word.status, Colors.purple),
+                ],
+              ),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildProgressStep(String label, VocabularyStatus targetStatus, VocabularyStatus currentStatus, Color color) {
+    final isActive = currentStatus.index >= targetStatus.index;
+    return Expanded(
+      child: Column(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: isActive ? color : color.withOpacity(0.3),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              color: isActive ? color : color.withOpacity(0.5),
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressArrow() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Icon(
+        Icons.arrow_forward_rounded,
+        size: 12,
+        color: Colors.grey.withOpacity(0.5),
       ),
     );
   }

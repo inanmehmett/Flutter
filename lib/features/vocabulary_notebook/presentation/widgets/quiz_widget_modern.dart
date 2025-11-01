@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../domain/entities/vocabulary_word.dart';
 import '../../../../core/di/injection.dart';
+import '../../domain/entities/vocabulary_word.dart';
 import '../../domain/services/tts_service.dart';
 import '../../domain/services/quiz_answer_generator.dart';
 import '../constants/study_constants.dart';
 
-class QuizWidget extends StatefulWidget {
+/// Modern quiz widget with enhanced micro-interactions and smooth animations
+class QuizWidgetModern extends StatefulWidget {
   final VocabularyWord word;
   final Function(bool isCorrect, int responseTimeMs) onAnswerSubmitted;
   final bool practiceMode;
 
-  const QuizWidget({
+  const QuizWidgetModern({
     super.key,
     required this.word,
     required this.onAnswerSubmitted,
@@ -19,10 +20,10 @@ class QuizWidget extends StatefulWidget {
   });
 
   @override
-  State<QuizWidget> createState() => _QuizWidgetState();
+  State<QuizWidgetModern> createState() => _QuizWidgetModernState();
 }
 
-class _QuizWidgetState extends State<QuizWidget>
+class _QuizWidgetModernState extends State<QuizWidgetModern>
     with TickerProviderStateMixin {
   String? _selectedAnswer;
   bool _showResult = false;
@@ -58,7 +59,7 @@ class _QuizWidgetState extends State<QuizWidget>
     );
     
     _successController = AnimationController(
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 800),
       vsync: this,
     );
 
@@ -104,13 +105,13 @@ class _QuizWidgetState extends State<QuizWidget>
     } catch (e) {
       if (!mounted) return;
       
-      // Fallback: Generate simple options
+      // Fallback to simple options if generation fails
       setState(() {
         _quizOptions = [
           QuizAnswer(text: widget.word.meaning, isCorrect: true),
-          QuizAnswer(text: 'Seçenek A', isCorrect: false),
-          QuizAnswer(text: 'Seçenek B', isCorrect: false),
-          QuizAnswer(text: 'Seçenek C', isCorrect: false),
+          QuizAnswer(text: 'Option A', isCorrect: false),
+          QuizAnswer(text: 'Option B', isCorrect: false),
+          QuizAnswer(text: 'Option C', isCorrect: false),
         ]..shuffle();
         _isLoadingOptions = false;
       });
@@ -136,10 +137,11 @@ class _QuizWidgetState extends State<QuizWidget>
   }
 
   void _submitAnswer() async {
-    if (_selectedAnswer == null || _showResult || _quizOptions == null) return;
+    if (_selectedAnswer == null || _showResult) return;
 
-    final selectedOption = _quizOptions!.firstWhere((opt) => opt.text == _selectedAnswer);
-    final isCorrect = selectedOption.isCorrect;
+    final isCorrect = _quizOptions!
+        .firstWhere((opt) => opt.text == _selectedAnswer)
+        .isCorrect;
     final responseTime = DateTime.now().difference(_startTime!).inMilliseconds;
 
     setState(() {
@@ -175,11 +177,11 @@ class _QuizWidgetState extends State<QuizWidget>
             behavior: SnackBarBehavior.floating,
             margin: const EdgeInsets.all(16),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            duration: const Duration(seconds: 2),
           ),
         );
       }
     } catch (e) {
+      // Fallback: silent fail but log for debugging
       debugPrint('TTS error: $e');
     }
   }
@@ -187,29 +189,8 @@ class _QuizWidgetState extends State<QuizWidget>
   @override
   Widget build(BuildContext context) {
     if (_isLoadingOptions) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 50,
-              height: 50,
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Sorular hazırlanıyor...',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
-              ),
-            ),
-          ],
-        ),
+      return const Center(
+        child: CircularProgressIndicator(),
       );
     }
 
@@ -226,7 +207,7 @@ class _QuizWidgetState extends State<QuizWidget>
             child: IntrinsicHeight(
               child: Column(
                 children: [
-                  // Word card
+                  // Modern word card
                   Flexible(
                     flex: isCompactHeight ? 2 : 3,
                     child: _buildModernWordCard(context),
@@ -295,12 +276,12 @@ class _QuizWidgetState extends State<QuizWidget>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Word with animation
+                // Word display
                 AnimatedBuilder(
                   animation: _successAnimation,
                   builder: (context, child) {
                     return Transform.scale(
-                      scale: 1.0 + (0.08 * _successAnimation.value),
+                      scale: 1.0 + (0.1 * _successAnimation.value),
                       child: Text(
                         widget.word.word,
                         style: TextStyle(
@@ -319,7 +300,7 @@ class _QuizWidgetState extends State<QuizWidget>
 
                 const SizedBox(height: 20),
 
-                // Modern speak button
+                // Speak button with glassmorphic design
                 GestureDetector(
                   onTap: _speakWord,
                   child: Container(
@@ -345,7 +326,7 @@ class _QuizWidgetState extends State<QuizWidget>
                   ),
                 ),
 
-                // Example sentence
+                // Example sentence with fade-in
                 if (widget.word.exampleSentence != null) ...[
                   const SizedBox(height: 20),
                   Container(
@@ -441,17 +422,17 @@ class _QuizWidgetState extends State<QuizWidget>
         final showWrong = _showResult && isSelected && !isCorrectAnswer;
 
         return TweenAnimationBuilder<double>(
-          duration: Duration(milliseconds: 300 + (index * 80)),
+          duration: Duration(milliseconds: 300 + (index * 100)),
           tween: Tween(begin: 0, end: 1),
           curve: Curves.easeOutCubic,
           builder: (context, animValue, child) {
             return Opacity(
-              opacity: animValue.clamp(0.0, 1.0),
+              opacity: animValue,
               child: Transform.translate(
                 offset: Offset(30 * (1 - animValue), 0),
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 12),
-                  child: _buildModernAnswerOption(
+                  child: _buildAnswerOption(
                     context,
                     answer,
                     isSelected,
@@ -467,7 +448,7 @@ class _QuizWidgetState extends State<QuizWidget>
     );
   }
 
-  Widget _buildModernAnswerOption(
+  Widget _buildAnswerOption(
     BuildContext context,
     String answer,
     bool isSelected,
@@ -493,7 +474,7 @@ class _QuizWidgetState extends State<QuizWidget>
     return AnimatedBuilder(
       animation: _resultAnimation,
       builder: (context, child) {
-        final scale = showCorrect ? (1.0 + (0.04 * _resultAnimation.value.clamp(0.0, 1.0))) : 1.0;
+        final scale = showCorrect ? (1.0 + (0.05 * _resultAnimation.value.clamp(0.0, 1.0))) : 1.0;
         
         return Transform.scale(
           scale: scale,
@@ -529,7 +510,7 @@ class _QuizWidgetState extends State<QuizWidget>
               ),
               child: Row(
                 children: [
-                  // Modern radio icon
+                  // Radio icon
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     width: 26,
@@ -574,18 +555,19 @@ class _QuizWidgetState extends State<QuizWidget>
                       style: TextStyle(
                         fontSize: StudyConstants.answerOptionFontSize,
                         fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                        color: showCorrect || showWrong
+                            ? Theme.of(context).textTheme.bodyLarge?.color
+                            : Theme.of(context).textTheme.bodyLarge?.color,
                       ),
                     ),
                   ),
-                  // Success checkmark
+                  // Success checkmark animation
                   if (showCorrect) ...[
                     AnimatedBuilder(
                       animation: _successAnimation,
                       builder: (context, child) {
-                        final clampedSuccessValue = _successAnimation.value.clamp(0.0, 1.0);
                         return Transform.scale(
-                          scale: clampedSuccessValue,
+                          scale: _successAnimation.value,
                           child: Icon(
                             Icons.verified_rounded,
                             color: Colors.green.shade600,
@@ -620,7 +602,7 @@ class _QuizWidgetState extends State<QuizWidget>
           ),
           disabledBackgroundColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
           disabledForegroundColor: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.4),
-          elevation: canSubmit ? 4 : 0,
+          elevation: canSubmit ? 8 : 0,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,

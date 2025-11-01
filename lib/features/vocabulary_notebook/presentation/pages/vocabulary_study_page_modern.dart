@@ -13,14 +13,14 @@ import '../widgets/flashcard_widget.dart';
 import '../constants/study_constants.dart';
 
 /// Modern, beautiful study page with glassmorphism and micro-interactions
-class VocabularyStudyPage extends StatefulWidget {
-  const VocabularyStudyPage({super.key});
+class VocabularyStudyPageModern extends StatefulWidget {
+  const VocabularyStudyPageModern({super.key});
 
   @override
-  State<VocabularyStudyPage> createState() => _VocabularyStudyPageState();
+  State<VocabularyStudyPageModern> createState() => _VocabularyStudyPageModernState();
 }
 
-class _VocabularyStudyPageState extends State<VocabularyStudyPage>
+class _VocabularyStudyPageModernState extends State<VocabularyStudyPageModern>
     with TickerProviderStateMixin {
   StudyMode _currentMode = StudyMode.review;
   ReviewSession? _currentSession;
@@ -145,53 +145,47 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
 
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
-    final clampedScale = math.min(mq.textScaleFactor, 1.2);
-    
-    return MediaQuery(
-      data: mq.copyWith(textScaleFactor: clampedScale),
-      child: Scaffold(
-        extendBodyBehindAppBar: true,
-        appBar: _buildModernAppBar(context),
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Theme.of(context).colorScheme.primary.withOpacity(0.03),
-                Theme.of(context).colorScheme.background,
-                Theme.of(context).colorScheme.background,
-              ],
-            ),
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: _buildModernAppBar(context),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Theme.of(context).colorScheme.primary.withOpacity(0.03),
+              Theme.of(context).colorScheme.background,
+              Theme.of(context).colorScheme.background,
+            ],
           ),
-          child: BlocConsumer<VocabularyBloc, VocabularyState>(
-            listener: (context, state) {
-              if (state is ReviewSessionLoaded) {
-                setState(() {
-                  _currentSession = state.session;
-                });
-                _cardController.forward();
-              }
-            },
-            builder: (context, state) {
-              if (state is VocabularyLoading) {
-                return _buildModernLoading(context);
-              }
+        ),
+        child: BlocConsumer<VocabularyBloc, VocabularyState>(
+          listener: (context, state) {
+            if (state is ReviewSessionLoaded) {
+              setState(() {
+                _currentSession = state.session;
+              });
+              _cardController.forward();
+            }
+          },
+          builder: (context, state) {
+            if (state is VocabularyLoading) {
+              return _buildModernLoading(context);
+            }
 
-              if (state is VocabularyError) {
-                return _buildModernError(context, state.message);
-              }
+            if (state is VocabularyError) {
+              return _buildModernError(context, state.message);
+            }
 
-              if (_currentSession == null || _currentSession!.words.isEmpty) {
-                return _buildModernEmptyState(context);
-              }
+            if (_currentSession == null || _currentSession!.words.isEmpty) {
+              return _buildModernEmptyState(context);
+            }
 
-              return _sessionCompleted
-                  ? _buildModernSessionComplete(context)
-                  : _buildModernStudyContent(context);
-            },
-          ),
+            return _sessionCompleted
+                ? _buildModernSessionComplete(context)
+                : _buildModernStudyContent(context);
+          },
         ),
       ),
     );
@@ -215,7 +209,7 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
               ),
             ],
           ),
-          child: const Icon(Icons.close_rounded, size: 20),
+          child: const Icon(Icons.close, size: 20),
         ),
         onPressed: () => Navigator.pop(context),
       ),
@@ -235,7 +229,7 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                   ),
                 ],
               ),
-              child: const Icon(Icons.refresh_rounded, size: 20),
+              child: const Icon(Icons.refresh, size: 20),
             ),
             onPressed: _restartSession,
           ),
@@ -253,8 +247,8 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
             alignment: Alignment.center,
             children: [
               Container(
-                width: 100,
-                height: 100,
+                width: 80,
+                height: 80,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
@@ -266,10 +260,10 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                 ),
               ),
               SizedBox(
-                width: 70,
-                height: 70,
+                width: 60,
+                height: 60,
                 child: CircularProgressIndicator(
-                  strokeWidth: 4,
+                  strokeWidth: 3,
                   valueColor: AlwaysStoppedAnimation<Color>(
                     Theme.of(context).colorScheme.primary,
                   ),
@@ -277,18 +271,11 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
               ),
             ],
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
           Text(
             'Oturum hazırlanıyor...',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Kelimeleriniz yükleniyor',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
             ),
           ),
         ],
@@ -304,45 +291,39 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(28),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: Colors.red.withOpacity(0.1),
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.red.withOpacity(0.3),
-                  width: 2,
-                ),
               ),
               child: Icon(
                 Icons.error_outline_rounded,
-                size: 72,
+                size: 64,
                 color: Colors.red.shade400,
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
             Text(
               'Bir şeyler ters gitti',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 12),
             Text(
               message,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
-                height: 1.5,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 36),
-            FilledButton.icon(
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
               onPressed: _loadStudySession,
               icon: const Icon(Icons.refresh_rounded),
               label: const Text(StudyConstants.tryAgainLabel),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 18),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(StudyConstants.buttonBorderRadius),
                 ),
@@ -361,50 +342,33 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Modern empty state illustration with particle effect
-            TweenAnimationBuilder<double>(
-              duration: const Duration(milliseconds: 1200),
-              tween: Tween(begin: 0, end: 1),
-              curve: Curves.elasticOut,
-              builder: (context, value, child) {
-                return Transform.scale(
-                  scale: value,
-                  child: Container(
-                    width: 180,
-                    height: 180,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Theme.of(context).colorScheme.primary.withOpacity(0.15),
-                          Theme.of(context).colorScheme.secondary.withOpacity(0.15),
-                        ],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
-                          blurRadius: 40,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      Icons.celebration_outlined,
-                      size: 90,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                );
-              },
+            // Modern empty state illustration
+            Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+                  ],
+                ),
+              ),
+              child: Icon(
+                Icons.celebration_outlined,
+                size: 80,
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.6),
+              ),
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 32),
             Text(
               'Harika İş!',
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                fontWeight: FontWeight.w900,
-                letterSpacing: -1.0,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
               ),
             ),
             const SizedBox(height: 12),
@@ -412,17 +376,17 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
               'Bugün için çalışacak kelime kalmadı.\nYeni kelimeler ekleyin veya yarın tekrar gelin.',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
-                height: 1.6,
+                height: 1.5,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 32),
             FilledButton.icon(
               onPressed: () => Navigator.pop(context),
               icon: const Icon(Icons.arrow_back_rounded),
               label: const Text(StudyConstants.goBackLabel),
               style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 18),
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(StudyConstants.buttonBorderRadius),
                 ),
@@ -441,10 +405,10 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
     return SafeArea(
       child: Column(
         children: [
-          // Modern Header with glassmorphism
+          // Modern Header
           SlideTransition(
             position: _headerSlideAnimation,
-            child: _buildGlassmorphicHeader(context, progress),
+            child: _buildModernHeader(context, progress),
           ),
 
           // Study Mode Selector
@@ -455,7 +419,7 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
 
           const SizedBox(height: 16),
 
-          // Study content with smooth animation
+          // Study content with animation
           Expanded(
             child: AnimatedBuilder(
               animation: _cardAnimation,
@@ -476,10 +440,9 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
     );
   }
 
-  Widget _buildGlassmorphicHeader(BuildContext context, double progress) {
+  Widget _buildModernHeader(BuildContext context, double progress) {
     final currentIndex = _currentWordIndex + 1;
     final totalWords = _currentSession!.totalWords;
-    final estimatedMinutes = (totalWords * 15 / 60).round().clamp(1, 60);
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -490,34 +453,33 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
           end: Alignment.bottomRight,
           colors: [
             Theme.of(context).colorScheme.primary,
-            Theme.of(context).colorScheme.primary.withBlue(220).withGreen(180),
+            Theme.of(context).colorScheme.primary.withBlue(200),
           ],
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
             color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
-            spreadRadius: 0,
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Column(
         children: [
-          // Title row with icon and stats
+          // Title and progress
           Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.25),
-                  borderRadius: BorderRadius.circular(14),
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
                   Icons.school_rounded,
                   color: Colors.white,
-                  size: 26,
+                  size: 24,
                 ),
               ),
               const SizedBox(width: 16),
@@ -526,40 +488,28 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Çalışma Oturumu',
-                      style: const TextStyle(
+                      'Çalışma Modu',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: Colors.white,
-                        fontSize: 20,
                         fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
+                        letterSpacing: -0.3,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.timer_outlined,
-                          size: 16,
-                          color: Colors.white.withOpacity(0.85),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '$totalWords kelime · ~$estimatedMinutes dk',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.85),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      '$currentIndex / $totalWords kelime',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withOpacity(0.9),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
               ),
-              // Circular progress indicator
+              // Circular progress
               SizedBox(
-                width: 60,
-                height: 60,
+                width: 56,
+                height: 56,
                 child: Stack(
                   children: [
                     // Background circle
@@ -569,15 +519,14 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                         color: Colors.white.withOpacity(0.2),
                       ),
                     ),
-                    // Animated progress circle
+                    // Progress circle
                     TweenAnimationBuilder<double>(
-                      duration: const Duration(milliseconds: 600),
+                      duration: const Duration(milliseconds: 500),
                       tween: Tween(begin: 0, end: progress),
-                      curve: Curves.easeOutCubic,
                       builder: (context, value, child) {
                         return CircularProgressIndicator(
                           value: value,
-                          strokeWidth: 5,
+                          strokeWidth: 4,
                           backgroundColor: Colors.transparent,
                           valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                         );
@@ -589,8 +538,8 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                         '${(progress * 100).toInt()}%',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
@@ -600,79 +549,24 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
             ],
           ),
           
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           
-          // Linear progress bar with gradient
-          Stack(
-            children: [
-              // Background
-              Container(
-                height: 12,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.25),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              // Animated progress
-              TweenAnimationBuilder<double>(
-                duration: const Duration(milliseconds: 600),
-                tween: Tween(begin: 0, end: progress),
-                curve: Curves.easeOutCubic,
-                builder: (context, value, child) {
-                  return FractionallySizedBox(
-                    widthFactor: value,
-                    child: Container(
-                      height: 12,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Colors.white, Colors.white70],
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.white.withOpacity(0.5),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 10),
-          
-          // Word counter
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Kelime ${currentIndex}',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.85),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.25),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '$currentIndex / $totalWords',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
+          // Linear progress bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: TweenAnimationBuilder<double>(
+              duration: const Duration(milliseconds: 600),
+              tween: Tween(begin: 0, end: progress),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, child) {
+                return LinearProgressIndicator(
+                  value: value,
+                  minHeight: 10,
+                  backgroundColor: Colors.white.withOpacity(0.2),
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -681,79 +575,64 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
 
   Widget _buildModernModeSelector(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(5),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Row(
         children: [
-          _buildModeChip(context, StudyMode.review, Icons.repeat_rounded, 'Tekrar'),
-          _buildModeChip(context, StudyMode.quiz, Icons.quiz_rounded, 'Quiz'),
-          _buildModeChip(context, StudyMode.flashcards, Icons.style_rounded, 'Flash'),
-          _buildModeChip(context, StudyMode.practice, Icons.fitness_center_rounded, 'Pratik'),
+          _buildModeButton(context, StudyMode.review, Icons.repeat_rounded, 'Tekrar'),
+          _buildModeButton(context, StudyMode.quiz, Icons.quiz_rounded, 'Quiz'),
+          _buildModeButton(context, StudyMode.flashcards, Icons.flip_rounded, 'Flash'),
+          _buildModeButton(context, StudyMode.practice, Icons.fitness_center_rounded, 'Pratik'),
         ],
       ),
     );
   }
 
-  Widget _buildModeChip(BuildContext context, StudyMode mode, IconData icon, String label) {
+  Widget _buildModeButton(BuildContext context, StudyMode mode, IconData icon, String label) {
     final isSelected = _currentMode == mode;
     
     return Expanded(
       child: GestureDetector(
         onTap: () => _onModeChanged(mode),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
+          duration: const Duration(milliseconds: 200),
           curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            gradient: isSelected
-                ? LinearGradient(
-                    colors: [
-                      Theme.of(context).colorScheme.primary,
-                      Theme.of(context).colorScheme.primary.withBlue(200),
-                    ],
-                  )
-                : null,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.4),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : null,
+            color: isSelected
+                ? Theme.of(context).colorScheme.primary
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 icon,
-                size: 24,
+                size: 22,
                 color: isSelected
                     ? Colors.white
-                    : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+                    : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                  letterSpacing: 0.3,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
                   color: isSelected
                       ? Colors.white
-                      : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+                      : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                 ),
               ),
             ],
@@ -792,7 +671,6 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
     final duration = stats.duration;
     final isExcellent = accuracy >= 0.9;
     final isGood = accuracy >= 0.7;
-    final isPerfect = accuracy == 1.0;
 
     return Center(
       child: SingleChildScrollView(
@@ -800,75 +678,50 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Animated success icon with particle effect
+            // Success animation
             TweenAnimationBuilder<double>(
-              duration: const Duration(milliseconds: 1000),
+              duration: const Duration(milliseconds: 800),
               tween: Tween(begin: 0, end: 1),
               curve: Curves.elasticOut,
               builder: (context, value, child) {
                 return Transform.scale(
                   scale: value,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // Glow effect
-                      Container(
-                        width: 180,
-                        height: 180,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            colors: [
-                              (isExcellent ? Colors.amber : (isGood ? Colors.green : Colors.blue))
-                                  .withOpacity(0.3),
-                              Colors.transparent,
-                            ],
-                          ),
-                        ),
+                  child: Container(
+                    width: 140,
+                    height: 140,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: isExcellent
+                            ? [Colors.amber, Colors.orange]
+                            : isGood
+                                ? [Colors.green, Colors.teal]
+                                : [Colors.blue, Colors.indigo],
                       ),
-                      // Main icon
-                      Container(
-                        width: 150,
-                        height: 150,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: isPerfect
-                                ? [Colors.amber.shade400, Colors.deepOrange.shade400]
-                                : isExcellent
-                                    ? [Colors.green.shade400, Colors.teal.shade400]
-                                    : isGood
-                                        ? [Colors.blue.shade400, Colors.indigo.shade400]
-                                        : [Colors.purple.shade400, Colors.pink.shade400],
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: (isPerfect ? Colors.amber : (isExcellent ? Colors.green : (isGood ? Colors.blue : Colors.purple)))
-                                  .withOpacity(0.5),
-                              blurRadius: 30,
-                              offset: const Offset(0, 12),
-                            ),
-                          ],
+                      boxShadow: [
+                        BoxShadow(
+                          color: (isExcellent ? Colors.amber : (isGood ? Colors.green : Colors.blue))
+                              .withOpacity(0.4),
+                          blurRadius: 30,
+                          offset: const Offset(0, 10),
                         ),
-                        child: Icon(
-                          isPerfect ? Icons.stars_rounded : (isExcellent ? Icons.emoji_events_rounded : Icons.check_circle_rounded),
-                          size: 75,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
+                    child: Icon(
+                      isExcellent ? Icons.emoji_events_rounded : Icons.check_circle_rounded,
+                      size: 70,
+                      color: Colors.white,
+                    ),
                   ),
                 );
               },
             ),
 
-            const SizedBox(height: 36),
+            const SizedBox(height: 32),
 
-            // Animated title
+            // Title
             TweenAnimationBuilder<double>(
-              duration: const Duration(milliseconds: 700),
+              duration: const Duration(milliseconds: 600),
               tween: Tween(begin: 0, end: 1),
               curve: Curves.easeOutCubic,
               builder: (context, value, child) {
@@ -879,26 +732,23 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                     child: Column(
                       children: [
                         Text(
-                          isPerfect ? 'Mükemmel! 🎉' : (isExcellent ? 'Harika! ⭐' : (isGood ? 'Aferin! 👏' : 'Tamamlandı! ✓')),
+                          isExcellent ? 'Mükemmel!' : (isGood ? 'Harika!' : 'Tebrikler!'),
                           style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                             fontWeight: FontWeight.w900,
                             letterSpacing: -1.0,
-                            color: isPerfect
+                            color: isExcellent
                                 ? Colors.amber.shade700
-                                : isExcellent
+                                : isGood
                                     ? Colors.green.shade700
-                                    : isGood
-                                        ? Colors.blue.shade700
-                                        : Theme.of(context).colorScheme.primary,
+                                    : Theme.of(context).colorScheme.primary,
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 8),
                         Text(
-                          'Çalışma oturumunu başarıyla tamamladınız',
+                          'Çalışma oturumunu tamamladınız',
                           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                             color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
                           ),
-                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),
@@ -907,12 +757,12 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
               },
             ),
 
-            const SizedBox(height: 44),
+            const SizedBox(height: 40),
 
-            // Modern stats grid
+            // Stats cards
             _buildModernStatsGrid(context, stats, accuracy, duration),
 
-            const SizedBox(height: 44),
+            const SizedBox(height: 40),
 
             // Action buttons
             Row(
@@ -923,7 +773,7 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                     icon: const Icon(Icons.refresh_rounded),
                     label: const Text('Tekrar Çalış'),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(StudyConstants.buttonBorderRadius),
                       ),
@@ -934,14 +784,14 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                     ),
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
                   child: FilledButton.icon(
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(Icons.home_rounded),
                     label: const Text('Ana Sayfa'),
                     style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(StudyConstants.buttonBorderRadius),
                       ),
@@ -962,24 +812,22 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
         Row(
           children: [
             Expanded(
-              child: _buildGlassStatCard(
+              child: _buildStatCard(
                 context,
-                icon: Icons.insights_rounded,
+                icon: Icons.psychology_rounded,
                 label: 'Doğruluk',
                 value: '${(accuracy * 100).toInt()}%',
                 color: accuracy >= 0.8 ? Colors.green : (accuracy >= 0.6 ? Colors.orange : Colors.red),
-                delay: 0,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildGlassStatCard(
+              child: _buildStatCard(
                 context,
                 icon: Icons.timer_outlined,
                 label: 'Süre',
                 value: '${duration.inMinutes}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}',
                 color: Colors.blue,
-                delay: 100,
               ),
             ),
           ],
@@ -988,24 +836,22 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
         Row(
           children: [
             Expanded(
-              child: _buildGlassStatCard(
+              child: _buildStatCard(
                 context,
                 icon: Icons.check_circle_rounded,
                 label: 'Doğru',
                 value: '${stats.correctAnswers}',
                 color: Colors.green,
-                delay: 200,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildGlassStatCard(
+              child: _buildStatCard(
                 context,
                 icon: Icons.cancel_rounded,
                 label: 'Yanlış',
                 value: '${stats.completedWords - stats.correctAnswers}',
                 color: Colors.red,
-                delay: 300,
               ),
             ),
           ],
@@ -1014,66 +860,45 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
     );
   }
 
-  Widget _buildGlassStatCard(BuildContext context, {
+  Widget _buildStatCard(BuildContext context, {
     required IconData icon,
     required String label,
     required String value,
     required Color color,
-    required int delay,
   }) {
-    return TweenAnimationBuilder<double>(
-      duration: Duration(milliseconds: 600 + delay),
-      tween: Tween(begin: 0, end: 1),
-      curve: Curves.easeOutCubic,
-      builder: (context, animValue, child) {
-        return Opacity(
-          opacity: animValue,
-          child: Transform.translate(
-            offset: Offset(0, 30 * (1 - animValue)),
-            child: Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: color.withOpacity(0.3),
-                  width: 2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withOpacity(0.1),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Icon(icon, color: color, size: 36),
-                  const SizedBox(height: 10),
-                  Text(
-                    value,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      color: color,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    label,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: color.withOpacity(0.3),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 32),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: color,
+              letterSpacing: -0.5,
             ),
           ),
-        );
-      },
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
+
