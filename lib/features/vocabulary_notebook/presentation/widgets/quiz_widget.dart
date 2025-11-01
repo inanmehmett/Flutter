@@ -167,6 +167,16 @@ class _QuizWidgetState extends State<QuizWidget>
     });
 
     HapticFeedback.selectionClick();
+    
+    // Compact mode: Auto-submit on selection
+    if (widget.compact) {
+      // Small delay for visual feedback
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted && _selectedAnswer == answer) {
+          _submitAnswer();
+        }
+      });
+    }
   }
 
   void _submitAnswer() async {
@@ -313,7 +323,7 @@ class _QuizWidgetState extends State<QuizWidget>
     }
 
     if (widget.compact) {
-      // Compact layout - no scroll, fixed heights
+      // Compact layout - no scroll, fixed heights, auto-submit
       return Padding(
         padding: const EdgeInsets.all(StudyConstants.contentPadding),
         child: Column(
@@ -331,13 +341,7 @@ class _QuizWidgetState extends State<QuizWidget>
               child: _buildCompactAnswerGrid(context),
             ),
 
-            const SizedBox(height: 12),
-
-            // Submit button - fixed height
-            SizedBox(
-              height: 56,
-              child: _buildModernSubmitButton(context),
-            ),
+            // No submit button in compact mode (auto-submit on selection)
           ],
         ),
       );

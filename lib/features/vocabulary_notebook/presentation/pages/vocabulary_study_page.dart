@@ -779,14 +779,6 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
     );
   }
 
-  void _onScoreUpdate(int score, int bonus, int streak) {
-    setState(() {
-      _quizScore = score;
-      _quizStreak = streak;
-      _lastBonus = bonus;
-    });
-  }
-
   Widget _buildStudyWidget(BuildContext context, VocabularyWord word) {
     switch (_currentMode) {
       case StudyMode.study:
