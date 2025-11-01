@@ -330,7 +330,7 @@ class _QuizWidgetState extends State<QuizWidget>
           children: [
             // Word card - smaller fixed height
             SizedBox(
-              height: 140, // Reduced from 180
+              height: 135, // Further reduced for perfect fit
               child: _buildCompactWordCard(context),
             ),
 
@@ -578,7 +578,7 @@ class _QuizWidgetState extends State<QuizWidget>
 
   Widget _buildCompactWordCard(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
