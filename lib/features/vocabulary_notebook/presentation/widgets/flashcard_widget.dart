@@ -25,9 +25,7 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
   bool _showAnswer = false;
   DateTime? _startTime;
   late AnimationController _flipController;
-  late AnimationController _resultController;
   late Animation<double> _flipAnimation;
-  late Animation<double> _resultAnimation;
 
   @override
   void initState() {
@@ -38,10 +36,6 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
       duration: StudyConstants.cardFlipDuration,
       vsync: this,
     );
-    _resultController = AnimationController(
-      duration: StudyConstants.resultAnimationDuration,
-      vsync: this,
-    );
 
     _flipAnimation = Tween<double>(
       begin: StudyConstants.scaleAnimationBegin,
@@ -49,14 +43,6 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
     ).animate(CurvedAnimation(
       parent: _flipController,
       curve: Curves.easeInOut,
-    ));
-
-    _resultAnimation = Tween<double>(
-      begin: StudyConstants.scaleAnimationBegin,
-      end: StudyConstants.scaleAnimationEnd,
-    ).animate(CurvedAnimation(
-      parent: _resultController,
-      curve: Curves.easeOutBack,
     ));
   }
 
@@ -71,14 +57,12 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
         _startTime = DateTime.now();
       });
       _flipController.reset();
-      _resultController.reset();
     }
   }
 
   @override
   void dispose() {
     _flipController.dispose();
-    _resultController.dispose();
     super.dispose();
   }
 
@@ -103,16 +87,11 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
       _showAnswer = true;
     });
 
-    if (isCorrect) {
-      HapticFeedback.mediumImpact();
-    } else {
-      HapticFeedback.heavyImpact();
-    }
+    // Quick haptic feedback
+    HapticFeedback.mediumImpact();
 
-    _resultController.forward();
-
-    // Shorter delay for faster transitions
-    await Future.delayed(const Duration(milliseconds: 1200));
+    // Brief animation, then transition
+    await Future.delayed(const Duration(milliseconds: 400));
     
     if (mounted) {
       widget.onAnswerSubmitted(isCorrect, responseTime);
@@ -163,16 +142,11 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
 
               SizedBox(height: isCompactHeight ? 8 : 16), // Reduced spacing
 
-              // Action buttons - Flexible to prevent overflow
-              if (!_showAnswer) ...[
+              // Action buttons - Only show when not answered
+              if (!_showAnswer)
                 Flexible(
                   child: _buildActionButtons(context),
                 ),
-              ] else ...[
-                Flexible(
-                  child: _buildResultButtons(context),
-                ),
-              ],
             ],
           ),
         );
@@ -463,44 +437,4 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
     );
   }
 
-  Widget _buildResultButtons(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _resultAnimation,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: _resultAnimation.value,
-          child: Container(
-            padding: const EdgeInsets.all(12), // Reduced from 16
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min, // Prevent expansion
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.check_circle,
-                  size: 40, // Reduced from 48
-                  color: Colors.green,
-                ),
-                const SizedBox(height: 8), // Reduced from 12
-                Text(
-                  'Sonraki kelimeye geçiliyor...',
-                  style: TextStyle(
-                    fontSize: 14, // Reduced from 16
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).textTheme.bodyLarge?.color,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
 }

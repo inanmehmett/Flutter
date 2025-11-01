@@ -302,8 +302,10 @@ class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
             );
           }
 
+          // Fallback: reload vocabulary
+          _onRefresh();
           return const Center(
-            child: Text('Beklenmeyen durum'),
+            child: CircularProgressIndicator(),
           );
         },
       ),

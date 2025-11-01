@@ -29,12 +29,6 @@ class StudyConstants {
   /// Delay before moving to next word after answer submission
   static const Duration resultDisplayDelay = Duration(milliseconds: 1500);
   
-  /// Delay for flashcard result display
-  static const Duration flashcardResultDelay = Duration(milliseconds: 2000);
-  
-  /// Delay for haptic feedback
-  static const Duration hapticFeedbackDelay = Duration(milliseconds: 100);
-  
   // ============================================================================
   // SPACING & SIZING
   // ============================================================================
