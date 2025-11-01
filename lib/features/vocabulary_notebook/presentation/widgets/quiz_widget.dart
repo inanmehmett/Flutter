@@ -325,16 +325,16 @@ class _QuizWidgetState extends State<QuizWidget>
     if (widget.compact) {
       // Compact layout - no scroll, fixed heights, auto-submit
       return Padding(
-        padding: const EdgeInsets.all(StudyConstants.contentPadding),
+        padding: const EdgeInsets.all(12.0), // Reduced padding
         child: Column(
           children: [
-            // Word card - fixed height
+            // Word card - smaller fixed height
             SizedBox(
-              height: 180,
-              child: _buildModernWordCard(context),
+              height: 140, // Reduced from 180
+              child: _buildCompactWordCard(context),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 8), // Reduced spacing
 
             // Answer options - 2x2 grid (compact)
             Expanded(
@@ -573,6 +573,77 @@ class _QuizWidgetState extends State<QuizWidget>
           ),
         );
       },
+    );
+  }
+
+  Widget _buildCompactWordCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+            Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.2),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(StudyConstants.cardBorderRadius),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withOpacity(0.15),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Word with smaller font
+          Text(
+            widget.word.word,
+            style: TextStyle(
+              fontSize: 32, // Reduced from 48
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+              color: _showResult
+                  ? (_isCorrect ? Colors.green.shade700 : Colors.red.shade700)
+                  : Theme.of(context).textTheme.headlineLarge?.color,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+
+          const SizedBox(height: 12), // Reduced spacing
+
+          // Compact speak button
+          GestureDetector(
+            onTap: _speakWord,
+            child: Container(
+              padding: const EdgeInsets.all(10), // Reduced padding
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Theme.of(context).colorScheme.primary.withOpacity(0.15),
+                    Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                  width: 1.5,
+                ),
+              ),
+              child: Icon(
+                Icons.volume_up_rounded,
+                size: 22, // Reduced size
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
+
+          // No example sentence in compact mode
+        ],
+      ),
     );
   }
 
