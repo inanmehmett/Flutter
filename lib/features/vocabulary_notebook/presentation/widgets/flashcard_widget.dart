@@ -131,7 +131,7 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
         final isCompactHeight = constraints.maxHeight < 500;
         
         return Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12), // Reduced from 16
           child: Column(
             children: [
               // Flashcard
@@ -139,13 +139,13 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
                 flex: isCompactHeight ? 3 : 4,
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    maxHeight: constraints.maxHeight * 0.7,
+                    maxHeight: constraints.maxHeight * 0.65, // Reduced from 0.7
                   ),
                   child: _buildFlashcard(context),
                 ),
               ),
 
-              SizedBox(height: isCompactHeight ? 12 : 24),
+              SizedBox(height: isCompactHeight ? 8 : 16), // Reduced spacing
 
               // Action buttons - Flexible to prevent overflow
               if (!_showAnswer) ...[
