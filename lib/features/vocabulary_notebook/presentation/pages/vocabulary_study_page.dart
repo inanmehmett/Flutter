@@ -24,15 +24,10 @@ class VocabularyStudyPage extends StatefulWidget {
 
 class _VocabularyStudyPageState extends State<VocabularyStudyPage>
     with TickerProviderStateMixin {
-  StudyMode _currentMode = StudyMode.review;
+  StudyMode _currentMode = StudyMode.study;
   ReviewSession? _currentSession;
   int _currentWordIndex = 0;
   bool _sessionCompleted = false;
-  
-  // Quiz mode specific
-  int _quizScore = 0;
-  int _quizStreak = 0;
-  int? _lastBonus;
   
   late AnimationController _progressController;
   late AnimationController _cardController;
@@ -93,10 +88,9 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
   void _loadStudySession() {
     // Filter words based on study mode
     final filter = switch (_currentMode) {
-      StudyMode.review => 'due',        // Only due words
-      StudyMode.quiz => 'all',          // All words for testing
+      StudyMode.study => 'due',          // Due words priority (SRS)
       StudyMode.practice => 'difficult', // Difficult words only
-      StudyMode.flashcards => null,     // Random batch
+      StudyMode.flashcards => null,      // Random batch
     };
     
     context.read<VocabularyBloc>().add(StartReviewSession(modeFilter: filter));
@@ -110,10 +104,6 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
       _currentWordIndex = 0;
       _sessionCompleted = false;
       _currentSession = null;
-      // Reset quiz state
-      _quizScore = 0;
-      _quizStreak = 0;
-      _lastBonus = null;
     });
     
     HapticFeedback.mediumImpact();
@@ -552,9 +542,9 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _currentMode == StudyMode.quiz ? 'Quiz Modu' : 'Çalışma Oturumu',
-                      style: const TextStyle(
+                    const Text(
+                      'Çalışma Oturumu',
+                      style: TextStyle(
                         color: Colors.white,
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
@@ -564,55 +554,20 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        // Quiz mode: Show score
-                        if (_currentMode == StudyMode.quiz) ...[
-                          Icon(
-                            Icons.emoji_events_rounded,
-                            size: 16,
-                            color: Colors.amber.shade200,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Skor: $_quizScore',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.95),
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          if (_quizStreak > 0) ...[
-                            const SizedBox(width: 8),
-                            Icon(
-                              Icons.local_fire_department_rounded,
-                              size: 14,
-                              color: Colors.orange.shade200,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '$_quizStreak',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.95),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                        ] else ...[
-                          Icon(
-                            Icons.timer_outlined,
-                            size: 16,
+                        Icon(
+                          Icons.timer_outlined,
+                          size: 16,
+                          color: Colors.white.withOpacity(0.85),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '$totalWords kelime · ~$estimatedMinutes dk',
+                          style: TextStyle(
                             color: Colors.white.withOpacity(0.85),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '$totalWords kelime · ~$estimatedMinutes dk',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.85),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                        ),
                       ],
                     ),
                   ],
@@ -757,10 +712,9 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
       ),
       child: Row(
         children: [
-          _buildModeChip(context, StudyMode.review, Icons.repeat_rounded, 'Tekrar'),
-          _buildModeChip(context, StudyMode.quiz, Icons.quiz_rounded, 'Quiz'),
-          _buildModeChip(context, StudyMode.flashcards, Icons.style_rounded, 'Flash'),
+          _buildModeChip(context, StudyMode.study, Icons.school_rounded, 'Çalış'),
           _buildModeChip(context, StudyMode.practice, Icons.fitness_center_rounded, 'Pratik'),
+          _buildModeChip(context, StudyMode.flashcards, Icons.style_rounded, 'Kart'),
         ],
       ),
     );
@@ -835,13 +789,12 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
 
   Widget _buildStudyWidget(BuildContext context, VocabularyWord word) {
     switch (_currentMode) {
-      case StudyMode.quiz:
+      case StudyMode.study:
         return QuizWidget(
           word: word,
           onAnswerSubmitted: _onAnswerSubmitted,
-          showTimer: true,
-          timerDuration: const Duration(seconds: 10),
-          onScoreUpdate: _onScoreUpdate,
+          showTimer: false,  // Rahat tempo, timer yok
+          compact: true,     // Compact layout
         );
       case StudyMode.practice:
         return PracticeWidget(
@@ -851,12 +804,6 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
         );
       case StudyMode.flashcards:
         return FlashcardWidget(
-          word: word,
-          onAnswerSubmitted: _onAnswerSubmitted,
-        );
-      case StudyMode.review:
-      default:
-        return QuizWidget(
           word: word,
           onAnswerSubmitted: _onAnswerSubmitted,
         );
@@ -985,60 +932,6 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
             ),
 
             const SizedBox(height: 44),
-
-            // Quiz mode: Show final score
-            if (_currentMode == StudyMode.quiz && _quizScore > 0) ...[
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.amber.shade400, Colors.orange.shade400],
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.amber.withOpacity(0.4),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.emoji_events_rounded,
-                      color: Colors.white,
-                      size: 32,
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Toplam Skor',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          _quizScore.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 36,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -1.0,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
 
             // Modern stats grid
             _buildModernStatsGrid(context, stats, accuracy, duration),

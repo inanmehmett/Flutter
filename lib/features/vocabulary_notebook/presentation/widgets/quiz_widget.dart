@@ -19,6 +19,7 @@ class QuizWidget extends StatefulWidget {
   final bool showTimer;
   final Duration? timerDuration;
   final ScoreUpdateCallback? onScoreUpdate;
+  final bool compact; // Compact layout (2x2 grid, no scroll)
 
   const QuizWidget({
     super.key,
@@ -28,6 +29,7 @@ class QuizWidget extends StatefulWidget {
     this.showTimer = false,
     this.timerDuration,
     this.onScoreUpdate,
+    this.compact = false,
   });
 
   @override
@@ -310,6 +312,38 @@ class _QuizWidgetState extends State<QuizWidget>
       );
     }
 
+    if (widget.compact) {
+      // Compact layout - no scroll, fixed heights
+      return Padding(
+        padding: const EdgeInsets.all(StudyConstants.contentPadding),
+        child: Column(
+          children: [
+            // Word card - fixed height
+            SizedBox(
+              height: 180,
+              child: _buildModernWordCard(context),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Answer options - 2x2 grid (compact)
+            Expanded(
+              child: _buildCompactAnswerGrid(context),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Submit button - fixed height
+            SizedBox(
+              height: 56,
+              child: _buildModernSubmitButton(context),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Regular scrollable layout
     return LayoutBuilder(
       builder: (context, constraints) {
         final isCompactHeight = constraints.maxHeight < 600;
@@ -535,6 +569,117 @@ class _QuizWidgetState extends State<QuizWidget>
           ),
         );
       },
+    );
+  }
+
+  Widget _buildCompactAnswerGrid(BuildContext context) {
+    if (_quizOptions == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return GridView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 3.0,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+      ),
+      itemCount: _quizOptions!.length,
+      itemBuilder: (context, index) {
+        final option = _quizOptions![index];
+        final answer = option.text;
+        final isSelected = _selectedAnswer == answer;
+        final isCorrectAnswer = option.isCorrect;
+        final showCorrect = _showResult && isCorrectAnswer;
+        final showWrong = _showResult && isSelected && !isCorrectAnswer;
+
+        return TweenAnimationBuilder<double>(
+          duration: Duration(milliseconds: 250 + (index * 60)),
+          tween: Tween(begin: 0, end: 1),
+          curve: Curves.easeOutCubic,
+          builder: (context, animValue, child) {
+            return Opacity(
+              opacity: animValue.clamp(0.0, 1.0),
+              child: Transform.scale(
+                scale: 0.8 + (0.2 * animValue),
+                child: _buildCompactAnswerButton(
+                  context,
+                  answer,
+                  isSelected,
+                  showCorrect,
+                  showWrong,
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildCompactAnswerButton(
+    BuildContext context,
+    String answer,
+    bool isSelected,
+    bool showCorrect,
+    bool showWrong,
+  ) {
+    final backgroundColor = showCorrect
+        ? Colors.green.withOpacity(0.2)
+        : showWrong
+            ? Colors.red.withOpacity(0.2)
+            : isSelected
+                ? Theme.of(context).colorScheme.primary.withOpacity(0.15)
+                : Theme.of(context).colorScheme.surface;
+
+    final borderColor = showCorrect
+        ? Colors.green
+        : showWrong
+            ? Colors.red
+            : isSelected
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.outline.withOpacity(0.2);
+
+    return GestureDetector(
+      onTap: () => _onAnswerSelected(answer),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: borderColor,
+            width: (showCorrect || showWrong || isSelected) ? 2.5 : 1.5,
+          ),
+          boxShadow: (showCorrect || showWrong)
+              ? [
+                  BoxShadow(
+                    color: borderColor.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: Center(
+          child: Text(
+            answer,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: (showCorrect || showWrong || isSelected) ? FontWeight.w700 : FontWeight.w600,
+              color: showCorrect
+                  ? Colors.green.shade700
+                  : showWrong
+                      ? Colors.red.shade700
+                      : Theme.of(context).textTheme.bodyLarge?.color,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
     );
   }
 
