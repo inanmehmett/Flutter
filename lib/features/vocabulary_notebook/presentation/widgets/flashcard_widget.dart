@@ -147,15 +147,13 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
 
               SizedBox(height: isCompactHeight ? 12 : 24),
 
-              // Action buttons
+              // Action buttons - Flexible to prevent overflow
               if (!_showAnswer) ...[
-                SizedBox(
-                  height: 60,
+                Flexible(
                   child: _buildActionButtons(context),
                 ),
               ] else ...[
-                SizedBox(
-                  height: 100,
+                Flexible(
                   child: _buildResultButtons(context),
                 ),
               ],
