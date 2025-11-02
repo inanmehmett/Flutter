@@ -355,6 +355,219 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildDailyGoalsCard(BuildContext context, UserProfile profile) {
+    // Mock data - gerçek implementasyonda backend'den gelecek
+    final goals = [
+      {'title': '10 dakika okuma', 'progress': 0.7, 'current': 7, 'target': 10, 'icon': Icons.menu_book, 'unit': 'dk'},
+      {'title': '5 kelime tekrar', 'progress': 0.6, 'current': 3, 'target': 5, 'icon': Icons.repeat, 'unit': ''},
+      {'title': '1 quiz tamamla', 'progress': 0.0, 'current': 0, 'target': 1, 'icon': Icons.quiz, 'unit': ''},
+    ];
+    
+    final completedCount = goals.where((g) => (g['progress'] as double) >= 1.0).length;
+    final totalCount = goals.length;
+    final overallProgress = goals.fold<double>(0, (sum, g) => sum + (g['progress'] as double)) / totalCount;
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppRadius.cardRadius),
+        boxShadow: AppShadows.cardShadowElevated,
+        border: Border.all(
+          color: _primaryOrange.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_primaryOrange, _secondaryOrange],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.emoji_events,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Günlük Hedefler',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$completedCount/$totalCount tamamlandı',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: completedCount == totalCount 
+                      ? Colors.green.withOpacity(0.1)
+                      : _primaryOrange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: completedCount == totalCount 
+                        ? Colors.green.withOpacity(0.3)
+                        : _primaryOrange.withOpacity(0.3),
+                  ),
+                ),
+                child: Text(
+                  completedCount == totalCount ? '✓ Tamamlandı' : '${(overallProgress * 100).round()}%',
+                  style: TextStyle(
+                    color: completedCount == totalCount ? Colors.green : _primaryOrange,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          ...goals.map((goal) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _buildGoalItem(
+              goal['title'] as String,
+              goal['progress'] as double,
+              goal['current'] as int,
+              goal['target'] as int,
+              goal['icon'] as IconData,
+              goal['unit'] as String,
+            ),
+          )).toList(),
+          if (completedCount == totalCount) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.green.withOpacity(0.1), Colors.green.withOpacity(0.05)],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.green.withOpacity(0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Text('🎉', style: TextStyle(fontSize: 24)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Tebrikler!',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.green,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Bugünkü tüm hedefleri tamamladın! +50 bonus XP kazandın.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGoalItem(String title, double progress, int current, int target, IconData icon, String unit) {
+    final isCompleted = progress >= 1.0;
+    final displayProgress = progress.clamp(0.0, 1.0);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: isCompleted 
+                    ? Colors.green.withOpacity(0.1)
+                    : _primaryOrange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                isCompleted ? Icons.check_circle : icon,
+                size: 18,
+                color: isCompleted ? Colors.green : _primaryOrange,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isCompleted ? Colors.grey[500] : _textPrimary,
+                  decoration: isCompleted ? TextDecoration.lineThrough : null,
+                ),
+              ),
+            ),
+            Text(
+              '$current/$target$unit',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: isCompleted ? Colors.green : _primaryOrange,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: LinearProgressIndicator(
+            value: displayProgress,
+            minHeight: 6,
+            backgroundColor: Colors.grey[200],
+            valueColor: AlwaysStoppedAnimation<Color>(
+              isCompleted ? Colors.green : _primaryOrange,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildModernIcon({
     required String emoji,
     required Gradient gradient,
@@ -866,6 +1079,10 @@ class _HomePageState extends State<HomePage> {
                   
                   // 3.1 Günlük İlerleme (En önemli - motivasyon)
                   _buildDailyProgressCard(context, userProfile!),
+                  const SizedBox(height: _largeSpacing),
+                  
+                  // 3.1.5 Daily Goals (Gamification)
+                  _buildDailyGoalsCard(context, userProfile!),
                   const SizedBox(height: _largeSpacing),
                   
                   // 3.2 Devam Eden Okuma
