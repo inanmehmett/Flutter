@@ -15,6 +15,45 @@ class VocabularyWordList extends StatelessWidget {
     required this.words,
   });
 
+  Widget _buildBenefitRow(BuildContext context, String emoji, String title, String subtitle) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Text(
+            emoji,
+            style: const TextStyle(fontSize: 28),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (words.isEmpty) {
@@ -47,70 +86,99 @@ class VocabularyWordList extends StatelessWidget {
                 ),
                 const SizedBox(height: 32),
                 Text(
-                  'Henüz Kelime Yok',
+                  'İlk Kelimeleri Ekle! 📚',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Okuma yaparken kelimeleri defterinize ekleyebilir\nveya sağ alttaki butonla yeni kelime ekleyebilirsiniz',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
-                    height: 1.5,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
+                const SizedBox(height: 12),
+                Text(
+                  'İngilizce yolculuğuna başla!\nKelime dağarcığını genişlet, kendine güvenini artır.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                    height: 1.6,
+                    fontWeight: FontWeight.w500,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.max,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.lightbulb_outline_rounded,
-                        size: 20,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          'İpucu: Kitap okurken kelimelere dokunun',
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.primary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                          softWrap: false,
-                        ),
-                      ),
-                    ],
-                  ),
+                  textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 28),
+                // Benefit cards
+                _buildBenefitRow(
+                  context,
+                  '🎯',
+                  'Spaced Repetition',
+                  'Bilimsel tekrar sistemi',
+                ),
+                const SizedBox(height: 12),
+                _buildBenefitRow(
+                  context,
+                  '📈',
+                  'İlerleme Takibi',
+                  'Başarını görselleştir',
+                ),
+                const SizedBox(height: 12),
+                _buildBenefitRow(
+                  context,
+                  '⚡',
+                  'Hızlı Öğrenme',
+                  '%85 daha etkili',
+                ),
+                const SizedBox(height: 28),
+                // CTA Buttons
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
                     onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => BlocProvider.value(
-                            value: context.read<VocabularyBloc>(),
-                            child: const VocabularyStudyPage(),
+                      Navigator.of(context).pushNamed('/books');
+                    },
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(Icons.menu_book_rounded),
+                    label: const Text(
+                      'Kitap Okuyarak Başla',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.lightbulb_outline_rounded,
+                        size: 22,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Kitap okurken anlamadığın kelimelere dokun, otomatik olarak eklensin!',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            height: 1.4,
                           ),
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.play_circle_fill_rounded),
-                    label: const Text('Bugün Çalış'),
+                      ),
+                    ],
                   ),
                 ),
               ],

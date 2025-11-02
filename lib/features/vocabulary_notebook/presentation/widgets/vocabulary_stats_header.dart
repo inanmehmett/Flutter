@@ -57,6 +57,24 @@ class VocabularyStatsHeader extends StatelessWidget {
   Widget _todayBanner(BuildContext context, Color primary, Color surface, Color textColor) {
     final int due = stats.wordsNeedingReview;
     final int added = stats.wordsAddedToday;
+    
+    // Motivational message based on due words
+    String motivationMessage;
+    String emoji;
+    if (due == 0) {
+      motivationMessage = 'Harika! Tüm kelimeler güncel 🎉';
+      emoji = '✨';
+    } else if (due <= 5) {
+      motivationMessage = 'Az kaldı! Hızlıca tamamla 💪';
+      emoji = '🎯';
+    } else if (due <= 15) {
+      motivationMessage = 'Bugünkü hedefine odaklan 🔥';
+      emoji = '🔥';
+    } else {
+      motivationMessage = '$due kelime seni bekliyor!';
+      emoji = '📚';
+    }
+    
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -111,12 +129,48 @@ class VocabularyStatsHeader extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '$due tekrar kelime • $added yeni',
+                      motivationMessage,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withOpacity(0.95),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
                       ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '$due tekrar',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '$added yeni',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
