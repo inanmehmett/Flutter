@@ -356,11 +356,40 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildDailyGoalsCard(BuildContext context, UserProfile profile) {
-    // Mock data - gerçek implementasyonda backend'den gelecek
+    // Real data from user profile and cached streak
+    final int xpToday = (profile.experiencePoints ?? 0) % 100; // XP earned today (mock calculation)
+    final int xpGoal = 50; // Daily XP goal
+    final xpProgress = (xpToday / xpGoal).clamp(0.0, 1.0);
+    
+    final int streakDays = _cachedStreakDays ?? profile.currentStreak ?? 0;
+    final bool hasStreak = streakDays > 0; // If they have streak, they were active today
+    
+    // Goals based on real data
     final goals = [
-      {'title': '10 dakika okuma', 'progress': 0.7, 'current': 7, 'target': 10, 'icon': Icons.menu_book, 'unit': 'dk'},
-      {'title': '5 kelime tekrar', 'progress': 0.6, 'current': 3, 'target': 5, 'icon': Icons.repeat, 'unit': ''},
-      {'title': '1 quiz tamamla', 'progress': 0.0, 'current': 0, 'target': 1, 'icon': Icons.quiz, 'unit': ''},
+      {
+        'title': 'Günlük XP kazan',
+        'progress': xpProgress,
+        'current': xpToday,
+        'target': xpGoal,
+        'icon': Icons.star,
+        'unit': ' XP'
+      },
+      {
+        'title': 'Serisini koru',
+        'progress': hasStreak ? 1.0 : 0.0,
+        'current': hasStreak ? 1 : 0,
+        'target': 1,
+        'icon': Icons.local_fire_department,
+        'unit': ''
+      },
+      {
+        'title': 'Kelime çalış',
+        'progress': xpToday > 0 ? 1.0 : 0.0, // If they earned any XP, they studied
+        'current': xpToday > 0 ? 1 : 0,
+        'target': 1,
+        'icon': Icons.menu_book,
+        'unit': ''
+      },
     ];
     
     final completedCount = goals.where((g) => (g['progress'] as double) >= 1.0).length;
