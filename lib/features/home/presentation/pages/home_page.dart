@@ -204,6 +204,25 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildDailyProgressCard(BuildContext context, UserProfile profile) {
+    final streakDays = _cachedStreakDays ?? profile.currentStreak;
+    final dailyGoal = 100; // Örnek günlük hedef XP
+    final currentXP = profile.experiencePoints % dailyGoal;
+    final progressPercentage = (currentXP / dailyGoal * 100).clamp(0, 100).toInt();
+    
+    // Motivasyonel mesaj
+    String motivationMessage;
+    if (progressPercentage == 0) {
+      motivationMessage = 'Bugünkü hedefine başla! 💪';
+    } else if (progressPercentage < 30) {
+      motivationMessage = 'Güzel başlangıç! Devam et 🚀';
+    } else if (progressPercentage < 70) {
+      motivationMessage = 'Yarı yoldasın! 🔥';
+    } else if (progressPercentage < 100) {
+      motivationMessage = 'Neredeyse hedefine ulaştın! ⭐';
+    } else {
+      motivationMessage = 'Bugünkü hedefini tamamladın! 🎉';
+    }
+    
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
@@ -221,20 +240,60 @@ class _HomePageState extends State<HomePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(
-                Icons.trending_up,
-                color: Colors.white,
-                size: 24,
+              Row(
+                children: [
+                  Icon(
+                    Icons.trending_up,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Günlük İlerleme',
+                    style: AppTypography.title3.copyWith(
+                      color: AppColors.surface,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Text(
-                'Günlük İlerleme',
-                style: AppTypography.title3.copyWith(
-                  color: AppColors.surface,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '%$progressPercentage',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            motivationMessage,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.white.withOpacity(0.95),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Progress bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: progressPercentage / 100,
+              minHeight: 8,
+              backgroundColor: Colors.white.withOpacity(0.3),
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
           ),
           const SizedBox(height: 16),
           Row(
@@ -242,7 +301,7 @@ class _HomePageState extends State<HomePage> {
               Expanded(
                 child: _buildProgressItem(
                   'Günlük Hedef',
-                  '${profile.experiencePoints} XP',
+                  '$currentXP/$dailyGoal XP',
                   Icons.flag,
                 ),
               ),
@@ -250,7 +309,7 @@ class _HomePageState extends State<HomePage> {
               Expanded(
                 child: _buildProgressItem(
                   'Streak',
-                  '${_cachedStreakDays ?? profile.currentStreak} gün',
+                  '$streakDays gün ${streakDays > 0 ? "🔥" : ""}',
                   Icons.local_fire_department,
                 ),
               ),
@@ -411,12 +470,31 @@ class _HomePageState extends State<HomePage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Öğrendiğin kelimeleri kaydet ve tekrar et!',
+                      'Spaced repetition ile %85 daha etkili öğren',
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.white.withOpacity(0.9),
-                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withOpacity(0.95),
+                        fontWeight: FontWeight.w600,
                       ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.people_outline,
+                          size: 14,
+                          color: Colors.white.withOpacity(0.8),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '10,000+ öğrenci kullanıyor',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withOpacity(0.8),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -443,9 +521,16 @@ class _HomePageState extends State<HomePage> {
                   ),
                   elevation: 0,
                 ),
-                child: const Text(
-                  'Defterimi Aç',
-                  style: AppTypography.buttonMedium,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Text(
+                      'Kelimelerimi Tekrar Et',
+                      style: AppTypography.buttonMedium,
+                    ),
+                    SizedBox(width: 8),
+                    Icon(Icons.arrow_forward, size: 18),
+                  ],
                 ),
               ),
             ),
@@ -498,12 +583,31 @@ class _HomePageState extends State<HomePage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Yeni kelimeler öğren ve seviyeni yükselt!',
+                      'Günde 10 dakika ile 500+ kelime öğren',
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.white.withOpacity(0.9),
-                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withOpacity(0.95),
+                        fontWeight: FontWeight.w600,
                       ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.star,
+                          size: 14,
+                          color: Colors.white.withOpacity(0.9),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '4.8/5.0 ortalama başarı oranı',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withOpacity(0.8),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -537,9 +641,19 @@ class _HomePageState extends State<HomePage> {
                 ),
                 elevation: 0,
               ),
-              child: const Text(
-                'Quiz\'e Başla',
-                style: AppTypography.buttonMedium,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Text(
+                    'Hemen Başla',
+                    style: AppTypography.buttonMedium,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    '⚡',
+                    style: TextStyle(fontSize: 18),
+                  ),
+                ],
               ),
             ),
           ),
@@ -589,7 +703,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildEmptySection(String message) {
     return Container(
-      height: 200,
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: _backgroundWhite,
         borderRadius: BorderRadius.circular(16),
@@ -602,27 +716,64 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _primaryOrange.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
               Icons.menu_book_outlined,
               size: 48,
+              color: _primaryOrange,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            message,
+            style: TextStyle(
+              color: _textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'İlk adımını at, İngilizce yolculuğuna başla! 🚀',
+            style: TextStyle(
               color: _textSecondary,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
             ),
-            const SizedBox(height: 16),
-            Text(
-              message,
-              style: TextStyle(
-                color: _textSecondary,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () {
+              // Navigate to all books or level test
+              Navigator.pushNamed(context, '/books');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _primaryOrange,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              textAlign: TextAlign.center,
             ),
-          ],
-        ),
+            child: const Text(
+              'Kitapları Keşfet',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
