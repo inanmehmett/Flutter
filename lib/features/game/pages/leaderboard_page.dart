@@ -34,76 +34,64 @@ class PodiumCard extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               Container(
-                width: isFirst ? 80 : 70,
-                height: isFirst ? 80 : 70,
+                width: isFirst ? 102 : 94,
+                height: isFirst ? 102 : 94,
+                padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(isFirst ? 40 : 35),
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [CupertinoColors.systemIndigo, CupertinoColors.systemBlue],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: CupertinoColors.black.withOpacity(0.15),
-                      blurRadius: 12,
+                      color: CupertinoColors.black.withOpacity(0.10),
+                      blurRadius: 10,
                       offset: const Offset(0, 6),
-                    ),
-                    // Glassmorphism effect
-                    BoxShadow(
-                      color: CupertinoColors.white.withOpacity(0.2),
-                      blurRadius: 8,
-                      offset: const Offset(0, -2),
                     ),
                   ],
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(isFirst ? 40 : 35),
-                  child: entry.profileImageUrl != null && entry.profileImageUrl!.isNotEmpty
-                    ? Image.network(
-                        _buildFullImageUrl(entry.profileImageUrl!),
-                        fit: BoxFit.cover,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Container(
-                            decoration: BoxDecoration(
-                              color: CupertinoColors.systemGrey5,
-                              borderRadius: BorderRadius.circular(isFirst ? 40 : 35),
-                            ),
-                            child: Center(
-                              child: CupertinoActivityIndicator(
-                                color: CupertinoColors.systemBlue,
-                              ),
-                            ),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          print('❌ Image load error for ${entry.userName}: $error');
-                          return _buildDefaultAvatar(entry, isFirst);
-                        },
-                      )
-                    : _buildDefaultAvatar(entry, isFirst),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: CupertinoColors.systemGrey5,
+                  ),
+                  child: ClipOval(
+                    child: entry.profileImageUrl != null && entry.profileImageUrl!.isNotEmpty
+                      ? Image.network(
+                          _buildFullImageUrl(entry.profileImageUrl!),
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) =>
+                            loadingProgress == null ? child : Center(child: CupertinoActivityIndicator(color: CupertinoColors.systemOrange)),
+                          errorBuilder: (context, error, stackTrace) => _buildDefaultAvatar(entry, isFirst),
+                        )
+                      : _buildDefaultAvatar(entry, isFirst),
+                  ),
                 ),
               ),
-              // Crown/Medal icon
               Positioned(
                 top: -6,
                 right: -6,
                 child: Container(
-                  width: 28,
-                  height: 28,
+                  width: 32,
+                  height: 32,
                   decoration: BoxDecoration(
-                    color: rankColor,
-                    borderRadius: BorderRadius.circular(14),
+                    shape: BoxShape.circle,
+                    color: CupertinoColors.white,
                     boxShadow: [
                       BoxShadow(
-                        color: rankColor.withOpacity(0.3),
+                        color: CupertinoColors.black.withOpacity(0.15),
                         blurRadius: 8,
-                        offset: const Offset(0, 4),
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                  child: Icon(
-                    rank == 1 ? CupertinoIcons.star_fill : 
-                    rank == 2 ? CupertinoIcons.star_circle_fill : 
-                    CupertinoIcons.star_circle,
-                    size: 16,
-                    color: CupertinoColors.white,
+                  child: Center(
+                    child: Text(
+                      rank == 1 ? '🥇' : rank == 2 ? '🥈' : '🥉',
+                      style: const TextStyle(fontSize: 18),
+                    ),
                   ),
                 ),
               ),
@@ -111,30 +99,20 @@ class PodiumCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           
-          // Rank Badge
+          // Rank pill
           Container(
-            width: 32,
-            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFD700),
-              borderRadius: BorderRadius.circular(6),
-              boxShadow: [
-                BoxShadow(
-                  color: CupertinoColors.black.withOpacity(0.1),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+              color: const Color(0xFFFFF3C4),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Center(
-              child: Text(
-                rank.toString(),
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: CupertinoColors.black,
-                  decoration: TextDecoration.none,
-                ),
+            child: Text(
+              '#$rank',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: CupertinoColors.black,
+                decoration: TextDecoration.none,
               ),
             ),
           ),
@@ -142,39 +120,58 @@ class PodiumCard extends StatelessWidget {
           
           // User Name
           SizedBox(
-            width: 70,
+            width: 90,
             child: Text(
               entry.userName,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: CupertinoColors.label,
                 decoration: TextDecoration.none,
               ),
             ),
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 4),
           
           // XP Value
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: CupertinoColors.systemBlue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
+              color: CupertinoColors.systemOrange.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               _formatXP(xpValue),
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: CupertinoColors.systemBlue,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: CupertinoColors.systemOrange,
                 decoration: TextDecoration.none,
               ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          if (entry.isCurrentUser) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: CupertinoColors.systemOrange.withOpacity(0.22),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Sen',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: CupertinoColors.systemOrange,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -238,31 +235,26 @@ class PodiumCard extends StatelessWidget {
 
   Widget _buildDefaultAvatar(LeaderboardEntry entry, bool isFirst) {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
         gradient: LinearGradient(
           colors: [
+            CupertinoColors.systemIndigo,
             CupertinoColors.systemBlue,
-            CupertinoColors.systemPurple,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: CupertinoColors.systemBlue.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Center(
         child: Text(
           entry.userName.isNotEmpty ? entry.userName[0].toUpperCase() : '?',
           style: TextStyle(
-            fontSize: isFirst ? 24 : 20,
-            fontWeight: FontWeight.w900,
+            fontSize: isFirst ? 40 : 36,
+            fontWeight: FontWeight.w700,
             color: CupertinoColors.white,
             letterSpacing: -0.5,
+            decoration: TextDecoration.none,
           ),
         ),
       ),
@@ -275,21 +267,31 @@ class LeaderboardCard extends StatelessWidget {
   final LeaderboardEntry entry;
   final int xpValue;
   final VoidCallback? onTap;
+  final bool isCurrentUser;
 
   const LeaderboardCard({
     super.key,
     required this.entry,
     required this.xpValue,
     this.onTap,
+    this.isCurrentUser = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final cardColor = isCurrentUser
+        ? CupertinoColors.systemOrange.withOpacity(0.18)
+        : CupertinoColors.white.withOpacity(0.9);
+    final border = isCurrentUser
+        ? Border.all(color: CupertinoColors.systemOrange.withOpacity(0.6), width: 1.2)
+        : null;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: CupertinoColors.white.withOpacity(0.9),
+        color: cardColor,
         borderRadius: BorderRadius.circular(16),
+        border: border,
         boxShadow: [
           BoxShadow(
             color: CupertinoColors.black.withOpacity(0.06),
@@ -318,19 +320,23 @@ class LeaderboardCard extends StatelessWidget {
             children: [
               // Rank number
               Container(
-                width: 32,
-                height: 32,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
-                  color: CupertinoColors.systemGrey6,
-                  borderRadius: BorderRadius.circular(16),
+                  color: isCurrentUser 
+                      ? CupertinoColors.systemOrange 
+                      : CupertinoColors.systemGrey6,
+                  borderRadius: BorderRadius.circular(18),
                 ),
                 child: Center(
                   child: Text(
                     entry.rank.toString(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: CupertinoColors.black,
+                      color: isCurrentUser 
+                          ? CupertinoColors.white 
+                          : CupertinoColors.black,
                       decoration: TextDecoration.none,
                     ),
                   ),
@@ -338,61 +344,93 @@ class LeaderboardCard extends StatelessWidget {
               ),
               const SizedBox(width: 16),
               
-              // Profile Picture
+              // Profile Picture with gradient ring
               Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: CupertinoColors.black.withOpacity(0.08),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                width: 44,
+                height: 44,
+                padding: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [CupertinoColors.systemIndigo, CupertinoColors.systemBlue],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: entry.profileImageUrl != null && entry.profileImageUrl!.isNotEmpty
-                    ? Image.network(
-                        _buildFullImageUrl(entry.profileImageUrl!),
-                        fit: BoxFit.cover,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Container(
-                            decoration: BoxDecoration(
-                              color: CupertinoColors.systemGrey5,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Center(
-                              child: CupertinoActivityIndicator(
-                                color: CupertinoColors.systemBlue,
-                              ),
-                            ),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          print('❌ Image load error for ${entry.userName}: $error');
-                          return _buildDefaultAvatar(entry);
-                        },
-                      )
-                    : _buildDefaultAvatar(entry),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: CupertinoColors.systemGrey5,
+                  ),
+                  child: ClipOval(
+                    child: entry.profileImageUrl != null && entry.profileImageUrl!.isNotEmpty
+                        ? Image.network(
+                            _buildFullImageUrl(entry.profileImageUrl!),
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: CupertinoActivityIndicator(color: CupertinoColors.systemOrange),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) => _buildDefaultAvatar(entry),
+                          )
+                        : _buildDefaultAvatar(entry),
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
               
               // User Name
               Expanded(
-                child: Text(
-                  entry.userName,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: CupertinoColors.label,
-                    decoration: TextDecoration.none,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      entry.userName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: CupertinoColors.label,
+                        decoration: TextDecoration.none,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      entry.levelLabel,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: CupertinoColors.secondaryLabel,
+                        decoration: TextDecoration.none,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (isCurrentUser) ...[
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: CupertinoColors.systemOrange.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Sen',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: CupertinoColors.systemOrange,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
               
@@ -400,7 +438,7 @@ class LeaderboardCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: CupertinoColors.systemBlue.withOpacity(0.1),
+                  color: CupertinoColors.systemOrange.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -408,7 +446,7 @@ class LeaderboardCard extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: CupertinoColors.systemBlue,
+                    color: CupertinoColors.systemOrange,
                     decoration: TextDecoration.none,
                   ),
                 ),
@@ -465,31 +503,26 @@ class LeaderboardCard extends StatelessWidget {
 
   Widget _buildDefaultAvatar(LeaderboardEntry entry) {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
         gradient: LinearGradient(
           colors: [
+            CupertinoColors.systemIndigo,
             CupertinoColors.systemBlue,
-            CupertinoColors.systemPurple,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: CupertinoColors.systemBlue.withOpacity(0.3),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Center(
         child: Text(
           entry.userName.isNotEmpty ? entry.userName[0].toUpperCase() : '?',
           style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w900,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
             color: CupertinoColors.white,
             letterSpacing: -0.5,
+            decoration: TextDecoration.none,
           ),
         ),
       ),
@@ -497,63 +530,149 @@ class LeaderboardCard extends StatelessWidget {
   }
 }
 
+class _NeighborRow extends StatelessWidget {
+  final LeaderboardEntry entry;
+  final int xpValue;
+
+  const _NeighborRow({
+    required this.entry,
+    required this.xpValue,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: CupertinoColors.systemGrey6.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: CupertinoColors.white,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              '#${entry.rank}',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: CupertinoColors.black,
+                decoration: TextDecoration.none,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              entry.userName,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: CupertinoColors.label,
+                decoration: TextDecoration.none,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            '${_formatNeighborXP(xpValue)} XP',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: CupertinoColors.systemOrange,
+              decoration: TextDecoration.none,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatNeighborXP(int xp) {
+  if (xp >= 1000000) {
+    final millions = xp / 1000000;
+    return millions == millions.toInt().toDouble()
+        ? '${millions.toInt()}M'
+        : '${millions.toStringAsFixed(1)}M';
+  }
+  if (xp >= 1000) {
+    final thousands = xp / 1000;
+    return thousands == thousands.toInt().toDouble()
+        ? '${thousands.toInt()}k'
+        : '${thousands.toStringAsFixed(1)}k';
+  }
+  return xp.toString();
+}
+
 class LeaderboardEntry {
   final int rank;
+  final String userId;
   final String userName;
   final int totalXP;
   final int weeklyXP;
+  final int monthlyXP;
+  final int currentStreak;
   final String levelLabel;
   final String? profileImageUrl;
+  final bool isCurrentUser;
 
   const LeaderboardEntry({
     required this.rank,
+    required this.userId,
     required this.userName,
     required this.totalXP,
     required this.weeklyXP,
+    required this.monthlyXP,
+    required this.currentStreak,
     required this.levelLabel,
     this.profileImageUrl,
+    this.isCurrentUser = false,
   });
 
-  factory LeaderboardEntry.fromJson(Map<String, dynamic> m, int indexFallback) {
-    // Extract level information
-    String levelLabel = '-';
-    if (m['currentLevel'] != null) {
-      final level = m['currentLevel'] as Map<String, dynamic>;
-      levelLabel = level['fullDisplayName'] ?? level['displayName'] ?? level['turkishName'] ?? '-';
-    }
-    
-    // Try different possible profile image fields from API
-    String? profileImageUrl = m['profileImageUrl'] as String? ?? 
-                             m['profilePicture'] as String? ?? 
-                             m['avatar'] as String? ?? 
-                             m['imageUrl'] as String?;
-    
+  factory LeaderboardEntry.fromApi(LeaderboardApiEntry api) {
     return LeaderboardEntry(
-      rank: (m['rank'] ?? indexFallback) as int,
-      userName: (m['userName'] ?? 'Kullanıcı').toString(),
-      totalXP: ((m['totalXP'] ?? 0) as num).toInt(),
-      weeklyXP: ((m['weeklyXP'] ?? 0) as num).toInt(),
-      levelLabel: levelLabel,
-      profileImageUrl: profileImageUrl,
+      rank: api.rank,
+      userId: api.userId,
+      userName: api.userName,
+      totalXP: api.totalXP,
+      weeklyXP: api.weeklyXP,
+      monthlyXP: api.monthlyXP,
+      currentStreak: api.currentStreak,
+      levelLabel: api.levelLabel ?? '-',
+      profileImageUrl: api.profilePictureUrl,
+      isCurrentUser: api.isCurrentUser,
     );
   }
 
-  /// Creates a copy of this entry with the given fields replaced with new values
   LeaderboardEntry copyWith({
     int? rank,
+    String? userId,
     String? userName,
     int? totalXP,
     int? weeklyXP,
+    int? monthlyXP,
+    int? currentStreak,
     String? levelLabel,
     String? profileImageUrl,
+    bool? isCurrentUser,
   }) {
     return LeaderboardEntry(
       rank: rank ?? this.rank,
+      userId: userId ?? this.userId,
       userName: userName ?? this.userName,
       totalXP: totalXP ?? this.totalXP,
       weeklyXP: weeklyXP ?? this.weeklyXP,
+      monthlyXP: monthlyXP ?? this.monthlyXP,
+      currentStreak: currentStreak ?? this.currentStreak,
       levelLabel: levelLabel ?? this.levelLabel,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      isCurrentUser: isCurrentUser ?? this.isCurrentUser,
     );
   }
 
@@ -562,28 +681,36 @@ class LeaderboardEntry {
     if (identical(this, other)) return true;
     return other is LeaderboardEntry &&
         other.rank == rank &&
+        other.userId == userId &&
         other.userName == userName &&
         other.totalXP == totalXP &&
         other.weeklyXP == weeklyXP &&
+        other.monthlyXP == monthlyXP &&
+        other.currentStreak == currentStreak &&
         other.levelLabel == levelLabel &&
-        other.profileImageUrl == profileImageUrl;
+        other.profileImageUrl == profileImageUrl &&
+        other.isCurrentUser == isCurrentUser;
   }
 
   @override
   int get hashCode {
     return Object.hash(
       rank,
+      userId,
       userName,
       totalXP,
       weeklyXP,
+      monthlyXP,
+      currentStreak,
       levelLabel,
       profileImageUrl,
+      isCurrentUser,
     );
   }
 
   @override
   String toString() {
-    return 'LeaderboardEntry(rank: $rank, userName: $userName, totalXP: $totalXP, weeklyXP: $weeklyXP, levelLabel: $levelLabel, profileImageUrl: $profileImageUrl)';
+    return 'LeaderboardEntry(rank: $rank, userId: $userId, userName: $userName, totalXP: $totalXP, weeklyXP: $weeklyXP, levelLabel: $levelLabel, isCurrentUser: $isCurrentUser)';
   }
 }
 
@@ -596,57 +723,243 @@ class LeaderboardPage extends StatefulWidget {
 
 class _LeaderboardPageState extends State<LeaderboardPage> {
   late final GameService _gameService;
-  late Future<List<LeaderboardEntry>> _future;
+  final ScrollController _scrollController = ScrollController();
   LeaderboardSort _sort = LeaderboardSort.allTime;
+
+  bool _isInitialLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasError = false;
+  String? _errorMessage;
+
+  List<LeaderboardEntry> _entries = <LeaderboardEntry>[];
+  LeaderboardEntry? _currentUserEntry;
+  List<LeaderboardEntry> _surroundingEntries = <LeaderboardEntry>[];
+  int? _nextOffset;
 
   @override
   void initState() {
     super.initState();
     _gameService = getIt<GameService>();
-    _future = _load();
+    _scrollController.addListener(_onScroll);
+    _loadInitial();
   }
 
-  Future<List<LeaderboardEntry>> _load() async {
-    final raw = await _gameService.getLeaderboard();
-    final list = <LeaderboardEntry>[];
-    for (var i = 0; i < raw.length; i++) {
-      final item = raw[i];
-      if (item is Map<String, dynamic>) {
-        // Debug: Print the raw API response to see available fields
-        print('🔍 Leaderboard item $i: $item');
-        list.add(LeaderboardEntry.fromJson(item, i + 1));
-      }
-    }
-    return _applySort(list);
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
   }
 
-  List<LeaderboardEntry> _applySort(List<LeaderboardEntry> list) {
-    final entries = List<LeaderboardEntry>.from(list);
-    if (_sort == LeaderboardSort.weekly) {
-      entries.sort((a, b) => b.weeklyXP.compareTo(a.weeklyXP));
+  Future<void> _loadInitial({bool showSkeleton = true}) async {
+    if (showSkeleton) {
+      setState(() {
+        _isInitialLoading = true;
+        _hasError = false;
+        _errorMessage = null;
+      });
     } else {
-      entries.sort((a, b) => b.totalXP.compareTo(a.totalXP));
+      setState(() {
+        _hasError = false;
+        _errorMessage = null;
+      });
     }
-    
-    // Re-rank after sort using copyWith for cleaner code
-    return entries.asMap().entries.map((entry) {
-      return entry.value.copyWith(rank: entry.key + 1);
-    }).toList();
+
+    try {
+      final response = await _gameService.getLeaderboardPage(
+        range: _rangeParam,
+        offset: 0,
+        limit: 20,
+        surrounding: 2,
+      );
+
+      final entries = response.items.map(LeaderboardEntry.fromApi).toList();
+      final currentUser = response.currentUser != null
+          ? LeaderboardEntry.fromApi(response.currentUser!)
+          : null;
+      final surrounding = response.surrounding
+          .map(LeaderboardEntry.fromApi)
+          .where((entry) => currentUser == null || entry.userId != currentUser.userId)
+          .toList()
+        ..sort((a, b) => a.rank.compareTo(b.rank));
+
+      setState(() {
+        _entries = entries;
+        _currentUserEntry = currentUser;
+        _surroundingEntries = surrounding;
+        _nextOffset = response.nextOffset;
+        _isInitialLoading = false;
+        _isLoadingMore = false;
+      });
+    } catch (error, stackTrace) {
+      setState(() {
+        _isInitialLoading = false;
+        _isLoadingMore = false;
+        _hasError = true;
+        _errorMessage = 'Liderlik tablosu yüklenemedi';
+      });
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || _isInitialLoading || _nextOffset == null) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    try {
+      final response = await _gameService.getLeaderboardPage(
+        range: _rangeParam,
+        offset: _nextOffset!,
+        limit: 50,
+        surrounding: 0,
+      );
+
+      final incoming = response.items.map(LeaderboardEntry.fromApi).toList();
+      final existingKeys = _entries.map((entry) => '${entry.rank}_${entry.userId}').toSet();
+      final merged = List<LeaderboardEntry>.from(_entries)
+        ..addAll(incoming.where((entry) => !existingKeys.contains('${entry.rank}_${entry.userId}')));
+
+      setState(() {
+        _entries = merged;
+        _nextOffset = response.nextOffset;
+        _isLoadingMore = false;
+      });
+    } catch (error, stackTrace) {
+      setState(() {
+        _isLoadingMore = false;
+      });
+    }
   }
 
   Future<void> _refresh() async {
-    setState(() {
-      _future = _load();
-    });
+    await _loadInitial(showSkeleton: false);
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients || _nextOffset == null || _isLoadingMore) return;
+    final position = _scrollController.position;
+    if (position.pixels > position.maxScrollExtent - 320) {
+      _loadMore();
+    }
+  }
+
+  String get _rangeParam => _sort == LeaderboardSort.allTime ? 'allTime' : 'weekly';
+
+  int _getListItemCount() {
+    // Show top 17 (20 minus podium 3) + surrounding if user is outside top 20
+    final topCount = _entries.length > 3 ? _entries.length - 3 : 0;
+    final userInTop20 = _currentUserEntry != null && _currentUserEntry!.rank <= 20;
+    
+    if (userInTop20 || _currentUserEntry == null || _surroundingEntries.isEmpty) {
+      return topCount;
+    }
+    
+    // User is outside top 20: show top list + surrounding band (gap rendered via separator)
+    return topCount + _surroundingEntries.length;
+  }
+
+  bool _shouldShowGapBeforeIndex(int index) {
+    final topCount = _entries.length > 3 ? _entries.length - 3 : 0;
+    final userInTop20 = _currentUserEntry != null && _currentUserEntry!.rank <= 20;
+    
+    // Show gap right before the surrounding band starts
+    return !userInTop20 && 
+           _currentUserEntry != null && 
+           _surroundingEntries.isNotEmpty && 
+           index == topCount;
+  }
+
+  LeaderboardEntry? _getEntryAtListIndex(int index) {
+    final topCount = _entries.length > 3 ? _entries.length - 3 : 0;
+    final userInTop20 = _currentUserEntry != null && _currentUserEntry!.rank <= 20;
+    
+    if (userInTop20 || _currentUserEntry == null || _surroundingEntries.isEmpty) {
+      // Show normal top list (ranks 4-20 or 4-end)
+      return index < topCount ? _entries[index + 3] : null;
+    }
+    
+    // User outside top 20: show top 17 (ranks 4-20), then gap, then surrounding band
+    if (index < topCount) {
+      return _entries[index + 3];
+    }
+    
+    // After topCount, we show surrounding entries
+    final surroundingIndex = index - topCount;
+    return surroundingIndex < _surroundingEntries.length 
+        ? _surroundingEntries[surroundingIndex] 
+        : null;
+  }
+
+  Widget _buildGapDivider() {
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  CupertinoColors.systemGrey3.withOpacity(0.5),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: CupertinoColors.systemGrey6.withOpacity(0.8),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(CupertinoIcons.ellipsis, size: 14, color: CupertinoColors.secondaryLabel),
+                SizedBox(width: 6),
+                Text(
+                  'Senin Sıran',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: CupertinoColors.secondaryLabel,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Expanded(
+          child: Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  CupertinoColors.systemGrey3.withOpacity(0.5),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-      backgroundColor: const Color(0xFFFFF8E1), // Light yellow background like the example
+      backgroundColor: const Color(0xFFFFF8E1),
       navigationBar: CupertinoNavigationBar(
         middle: const Text(
-          'Popular Live Ranking',
+          'Leiderlik Tablosu',
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w700,
@@ -663,73 +976,235 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFFFFF8E1), // Light yellow
-              Color(0xFFFFFBF0), // Slightly lighter yellow
+              Color(0xFFFFF8E1),
+              Color(0xFFFFFBF0),
             ],
             stops: [0.0, 1.0],
           ),
         ),
-        child: FutureBuilder<List<LeaderboardEntry>>(
-          future: _future,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const _LeaderboardSkeleton();
-            }
-            if (snapshot.hasError) {
-              return _errorState(context, 'Liderlik tablosu yüklenemedi');
-            }
-            final entries = snapshot.data ?? const <LeaderboardEntry>[];
-            if (entries.isEmpty) {
-              return _emptyState(context);
-            }
-            return RefreshIndicator(
-              onRefresh: _refresh,
-              color: CupertinoColors.systemBlue,
-              backgroundColor: CupertinoColors.white,
-              child: CustomScrollView(
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildSortSegmented(),
-                          const SizedBox(height: 24),
-                          _buildPodium(entries),
-                          const SizedBox(height: 20),
-                          _buildSectionHeader(),
-                        ],
+        child: _isInitialLoading
+            ? const _LeaderboardSkeleton()
+            : _hasError
+                ? _errorState(context, _errorMessage ?? 'Liderlik tablosu yüklenemedi')
+                : _entries.isEmpty
+                    ? _emptyState(context)
+                    : RefreshIndicator(
+                        onRefresh: _refresh,
+                        color: CupertinoColors.systemOrange,
+                        backgroundColor: CupertinoColors.white,
+                        child: CustomScrollView(
+                          controller: _scrollController,
+                          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                          slivers: [
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _buildSortSegmented(),
+                                    const SizedBox(height: 24),
+                                    _buildPodium(_entries),
+                                    if (_currentUserEntry != null) ...[
+                                      const SizedBox(height: 20),
+                                      _buildMyRankSection(),
+                                    ],
+                                    const SizedBox(height: 16),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            SliverPadding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              sliver: SliverList.separated(
+                                itemCount: _getListItemCount(),
+                                separatorBuilder: (context, index) {
+                                  // Add gap before user's rank section if it's not in top list
+                                  if (_shouldShowGapBeforeIndex(index)) {
+                                    return Column(
+                                      children: [
+                                        const SizedBox(height: 12),
+                                        _buildGapDivider(),
+                                        const SizedBox(height: 12),
+                                      ],
+                                    );
+                                  }
+                                  return const SizedBox(height: 12);
+                                },
+                                itemBuilder: (context, index) {
+                                  final entry = _getEntryAtListIndex(index);
+                                  if (entry == null) return const SizedBox.shrink();
+                                  
+                                  final xpValue = _sort == LeaderboardSort.allTime ? entry.totalXP : entry.weeklyXP;
+                                  return LeaderboardCard(
+                                    entry: entry,
+                                    xpValue: xpValue,
+                                    isCurrentUser: entry.isCurrentUser,
+                                    onTap: () {
+                                      // TODO: Navigate to user profile
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                            if (_isLoadingMore)
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 24),
+                                  child: _buildLoadingMoreIndicator(),
+                                ),
+                              ),
+                            const SliverToBoxAdapter(
+                              child: SizedBox(height: 100),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    sliver: SliverList.separated(
-                      itemCount: entries.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final e = entries[index];
-                        final xpValue = _sort == LeaderboardSort.allTime ? e.totalXP : e.weeklyXP;
-                        return LeaderboardCard(
-                          entry: e,
-                          xpValue: xpValue,
-                          onTap: () {
-                            // TODO: Navigate to user profile
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                  const SliverToBoxAdapter(
-                    child: SizedBox(height: 100),
-                  ),
-                ],
-              ),
-            );
-          },
+      ),
+    );
+  }
+
+  Widget _buildMyRankSection() {
+    final me = _currentUserEntry;
+    if (me == null || me.rank <= 20) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: CupertinoColors.systemOrange.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: CupertinoColors.systemOrange.withOpacity(0.3),
+          width: 1.5,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: CupertinoColors.systemOrange.withOpacity(0.12),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(CupertinoIcons.person_crop_circle_badge_checkmark, size: 20, color: CupertinoColors.systemOrange),
+              SizedBox(width: 8),
+              Text(
+                'Senin Sıran',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: CupertinoColors.label,
+                  letterSpacing: -0.2,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: CupertinoColors.white.withOpacity(0.95),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: CupertinoColors.systemOrange.withOpacity(0.4), width: 1.5),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [CupertinoColors.systemOrange, Color(0xFFFF9500)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Text(
+                    '#${me.rank}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: CupertinoColors.white,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        me.userName,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: CupertinoColors.label,
+                          decoration: TextDecoration.none,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        me.levelLabel,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: CupertinoColors.secondaryLabel,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.systemOrange.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${_sort == LeaderboardSort.allTime ? me.totalXP : me.weeklyXP} XP',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: CupertinoColors.systemOrange,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingMoreIndicator() {
+    return Center(
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: CupertinoColors.white.withOpacity(0.9),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: CupertinoColors.black.withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const CupertinoActivityIndicator(color: CupertinoColors.systemOrange),
       ),
     );
   }
@@ -789,87 +1264,41 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
   }
 
 
-  Widget _buildSectionHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      decoration: BoxDecoration(
-        color: CupertinoColors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: CupertinoColors.black.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: CupertinoColors.black.withOpacity(0.02),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Text(
-            'Diğer Sıralamalar',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: CupertinoColors.label,
-              decoration: TextDecoration.none,
-            ),
-          ),
-          const Spacer(),
-          Text(
-            '${_sort == LeaderboardSort.allTime ? 'Tüm Zamanlar' : 'Haftalık'}',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: CupertinoColors.secondaryLabel,
-              decoration: TextDecoration.none,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-
-
-
   Widget _buildSortSegmented() {
-    return Container(
-      height: 44,
-      decoration: BoxDecoration(
-        color: CupertinoColors.systemBackground,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: CupertinoColors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: CupertinoColors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: CupertinoSlidingSegmentedControl<LeaderboardSort>(
-        groupValue: _sort,
-        backgroundColor: CupertinoColors.systemBackground,
-        thumbColor: CupertinoColors.systemBlue,
-        padding: const EdgeInsets.all(2),
-        onValueChanged: (value) {
-          if (value != null) {
-            setState(() {
-              _sort = value;
-              _future = _load();
-            });
-          }
-        },
-        children: {
+    return Center(
+      child: Container(
+        height: 44,
+        constraints: const BoxConstraints(maxWidth: 280),
+        decoration: BoxDecoration(
+          color: CupertinoColors.systemBackground,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: CupertinoColors.black.withOpacity(0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: CupertinoColors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: CupertinoSlidingSegmentedControl<LeaderboardSort>(
+          groupValue: _sort,
+          backgroundColor: CupertinoColors.systemBackground,
+          thumbColor: CupertinoColors.systemOrange,
+          padding: const EdgeInsets.all(2),
+          onValueChanged: (value) {
+            if (value != null && value != _sort) {
+              setState(() {
+                _sort = value;
+              });
+              _loadInitial();
+            }
+          },
+          children: {
           LeaderboardSort.allTime: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             child: Row(
@@ -881,7 +1310,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                   size: 12,
                   color: _sort == LeaderboardSort.allTime 
                     ? CupertinoColors.white 
-                    : CupertinoColors.systemBlue,
+                    : CupertinoColors.systemOrange,
                 ),
                 const SizedBox(width: 4),
                 Flexible(
@@ -892,7 +1321,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                     fontWeight: FontWeight.w600,
                     color: _sort == LeaderboardSort.allTime 
                       ? CupertinoColors.white 
-                      : CupertinoColors.systemBlue,
+                      : CupertinoColors.systemOrange,
                     letterSpacing: -0.2,
                     decoration: TextDecoration.none,
                   ),
@@ -913,7 +1342,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                   size: 12,
                   color: _sort == LeaderboardSort.weekly 
                     ? CupertinoColors.white 
-                    : CupertinoColors.systemBlue,
+                    : CupertinoColors.systemOrange,
                 ),
                 const SizedBox(width: 4),
                 Flexible(
@@ -924,7 +1353,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                     fontWeight: FontWeight.w600,
                     color: _sort == LeaderboardSort.weekly 
                       ? CupertinoColors.white 
-                      : CupertinoColors.systemBlue,
+                      : CupertinoColors.systemOrange,
                     letterSpacing: -0.2,
                     decoration: TextDecoration.none,
                   ),
@@ -934,7 +1363,8 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
               ],
             ),
           ),
-        },
+          },
+        ),
       ),
     );
   }
