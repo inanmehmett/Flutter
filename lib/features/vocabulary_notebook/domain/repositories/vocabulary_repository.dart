@@ -58,7 +58,7 @@ abstract class VocabularyRepository {
   
   Future<ReviewSession> startReviewSession({String? modeFilter});
   
-  Future<void> completeReviewSession(ReviewSession session);
+  Future<List<VocabularyWord>> completeReviewSession(ReviewSession session);
   
   Future<DateTime> getNextReviewTime();
   

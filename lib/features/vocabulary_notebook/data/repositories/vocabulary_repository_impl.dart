@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../../../../core/network/network_manager.dart';
+import '../../../../core/utils/json_extensions.dart';
 import '../../domain/entities/vocabulary_word.dart';
 import '../../domain/entities/vocabulary_stats.dart';
 import '../../domain/entities/learning_activity.dart';
@@ -93,24 +94,32 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
   }
 
   VocabularyWord _fromServer(Map<String, dynamic> e) {
-    final status = _statusFromString((e['status'] ?? 'new_').toString());
-    final id = (e['id'] ?? 0) as int;
-    final word = (e['word'] ?? '') as String;
-    final meaning = (e['meaning'] ?? '') as String;
-    final notes = e['notes'] as String?;
-    final description = e['description'] as String?;
-    final exampleSentence = e['exampleSentence'] as String?;
-    final createdAt = DateTime.tryParse((e['createdAt'] ?? '') as String) ?? DateTime.now();
-    final lastReviewedAt = DateTime.tryParse((e['lastReviewedAt'] ?? '') as String? ?? '');
-    final nextReviewAt = DateTime.tryParse((e['nextReviewAt'] ?? '') as String? ?? '');
-    final reviewCount = (e['reviewCount'] as num?)?.toInt() ?? 0;
-    final correctCount = (e['correctCount'] as num?)?.toInt() ?? 0;
-    final consecutive = (e['consecutiveCorrectCount'] as num?)?.toInt() ?? 0;
-    final difficulty = (e['difficulty'] as num?)?.toDouble() ?? 0.5;
+    // ✅ Use case-insensitive parsing to handle both camelCase and PascalCase
+    final status = _statusFromString(e.getString('status', defaultValue: 'new_'));
+    final id = e.getInt('id', defaultValue: 0);
+    final word = e.getString('word', defaultValue: '');
+    final meaning = e.getString('meaning', defaultValue: '');
+    final notes = e.getIgnoreCase<String>('notes');
+    final description = e.getIgnoreCase<String>('description');
+    final exampleSentence = e.getIgnoreCase<String>('exampleSentence');
+    final createdAt = e.getDateTime('createdAt') ?? DateTime.now();
+    final lastReviewedAt = e.getDateTime('lastReviewedAt');
+    final nextReviewAt = e.getDateTime('nextReviewAt');
+    
+    // ✅ CRITICAL FIX: Use safe getters for review counts
+    final reviewCount = e.getInt('reviewCount', defaultValue: 0);
+    final correctCount = e.getInt('correctCount', defaultValue: 0);
+    final consecutive = e.getInt('consecutiveCorrectCount', defaultValue: 0);
+    final difficulty = e.getDouble('difficulty', defaultValue: 0.5);
+    
+    // 🔍 DEBUG: Log parsed data to verify backend response
+    print('🔄 [VOCAB] Parsing word "$word" (ID: $id) - '
+          'ReviewCount: $reviewCount, CorrectCount: $correctCount, '
+          'Status: $status, Consecutive: $consecutive');
     
     // Parse synonyms and antonyms from backend
-    final synonymsList = (e['synonyms'] as List<dynamic>?)?.map((s) => s.toString()).toList() ?? <String>[];
-    final antonymsList = (e['antonyms'] as List<dynamic>?)?.map((a) => a.toString()).toList() ?? <String>[];
+    final synonymsList = e.getList<String>('synonyms');
+    final antonymsList = e.getList<String>('antonyms');
     
     return _store.mergeWithPersisted(
       VocabularyWord(
@@ -437,12 +446,25 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
   @override
   Future<void> markWordReviewed(int wordId, bool isCorrect) async {
     try {
+      // 🔍 DEBUG: Log review attempt
+      print('📝 [VOCAB] Marking word $wordId as ${isCorrect ? "CORRECT" : "WRONG"}');
+      
       final resp = await _retry(() => _net.post('/api/ApiUserVocabulary/$wordId/review', data: { 'isCorrect': isCorrect }));
+      
+      // 🔍 DEBUG: Log backend response
+      print('✅ [VOCAB] Backend response: ${resp.data}');
+      
       // Backend response contains updated word data; fetch and update local store
       final updated = await getWordById(wordId);
       if (updated != null) {
+        // 🔍 DEBUG: Log updated word stats
+        print('📊 [VOCAB] Updated stats - ReviewCount: ${updated.reviewCount}, '
+              'CorrectCount: ${updated.correctCount}, Status: ${updated.status.name}');
         _store.upsertWord(updated);
+      } else {
+        print('⚠️ [VOCAB] Failed to fetch updated word $wordId');
       }
+      
       // Eğer aktif session varsa item ekleyelim
       if (_activeSessionId != null) {
         await _retry(() => _net.post('/api/ApiUserVocabulary/session/${_activeSessionId}/item', data: {
@@ -452,10 +474,17 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
         }));
       }
       return; // Success: backend handled it
-    } catch (_) {
+    } catch (e) {
+      // 🔍 DEBUG: Log error
+      print('❌ [VOCAB] Error marking word reviewed: $e');
+      
       // Fallback: optimistic local update
       final current = _store.getById(wordId);
-      if (current == null) return;
+      if (current == null) {
+        print('⚠️ [VOCAB] Word $wordId not found in local store');
+        return;
+      }
+      print('🔄 [VOCAB] Using fallback local update for word $wordId');
       final updated = SpacedRepetitionService.processReviewResult(
         word: current,
         isCorrect: isCorrect,
@@ -653,26 +682,54 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
   }
 
   @override
-  Future<void> completeReviewSession(ReviewSession session) async {
-    // NOTE: Individual reviews are saved in real-time via MarkWordReviewed event
-    // This method only finalizes the session metadata
+  Future<List<VocabularyWord>> completeReviewSession(ReviewSession session) async {
+    // Send full results to backend; backend will batch-apply updates
     try {
       if (_activeSessionId != null) {
         final correct = session.results.where((r) => r.isCorrect).length;
         final secs = session.duration.inSeconds > 0
             ? session.duration.inSeconds
             : DateTime.now().difference(session.startedAt).inSeconds;
-        await _retry(() => _net.post('/api/ApiUserVocabulary/session/${_activeSessionId}/complete', data: {
+        final resp = await _retry(() => _net.post('/api/ApiUserVocabulary/session/${_activeSessionId}/complete', data: {
           'itemsCount': session.results.length,
           'correctCount': correct,
           'durationSeconds': secs.clamp(0, 36000),
+          'results': session.results.map((r) => {
+            'vocabularyId': int.tryParse(r.wordId) ?? 0,
+            'isCorrect': r.isCorrect,
+            'timeMs': r.responseTimeMs,
+          }).toList(),
         }));
+
+        // Parse patches and update local store
+        final data = (resp.data as Map<String, dynamic>?)?['data'] as Map<String, dynamic>?;
+        final patches = (data?['patches'] as List<dynamic>?) ?? const [];
+        final updatedWords = <VocabularyWord>[];
+        for (final p in patches) {
+          final m = (p as Map).cast<String, dynamic>();
+          final id = (m['id'] as num).toInt();
+          final current = _store.getById(id);
+          if (current == null) continue;
+          final patched = current.copyWith(
+            reviewCount: (m['reviewCount'] as num?)?.toInt() ?? current.reviewCount,
+            correctCount: (m['correctCount'] as num?)?.toInt() ?? current.correctCount,
+            consecutiveCorrectCount: (m['consecutiveCorrectCount'] as num?)?.toInt() ?? current.consecutiveCorrectCount,
+            status: _statusFromString((m['status'] ?? current.status.name).toString()),
+            lastReviewedAt: m['lastReviewedAt'] != null ? DateTime.tryParse(m['lastReviewedAt'].toString()) ?? current.lastReviewedAt : current.lastReviewedAt,
+            nextReviewAt: m['nextReviewAt'] != null ? DateTime.tryParse(m['nextReviewAt'].toString()) ?? current.nextReviewAt : current.nextReviewAt,
+          );
+          _store.upsertWord(patched);
+          updatedWords.add(patched);
+        }
+        return updatedWords;
       }
     } catch (_) {
       // Session completion is optional - individual reviews are already saved
+      return const <VocabularyWord>[];
     } finally {
       _activeSessionId = null;
     }
+    return const <VocabularyWord>[];
   }
 
   @override

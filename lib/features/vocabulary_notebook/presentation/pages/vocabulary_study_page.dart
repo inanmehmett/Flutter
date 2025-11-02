@@ -123,10 +123,7 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
       completedAt: DateTime.now(),
     ));
 
-    // Save review to backend immediately (real-time stats update)
-    context.read<VocabularyBloc>().add(
-      MarkWordReviewed(wordId: currentWord.id, isCorrect: isCorrect),
-    );
+    // Do not write per-answer to backend; results will be persisted on session completion
 
     _progressController.forward(from: 0);
 

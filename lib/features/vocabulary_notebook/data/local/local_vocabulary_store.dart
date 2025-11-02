@@ -19,18 +19,14 @@ class LocalVocabularyStore {
       _wordStateById[incoming.id] = initialized;
       return initialized;
     }
-    // Preserve SRS-specific fields from persisted version when incoming lacks them
+    
+    // ✅ FIX: ALWAYS prefer incoming (backend) data over cached data
+    // Only merge recentActivities from cache since it's not stored in backend
     return _wordStateById[incoming.id] = incoming.copyWith(
-      lastReviewedAt: existing.lastReviewedAt ?? incoming.lastReviewedAt,
-      reviewCount: existing.reviewCount != 0 ? existing.reviewCount : incoming.reviewCount,
-      correctCount: existing.correctCount != 0 ? existing.correctCount : incoming.correctCount,
-      consecutiveCorrectCount: existing.consecutiveCorrectCount != 0
-          ? existing.consecutiveCorrectCount
-          : incoming.consecutiveCorrectCount,
-      nextReviewAt: existing.nextReviewAt ?? incoming.nextReviewAt,
-      difficultyLevel: existing.difficultyLevel != 0.5 ? existing.difficultyLevel : incoming.difficultyLevel,
-      recentActivities: existing.recentActivities.isNotEmpty ? existing.recentActivities : incoming.recentActivities,
-      status: existing.status, // status updates will flow through updates as well
+      // Preserve local-only activities (not stored in backend)
+      recentActivities: existing.recentActivities.isNotEmpty 
+          ? existing.recentActivities 
+          : incoming.recentActivities,
     );
   }
 

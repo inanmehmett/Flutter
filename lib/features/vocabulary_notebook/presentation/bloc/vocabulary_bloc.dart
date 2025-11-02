@@ -338,9 +338,17 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     Emitter<VocabularyState> emit,
   ) async {
     try {
-      await repository.completeReviewSession(event.session);
-      _lastStats = null;
-      add(RefreshVocabulary());
+      final updated = await repository.completeReviewSession(event.session);
+      final currentState = state;
+      if (currentState is VocabularyLoaded && updated.isNotEmpty) {
+        // Merge updated words into current state without extra GETs
+        final updatedIds = updated.map((w) => w.id).toSet();
+        final merged = currentState.words.map((w) {
+          final idx = updated.indexWhere((u) => u.id == w.id);
+          return idx >= 0 ? updated[idx] : w;
+        }).toList();
+        emit(currentState.copyWith(words: merged));
+      }
     } catch (e) {
       emit(VocabularyError(message: e.toString()));
     }
