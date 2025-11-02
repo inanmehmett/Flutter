@@ -205,28 +205,30 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildDailyProgressCard(BuildContext context, UserProfile profile) {
     final streakDays = _cachedStreakDays ?? profile.currentStreak ?? 0;
-    final dailyGoal = 100; // Örnek günlük hedef XP
-    final currentXP = (profile.experiencePoints ?? 0) % dailyGoal;
+    final dailyGoal = 50; // Günlük hedef XP
+    final currentXP = (profile.experiencePoints ?? 0) % 100; // Bugünkü XP (mock)
     final progressPercentage = (currentXP / dailyGoal * 100).clamp(0, 100).toInt();
     
     // Motivasyonel mesaj
     String motivationMessage;
     if (progressPercentage == 0) {
       motivationMessage = 'Bugünkü hedefine başla! 💪';
-    } else if (progressPercentage < 30) {
-      motivationMessage = 'Güzel başlangıç! Devam et 🚀';
-    } else if (progressPercentage < 70) {
-      motivationMessage = 'Yarı yoldasın! 🔥';
+    } else if (progressPercentage < 50) {
+      motivationMessage = 'Güzel! Devam et 🚀';
     } else if (progressPercentage < 100) {
-      motivationMessage = 'Neredeyse hedefine ulaştın! ⭐';
+      motivationMessage = 'Neredeyse! 🔥';
     } else {
-      motivationMessage = 'Bugünkü hedefini tamamladın! 🎉';
+      motivationMessage = 'Hedef tamamlandı! 🎉';
     }
+    
+    // Mini goals
+    final hasStreak = streakDays > 0;
+    final hasStudied = currentXP > 0;
     
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
-      padding: const EdgeInsets.all(AppSpacing.paddingL),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [_primaryOrange, _secondaryOrange],
@@ -242,18 +244,24 @@ class _HomePageState extends State<HomePage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.trending_up,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                  const SizedBox(width: 12),
                   Text(
-                    'Günlük İlerleme',
-                    style: AppTypography.title3.copyWith(
-                      color: AppColors.surface,
+                    'Günlük Hedefler',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    motivationMessage,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.white.withOpacity(0.9),
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
@@ -275,47 +283,84 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            motivationMessage,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white.withOpacity(0.95),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
           const SizedBox(height: 16),
           // Progress bar
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: LinearProgressIndicator(
-              value: progressPercentage / 100,
+              value: (progressPercentage / 100).clamp(0.0, 1.0),
               minHeight: 8,
               backgroundColor: Colors.white.withOpacity(0.3),
               valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
             ),
           ),
+          const SizedBox(height: 4),
+          Text(
+            '$currentXP / $dailyGoal XP',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.white.withOpacity(0.8),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 16),
+          // Mini goals row
           Row(
             children: [
-              Expanded(
-                child: _buildProgressItem(
-                  'Günlük Hedef',
-                  '$currentXP/$dailyGoal XP',
-                  Icons.flag,
-                ),
+              _buildMiniGoal(
+                hasStreak ? Icons.check_circle : Icons.circle_outlined,
+                'Streak ${streakDays > 0 ? streakDays : ""}',
+                hasStreak,
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildProgressItem(
-                  'Streak',
-                  '$streakDays gün ${streakDays > 0 ? "🔥" : ""}',
-                  Icons.local_fire_department,
-                ),
+              const SizedBox(width: 12),
+              _buildMiniGoal(
+                hasStudied ? Icons.check_circle : Icons.circle_outlined,
+                'Çalış',
+                hasStudied,
+              ),
+              const SizedBox(width: 12),
+              _buildMiniGoal(
+                progressPercentage >= 100 ? Icons.check_circle : Icons.circle_outlined,
+                'XP Hedefi',
+                progressPercentage >= 100,
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMiniGoal(IconData icon, String label, bool isCompleted) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: isCompleted ? Colors.white : Colors.white.withOpacity(0.5),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white.withOpacity(isCompleted ? 0.95 : 0.7),
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -349,248 +394,6 @@ class _HomePageState extends State<HomePage> {
             fontSize: 18,
             color: Colors.white,
             fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDailyGoalsCard(BuildContext context, UserProfile profile) {
-    // Real data from user profile and cached streak
-    final int xpToday = (profile.experiencePoints ?? 0) % 100; // XP earned today (mock calculation)
-    final int xpGoal = 50; // Daily XP goal
-    final xpProgress = (xpToday / xpGoal).clamp(0.0, 1.0);
-    
-    final int streakDays = _cachedStreakDays ?? profile.currentStreak ?? 0;
-    final bool hasStreak = streakDays > 0; // If they have streak, they were active today
-    
-    // Goals based on real data
-    final goals = [
-      {
-        'title': 'Günlük XP kazan',
-        'progress': xpProgress,
-        'current': xpToday,
-        'target': xpGoal,
-        'icon': Icons.star,
-        'unit': ' XP'
-      },
-      {
-        'title': 'Serisini koru',
-        'progress': hasStreak ? 1.0 : 0.0,
-        'current': hasStreak ? 1 : 0,
-        'target': 1,
-        'icon': Icons.local_fire_department,
-        'unit': ''
-      },
-      {
-        'title': 'Kelime çalış',
-        'progress': xpToday > 0 ? 1.0 : 0.0, // If they earned any XP, they studied
-        'current': xpToday > 0 ? 1 : 0,
-        'target': 1,
-        'icon': Icons.menu_book,
-        'unit': ''
-      },
-    ];
-    
-    final completedCount = goals.where((g) => (g['progress'] as double) >= 1.0).length;
-    final totalCount = goals.length;
-    final overallProgress = goals.fold<double>(0, (sum, g) => sum + (g['progress'] as double)) / totalCount;
-    
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.cardRadius),
-        boxShadow: AppShadows.cardShadowElevated,
-        border: Border.all(
-          color: _primaryOrange.withOpacity(0.1),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [_primaryOrange, _secondaryOrange],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.emoji_events,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Günlük Hedefler',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '$completedCount/$totalCount tamamlandı',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: completedCount == totalCount 
-                      ? Colors.green.withOpacity(0.1)
-                      : _primaryOrange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: completedCount == totalCount 
-                        ? Colors.green.withOpacity(0.3)
-                        : _primaryOrange.withOpacity(0.3),
-                  ),
-                ),
-                child: Text(
-                  completedCount == totalCount ? '✓ Tamamlandı' : '${(overallProgress * 100).round()}%',
-                  style: TextStyle(
-                    color: completedCount == totalCount ? Colors.green : _primaryOrange,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          ...goals.map((goal) => Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: _buildGoalItem(
-              goal['title'] as String,
-              goal['progress'] as double,
-              goal['current'] as int,
-              goal['target'] as int,
-              goal['icon'] as IconData,
-              goal['unit'] as String,
-            ),
-          )).toList(),
-          if (completedCount == totalCount) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.green.withOpacity(0.1), Colors.green.withOpacity(0.05)],
-                ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.green.withOpacity(0.3),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Text('🎉', style: TextStyle(fontSize: 24)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Tebrikler!',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.green,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Bugünkü tüm hedefleri tamamladın! +50 bonus XP kazandın.',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[700],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGoalItem(String title, double progress, int current, int target, IconData icon, String unit) {
-    final isCompleted = progress >= 1.0;
-    final displayProgress = progress.clamp(0.0, 1.0);
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: isCompleted 
-                    ? Colors.green.withOpacity(0.1)
-                    : _primaryOrange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                isCompleted ? Icons.check_circle : icon,
-                size: 18,
-                color: isCompleted ? Colors.green : _primaryOrange,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: isCompleted ? Colors.grey[500] : _textPrimary,
-                  decoration: isCompleted ? TextDecoration.lineThrough : null,
-                ),
-              ),
-            ),
-            Text(
-              '$current/$target$unit',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: isCompleted ? Colors.green : _primaryOrange,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: LinearProgressIndicator(
-            value: displayProgress,
-            minHeight: 6,
-            backgroundColor: Colors.grey[200],
-            valueColor: AlwaysStoppedAnimation<Color>(
-              isCompleted ? Colors.green : _primaryOrange,
-            ),
           ),
         ),
       ],
@@ -1108,10 +911,6 @@ class _HomePageState extends State<HomePage> {
                   
                   // 3.1 Günlük İlerleme (En önemli - motivasyon)
                   _buildDailyProgressCard(context, userProfile!),
-                  const SizedBox(height: _largeSpacing),
-                  
-                  // 3.1.5 Daily Goals (Gamification)
-                  _buildDailyGoalsCard(context, userProfile!),
                   const SizedBox(height: _largeSpacing),
                   
                   // 3.2 Devam Eden Okuma
