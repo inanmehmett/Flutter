@@ -296,6 +296,78 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildModernIcon({
+    required String emoji,
+    required Gradient gradient,
+    required Color shadowColor,
+  }) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeOutBack,
+      builder: (context, value, child) {
+        return Transform.scale(
+          scale: 0.8 + (value * 0.2),
+          child: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              gradient: gradient,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: shadowColor.withOpacity(0.3 * value),
+                  blurRadius: 12 * value,
+                  offset: Offset(0, 4 * value),
+                ),
+                BoxShadow(
+                  color: Colors.white.withOpacity(0.8 * value),
+                  blurRadius: 8 * value,
+                  offset: Offset(-2 * value, -2 * value),
+                  spreadRadius: -2,
+                ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                // Inner glow
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.white.withOpacity(0.4),
+                        Colors.transparent,
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                ),
+                // Emoji with rotation
+                Center(
+                  child: Transform.rotate(
+                    angle: (1 - value) * 0.5,
+                    child: Opacity(
+                      opacity: value,
+                      child: Text(
+                        emoji,
+                        style: const TextStyle(
+                          fontSize: 28,
+                          height: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildVocabularyNotebookSection(BuildContext context) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 400),
@@ -315,17 +387,14 @@ class _HomePageState extends State<HomePage> {
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
+              _buildModernIcon(
+                emoji: '📚',
+                gradient: LinearGradient(
+                  colors: [Colors.white, Colors.purple.shade50],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                child: const Icon(
-                  Icons.book_outlined,
-                  color: Colors.white,
-                  size: 28,
-                ),
+                shadowColor: Colors.purple.shade900,
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -333,7 +402,7 @@ class _HomePageState extends State<HomePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      '📚 Kelime Defterim',
+                      'Kelime Defterim',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -405,17 +474,14 @@ class _HomePageState extends State<HomePage> {
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
+              _buildModernIcon(
+                emoji: '🎯',
+                gradient: LinearGradient(
+                  colors: [Colors.white, Colors.orange.shade50],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                child: const Icon(
-                  Icons.quiz,
-                  color: Colors.white,
-                  size: 28,
-                ),
+                shadowColor: Colors.orange.shade900,
               ),
               const SizedBox(width: 16),
               Expanded(
