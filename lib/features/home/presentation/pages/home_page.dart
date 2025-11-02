@@ -204,9 +204,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildDailyProgressCard(BuildContext context, UserProfile profile) {
-    final streakDays = _cachedStreakDays ?? profile.currentStreak;
+    final streakDays = _cachedStreakDays ?? profile.currentStreak ?? 0;
     final dailyGoal = 100; // Örnek günlük hedef XP
-    final currentXP = profile.experiencePoints % dailyGoal;
+    final currentXP = (profile.experiencePoints ?? 0) % dailyGoal;
     final progressPercentage = (currentXP / dailyGoal * 100).clamp(0, 100).toInt();
     
     // Motivasyonel mesaj
