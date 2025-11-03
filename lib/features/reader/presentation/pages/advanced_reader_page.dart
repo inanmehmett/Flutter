@@ -26,6 +26,7 @@ import '../widgets/daily_media_bar.dart';
 import '../../../../core/widgets/toasts.dart';
 import '../../../vocabulary_notebook/presentation/bloc/vocabulary_bloc.dart';
 import '../../../vocabulary_notebook/presentation/bloc/vocabulary_event.dart';
+import '../../../vocabulary_notebook/presentation/bloc/vocabulary_state.dart';
 import '../../../vocabulary_notebook/domain/entities/vocabulary_word.dart';
 
 // Anchor data for tooltip positioning
@@ -297,6 +298,17 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     }
   }
 
+  // Kelimenin defterinde olup olmadığını kontrol et
+  bool _isWordInVocabulary(String word) {
+    final vocabState = context.read<VocabularyBloc>().state;
+    if (vocabState is VocabularyLoaded) {
+      return vocabState.words.any(
+        (w) => w.word.toLowerCase().trim() == word.toLowerCase().trim(),
+      );
+    }
+    return false;
+  }
+
   // Kelimeyi kelime defterine ekle
   Future<void> _addToVocabulary(String word) async {
     try {
@@ -319,8 +331,11 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
         reviewCount: 0,
         correctCount: 0,
       );
+      
+      // Bloc'a gönder - Duplicate kontrolü ve feedback BlocListener'da!
       context.read<VocabularyBloc>().add(AddWord(word: vocabWord));
-      ToastOverlay.show(context, const XpToast(5), channel: 'vocab_add');
+      
+      // Toast ve SnackBar artık BlocListener'da gösteriliyor
     } catch (e) {
       Logger.error('📚 [Vocabulary] Error adding word', e);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -425,19 +440,68 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
   Widget build(BuildContext context) {
     return Consumer<ThemeManager>(
       builder: (context, themeManager, child) {
-        return Scaffold(
-          body: BlocBuilder<AdvancedReaderBloc, ReaderState>(
-            builder: (context, state) {
-              if (state is ReaderLoading) {
-                return _buildLoadingView();
-              } else if (state is ReaderError) {
-                return _buildErrorView(state.message);
-              } else if (state is ReaderLoaded) {
-                return _buildReaderView(state);
-              } else {
-                return _buildInitialView();
-              }
-            },
+        return BlocListener<VocabularyBloc, VocabularyState>(
+          listener: (context, vocabState) {
+            // Kelime ekleme feedback'i
+            if (vocabState is WordExists) {
+              // ✅ Zaten defterinde!
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const Icon(Icons.check_circle, color: Colors.white),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '✅ "${vocabState.word.word}" zaten kelime defterinde!',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                  backgroundColor: Colors.green.shade600,
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            } else if (vocabState is WordAdded) {
+              // ✅ Başarıyla eklendi!
+              ToastOverlay.show(context, const XpToast(5), channel: 'vocab_add');
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const Icon(Icons.star, color: Colors.white),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '⭐ "${vocabState.word.word}" kelime defterine eklendi!',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                  backgroundColor: Colors.amber.shade700,
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          },
+          child: Scaffold(
+            body: BlocBuilder<AdvancedReaderBloc, ReaderState>(
+              builder: (context, state) {
+                if (state is ReaderLoading) {
+                  return _buildLoadingView();
+                } else if (state is ReaderError) {
+                  return _buildErrorView(state.message);
+                } else if (state is ReaderLoaded) {
+                  return _buildReaderView(state);
+                } else {
+                  return _buildInitialView();
+                }
+              },
+            ),
           ),
         );
       },
@@ -1191,7 +1255,19 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                         const SizedBox(height: 10),
                         Row(
                           children: [
-                            _iconAction(icon: Icons.star_border_rounded, label: 'Favorilere ekle', onTap: _onAddWordToLearningList, themeManager: themeManager),
+                            Builder(
+                              builder: (context) {
+                                final word = (_selectedWord ?? '').trim();
+                                final isInVocab = word.isNotEmpty && _isWordInVocabulary(word);
+                                return _iconAction(
+                                  icon: isInVocab ? Icons.check_circle : Icons.star_border_rounded,
+                                  label: isInVocab ? '✅ Defterinde' : 'Favorilere ekle',
+                                  onTap: isInVocab ? () {} : _onAddWordToLearningList,
+                                  themeManager: themeManager,
+                                  isDisabled: isInVocab,
+                                );
+                              },
+                            ),
                           ],
                         ),
                       ],
@@ -1211,22 +1287,32 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     _sentenceOverlayTimer = Timer(const Duration(seconds: 7), _hideSentenceOverlay);
   }
 
-  Widget _iconAction({required IconData icon, required String label, required VoidCallback onTap, required ThemeManager themeManager}) {
+  Widget _iconAction({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required ThemeManager themeManager,
+    bool isDisabled = false,
+  }) {
     final Color fg = _getThemeOnSurfaceVariantColor(themeManager);
+    final Color displayColor = isDisabled ? fg.withOpacity(0.4) : fg;
+    
     return GestureDetector(
-      onTap: onTap,
+      onTap: isDisabled ? null : onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.04),
+          color: isDisabled 
+            ? Colors.black.withOpacity(0.02) 
+            : Colors.black.withOpacity(0.04),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 16, color: fg),
+            Icon(icon, size: 16, color: displayColor),
             const SizedBox(width: 6),
-            Text(label, style: TextStyle(fontSize: 12, color: fg, fontWeight: FontWeight.w600)),
+            Text(label, style: TextStyle(fontSize: 12, color: displayColor, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -1249,8 +1335,11 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
         reviewCount: 0,
         correctCount: 0,
       );
+      
+      // Bloc'a gönder - Duplicate kontrolü ve feedback BlocListener'da!
       context.read<VocabularyBloc>().add(AddWord(word: vocabWord));
-      ToastOverlay.show(context, const XpToast(5), channel: 'vocab_add');
+      
+      // Toast ve SnackBar artık BlocListener'da gösteriliyor
     } catch (_) {}
   }
 
@@ -2413,16 +2502,22 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                                             Row(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
-                                                GestureDetector(
-                                                  onTap: () => _addToVocabulary(word),
-                                                  child: Container(
-                                                    padding: const EdgeInsets.all(6),
-                                                    child: Icon(
-                                                      CupertinoIcons.star,
-                                                      size: 18,
-                                                      color: Colors.amber,
-                                                    ),
-                                                  ),
+                                                // Vocabulary button (context-aware)
+                                                Builder(
+                                                  builder: (context) {
+                                                    final isInVocab = _isWordInVocabulary(word);
+                                                    return GestureDetector(
+                                                      onTap: isInVocab ? null : () => _addToVocabulary(word),
+                                                      child: Container(
+                                                        padding: const EdgeInsets.all(6),
+                                                        child: Icon(
+                                                          isInVocab ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.star,
+                                                          size: 18,
+                                                          color: isInVocab ? Colors.green.shade600 : Colors.amber,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
                                                 ),
                                                 GestureDetector(
                                                   onTap: () => _speakWord(word),
