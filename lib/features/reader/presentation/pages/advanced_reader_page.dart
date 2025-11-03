@@ -253,7 +253,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     
     // Start reading session tracker
     _sessionTracker = ReadingSessionTracker(
-      bookId: widget.book.id ?? 0,
+      bookId: int.tryParse(widget.book.id) ?? 0,
       bookTitle: widget.book.title,
       startPage: 0,
     );
