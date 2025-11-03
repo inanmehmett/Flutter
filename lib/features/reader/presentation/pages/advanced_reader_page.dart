@@ -28,6 +28,7 @@ import '../../../vocabulary_notebook/presentation/bloc/vocabulary_bloc.dart';
 import '../../../vocabulary_notebook/presentation/bloc/vocabulary_event.dart';
 import '../../../vocabulary_notebook/presentation/bloc/vocabulary_state.dart';
 import '../../../vocabulary_notebook/domain/entities/vocabulary_word.dart';
+import '../../services/reading_session_tracker.dart';
 
 // Anchor data for tooltip positioning
 class TooltipAnchor {
@@ -130,6 +131,9 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
   
   // TTS instance
   FlutterTts? _flutterTts;
+  
+  // Reading session tracker (minimal analytics)
+  ReadingSessionTracker? _sessionTracker;
   
   // Tooltip state
   bool _isTooltipVisible = false;
@@ -246,6 +250,14 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     _readerBloc = context.read<AdvancedReaderBloc>();
     _loadBook();
     _initializeTts();
+    
+    // Start reading session tracker
+    _sessionTracker = ReadingSessionTracker(
+      bookId: widget.book.id ?? 0,
+      bookTitle: widget.book.title,
+      startPage: 0,
+    );
+    _sessionTracker?.start();
     
     // 3 saniye sonra kaydırma ipucunu gizle
     Future.delayed(const Duration(seconds: 3), () {
@@ -466,6 +478,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
               );
             } else if (vocabState is WordAdded) {
               // ✅ Başarıyla eklendi!
+              _sessionTracker?.incrementWordsLearned(); // Track for analytics
               ToastOverlay.show(context, const XpToast(5), channel: 'vocab_add');
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -772,6 +785,11 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
   }
 
   Future<bool?> _showExitQuizSheet(ReaderLoaded state, ThemeManager themeManager) async {
+    // First, show reading stats completion dialog
+    if (_sessionTracker != null) {
+      await _showReadingStatsDialog(state);
+    }
+    
     final Color surface = _getThemeSurfaceColor(themeManager);
     final Color onSurface = _getThemeOnSurfaceColor(themeManager);
     final Color onSurfaceMuted = _getThemeOnSurfaceVariantColor(themeManager);
@@ -2796,6 +2814,137 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     WidgetsBinding.instance.removeObserver(this);
     _flutterTts?.stop();
     _flutterTts = null;
+    
+    // Complete reading session on exit (fire and forget)
+    _completeReadingSessionOnExit();
+    
     super.dispose();
+  }
+  
+  /// Show minimal reading stats dialog (clean, not overwhelming)
+  Future<void> _showReadingStatsDialog(ReaderLoaded state) async {
+    if (_sessionTracker == null) return;
+    
+    try {
+      // Complete session and get results
+      final result = await _sessionTracker!.complete(state.currentPage);
+      
+      final minutes = (_sessionTracker!.elapsedSeconds / 60).ceil();
+      final pages = result['pagesRead'] as int;
+      final words = result['wordsLearned'] as int;
+      final xp = result['xpEarned'] as int;
+      
+      if (!mounted) return;
+      
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Icon
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.check_circle, color: Colors.green.shade600, size: 36),
+                ),
+                const SizedBox(height: 16),
+                
+                // Title
+                const Text(
+                  '📚 Okuma Tamamlandı!',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 20),
+                
+                // Stats (minimal, clean)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _statColumn('⏱️', '$minutes dk', 'Süre'),
+                    _statColumn('📄', '$pages', 'Sayfa'),
+                    if (words > 0) _statColumn('📚', '$words', 'Kelime'),
+                  ],
+                ),
+                
+                if (xp > 0) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '🎉 +$xp XP kazandınız!',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.amber.shade900,
+                      ),
+                    ),
+                  ),
+                ],
+                
+                const SizedBox(height: 20),
+                
+                // Close button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green.shade600,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Harika!', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      print('⚠️ Failed to show stats dialog: $e');
+    }
+  }
+  
+  /// Minimal stat column widget
+  Widget _statColumn(String emoji, String value, String label) {
+    return Column(
+      children: [
+        Text(emoji, style: const TextStyle(fontSize: 24)),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 2),
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+      ],
+    );
+  }
+
+  /// Complete reading session when user exits (minimal, no blocking UI)
+  void _completeReadingSessionOnExit() async {
+    if (_sessionTracker == null) return;
+    
+    try {
+      final state = _readerBloc.state;
+      final currentPage = state is ReaderLoaded ? state.currentPage : 0;
+      
+      await _sessionTracker!.complete(currentPage);
+      _sessionTracker!.dispose();
+    } catch (e) {
+      print('⚠️ Failed to complete session on exit: $e');
+    }
   }
 } 
