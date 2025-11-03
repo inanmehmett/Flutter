@@ -35,6 +35,7 @@ import 'core/realtime/signalr_service.dart';
 import 'core/cache/cache_manager.dart';
 import 'core/widgets/toasts.dart';
 import 'core/widgets/badge_celebration.dart';
+import 'core/widgets/celebration_badge.dart';
 import 'core/network/api_client.dart';
 import 'core/network/network_manager.dart';
 import 'features/game/pages/leaderboard_page.dart';
@@ -240,7 +241,18 @@ class _AppShellState extends State<AppShell> {
           invalidateProfileCachesAndRefresh();
           break;
         case RealtimeEventType.levelUp:
-          ToastOverlay.show(ctx, LevelUpToast((evt.payload['levelLabel'] ?? '') as String), channel: 'level');
+          // Full-screen level-up celebration (purple themed, different from badge)
+          final levelLabel = (evt.payload['levelLabel'] ?? evt.payload['newLevel'] ?? 'New Level') as String;
+          final levelXp = evt.payload['totalXP'] != null ? (evt.payload['totalXP'] as num?)?.toInt() : null;
+          
+          LevelUpCelebration.show(
+            ctx,
+            levelLabel: levelLabel,
+            xpEarned: levelXp,
+          );
+          
+          // Also show a small toast for quick feedback
+          ToastOverlay.show(ctx, LevelUpToast(levelLabel), channel: 'level');
           invalidateProfileCachesAndRefresh();
           break;
         case RealtimeEventType.badgeEarned:
