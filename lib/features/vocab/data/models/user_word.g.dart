@@ -1,6 +1,10 @@
-// GENERATED CODE - MANUAL STUB (keep IDs stable with typeId=41)
+// GENERATED CODE - DO NOT MODIFY BY HAND
 
 part of 'user_word.dart';
+
+// **************************************************************************
+// TypeAdapterGenerator
+// **************************************************************************
 
 class UserWordModelAdapter extends TypeAdapter<UserWordModel> {
   @override
@@ -9,11 +13,9 @@ class UserWordModelAdapter extends TypeAdapter<UserWordModel> {
   @override
   UserWordModel read(BinaryReader reader) {
     final numOfFields = reader.readByte();
-    final fields = <int, dynamic>{};
-    for (var i = 0; i < numOfFields; i++) {
-      final key = reader.readByte();
-      fields[key] = reader.read();
-    }
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
     return UserWordModel(
       id: fields[0] as String,
       word: fields[1] as String,
@@ -25,13 +27,13 @@ class UserWordModelAdapter extends TypeAdapter<UserWordModel> {
       addedAt: fields[7] as DateTime,
       sourceBookId: fields[8] as String?,
       sourceChapter: fields[9] as String?,
-      tags: (fields[10] as List?)?.cast<String>() ?? const [],
+      tags: (fields[10] as List).cast<String>(),
       description: fields[11] as String?,
       audioUrl: fields[12] as String?,
       imageUrl: fields[13] as String?,
       category: fields[14] as String?,
-      synonyms: (fields[15] as List?)?.cast<String>() ?? const [],
-      antonyms: (fields[16] as List?)?.cast<String>() ?? const [],
+      synonyms: (fields[15] as List).cast<String>(),
+      antonyms: (fields[16] as List).cast<String>(),
     );
   }
 
@@ -74,4 +76,14 @@ class UserWordModelAdapter extends TypeAdapter<UserWordModel> {
       ..writeByte(16)
       ..write(obj.antonyms);
   }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UserWordModelAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
 }

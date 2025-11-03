@@ -23,6 +23,8 @@ import '../../features/reader/data/datasources/book_remote_data_source.dart'
 import '../../features/reader/data/models/book_model.dart' as _i525;
 import '../../features/reader/data/repositories/book_repository_impl.dart'
     as _i707;
+import '../../features/reader/data/services/reading_session_service.dart'
+    as _i296;
 import '../../features/reader/data/services/translation_service.dart' as _i696;
 import '../../features/reader/domain/repositories/book_repository.dart'
     as _i413;
@@ -113,6 +115,8 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i557.ApiClient>(),
           gh<_i326.CacheManager>(),
         ));
+    gh.singleton<_i296.ReadingSessionService>(
+        () => _i296.ReadingSessionService(gh<_i474.NetworkManager>()));
     gh.lazySingleton<_i298.LastReadManager>(() => _i298.LastReadManager(
           gh<_i392.StorageManager>(),
           gh<_i413.BookRepository>(),
