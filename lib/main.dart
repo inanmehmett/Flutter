@@ -34,6 +34,7 @@ import 'features/user/presentation/pages/badges_page.dart';
 import 'core/realtime/signalr_service.dart';
 import 'core/cache/cache_manager.dart';
 import 'core/widgets/toasts.dart';
+import 'core/widgets/badge_celebration.dart';
 import 'core/network/api_client.dart';
 import 'core/network/network_manager.dart';
 import 'features/game/pages/leaderboard_page.dart';
@@ -243,7 +244,21 @@ class _AppShellState extends State<AppShell> {
           invalidateProfileCachesAndRefresh();
           break;
         case RealtimeEventType.badgeEarned:
-          ToastOverlay.show(ctx, BadgeToast((evt.payload['name'] ?? '') as String), channel: 'badge');
+          // Full-screen celebration instead of simple toast
+          final badgeName = (evt.payload['name'] ?? evt.payload['badgeName'] ?? 'Yeni Rozet') as String;
+          final badgeDescription = (evt.payload['description'] ?? evt.payload['badgeDescription'] ?? 'Tebrikler! Yeni bir başarı kazandınız!') as String;
+          final badgeImageUrl = (evt.payload['imageUrl'] ?? evt.payload['badgeImageUrl']) as String?;
+          
+          BadgeCelebration.show(
+            ctx,
+            name: badgeName,
+            subtitle: badgeDescription,
+            imageUrl: badgeImageUrl,
+            earned: true,
+          );
+          
+          // Also invalidate caches to refresh badge count
+          invalidateProfileCachesAndRefresh();
           break;
         case RealtimeEventType.streakUpdated:
           ToastOverlay.show(ctx, StreakToast((evt.payload['currentStreak'] ?? 0) as int), channel: 'streak');

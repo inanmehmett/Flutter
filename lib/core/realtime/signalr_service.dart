@@ -177,11 +177,38 @@ class SignalRService {
         final data = args[0] as Map<String, dynamic>?;
         if (data != null) {
           _controller.add(RealtimeEvent(RealtimeEventType.badgeEarned, {
-            'name': data['badgeName'] ?? '',
-            'imageUrl': data['imageUrl'],
+            'badgeName': data['badgeName'] ?? '',
+            'name': data['badgeName'] ?? '', // Alias for consistency
+            'description': data['badgeDescription'] ?? data['description'] ?? 'Tebrikler! Yeni bir başarı kazandınız!',
+            'imageUrl': data['badgeImageUrl'] ?? data['imageUrl'],
+            'category': data['badgeCategory'] ?? data['category'],
+            'rarity': data['rarity'],
+            'rarityColor': data['rarityColor'],
+            'xpEarned': data['xpEarned'] ?? 0,
           }));
           
-          HapticFeedback.selectionClick();
+          HapticFeedback.mediumImpact(); // Changed from selectionClick for more impact
+        }
+      }
+    });
+
+    // Badge Earned event (alternative event name)
+    _connection!.on('BadgeEarned', (List<Object?>? args) {
+      if (args != null && args.isNotEmpty) {
+        final data = args[0] as Map<String, dynamic>?;
+        if (data != null) {
+          _controller.add(RealtimeEvent(RealtimeEventType.badgeEarned, {
+            'badgeName': data['badgeName'] ?? '',
+            'name': data['badgeName'] ?? '', // Alias for consistency
+            'description': data['badgeDescription'] ?? data['description'] ?? 'Tebrikler! Yeni bir başarı kazandınız!',
+            'imageUrl': data['badgeImageUrl'] ?? data['imageUrl'],
+            'category': data['badgeCategory'] ?? data['category'],
+            'rarity': data['rarity'],
+            'rarityColor': data['rarityColor'],
+            'xpEarned': data['xpEarned'] ?? 0,
+          }));
+          
+          HapticFeedback.mediumImpact();
         }
       }
     });

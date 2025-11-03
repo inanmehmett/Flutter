@@ -206,18 +206,143 @@ class LevelUpToast extends StatelessWidget {
   }
 }
 
-class BadgeToast extends StatelessWidget {
+class BadgeToast extends StatefulWidget {
   final String name;
-  const BadgeToast(this.name, {super.key});
+  final String? imageUrl;
+  final VoidCallback? onTap;
+  
+  const BadgeToast(this.name, {super.key, this.imageUrl, this.onTap});
+  
+  @override
+  State<BadgeToast> createState() => _BadgeToastState();
+}
+
+class _BadgeToastState extends State<BadgeToast> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    )..forward();
+  }
+  
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+  
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Icon(Icons.military_tech, color: Colors.lightBlueAccent),
-        const SizedBox(width: 8),
-        Text('Yeni rozet: $name', style: const TextStyle(fontWeight: FontWeight.w700)),
-      ],
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFFB300), Color(0xFFFF6F00)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.amber.withOpacity(0.4),
+              blurRadius: 20,
+              spreadRadius: 2,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Animated badge icon
+            ScaleTransition(
+              scale: CurvedAnimation(
+                parent: _controller,
+                curve: Curves.elasticOut,
+              ),
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.emoji_events,
+                    color: Colors.amber.shade700,
+                    size: 28,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Text content
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    '🎉 Yeni Rozet!',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white70,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.name,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      decoration: TextDecoration.none,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            if (widget.onTap != null) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withOpacity(0.3)),
+                ),
+                child: const Text(
+                  'Görüntüle',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

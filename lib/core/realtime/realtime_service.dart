@@ -98,9 +98,12 @@ class RealtimeService {
             _earnedBadgeNames.add(name);
             _controller.add(RealtimeEvent(RealtimeEventType.badgeEarned, {
               'name': name,
+              'description': (m['description'] ?? m['Description'])?.toString() ?? 'Tebrikler! Yeni bir başarı kazandınız!',
               'imageUrl': (m['imageUrl'] ?? m['ImageUrl'])?.toString(),
+              'category': (m['category'] ?? m['Category'])?.toString(),
+              'rarity': (m['rarity'] ?? m['Rarity'])?.toString(),
             }));
-            HapticFeedback.selectionClick();
+            HapticFeedback.mediumImpact(); // Changed from selectionClick for more impact
           }
         }
       }
