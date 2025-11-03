@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../domain/entities/vocabulary_quiz_models.dart';
 import '../../../../core/widgets/toasts.dart';
-import '../../../../core/widgets/badge_celebration.dart';
 
 class VocabularyQuizResultWidget extends StatefulWidget {
   final VocabularyQuizResult result;
@@ -32,7 +31,6 @@ class _VocabularyQuizResultState extends State<VocabularyQuizResultWidget>
   late Animation<double> _scoreAnimation;
   late Animation<double> _xpAnimation;
   late Animation<double> _celebrationAnimation;
-  bool _hasShownCelebration = false;
 
   @override
   void initState() {
@@ -115,54 +113,26 @@ class _VocabularyQuizResultState extends State<VocabularyQuizResultWidget>
       HapticFeedback.lightImpact();
     }
 
-    // Show XP toast
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) {
-        ToastOverlay.show(
-          context,
-          XpToast(widget.result.xpEarned),
-          duration: const Duration(seconds: 3),
-        );
-      }
-    });
-
-    // Show level up celebration
-    if (widget.result.levelUp && !_hasShownCelebration) {
-      _hasShownCelebration = true;
-      Future.delayed(const Duration(milliseconds: 1000), () {
+    // ✅ Real-time notifications removed to prevent duplicates
+    // All gamification events (XP, Level Up, Badge, Streak) are now handled by:
+    // - SignalR real-time system (0-500ms latency) via main.dart listener
+    // - Polling fallback (8s interval) if SignalR is unavailable
+    // 
+    // This prevents double notifications when quiz completes.
+    // Backend sends SignalR events → main.dart listens → shows appropriate celebrations/toasts
+    //
+    // If you need local feedback for debugging, use channel-based toasts:
+    // ToastOverlay.show(context, XpToast(xp), channel: 'xp');  // ✅ Throttled
+    
+    // Optional: Keep XP toast with channel throttling to prevent duplicates
+    if (widget.result.xpEarned > 0) {
+      Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) {
           ToastOverlay.show(
             context,
-            LevelUpToast(widget.result.newLevel ?? 'Yeni Seviye'),
-            duration: const Duration(seconds: 4),
-          );
-        }
-      });
-    }
-
-    // Show badge celebration if any rewards
-    if (widget.result.rewards.isNotEmpty && !_hasShownCelebration) {
-      _hasShownCelebration = true;
-      Future.delayed(const Duration(milliseconds: 1500), () {
-        if (mounted) {
-          BadgeCelebration.show(
-            context,
-            name: widget.result.rewards.first,
-            subtitle: 'Tebrikler! Yeni rozet kazandınız!',
-            earned: true,
-          );
-        }
-      });
-    }
-
-    // Show streak toast
-    if (widget.result.streak.currentStreak > 0) {
-      Future.delayed(const Duration(milliseconds: 2000), () {
-        if (mounted) {
-          ToastOverlay.show(
-            context,
-            StreakToast(widget.result.streak.currentStreak),
+            XpToast(widget.result.xpEarned),
             duration: const Duration(seconds: 3),
+            channel: 'xp', // ✅ Prevents duplicate if SignalR also fires
           );
         }
       });
