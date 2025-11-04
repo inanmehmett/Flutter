@@ -30,6 +30,8 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int? _cachedStreakDays;
   bool _isLoadingStreak = false;
+  int? _cachedDailyXP;
+  bool _isLoadingDailyXP = false;
   
   // Design system spacing
   static const double _smallSpacing = AppSpacing.spacing3;
@@ -60,8 +62,11 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _prefetchAllData() async {
     try {
-      // Fetch streak data once
-      await _fetchStreakDays();
+      // Fetch streak data and daily XP once
+      await Future.wait([
+        _fetchStreakDays(),
+        _fetchDailyXP(),
+      ]);
       
       // Prefetch other data that widgets might need
       final authState = context.read<AuthBloc>().state;
@@ -129,6 +134,27 @@ class _HomePageState extends State<HomePage> {
       return _cachedStreakDays;
     } finally {
       _isLoadingStreak = false;
+    }
+  }
+
+  Future<int?> _fetchDailyXP() async {
+    if (_cachedDailyXP != null || _isLoadingDailyXP) return _cachedDailyXP;
+    
+    try {
+      _isLoadingDailyXP = true;
+      final service = getIt<GameService>();
+      final dailyXP = await service.getDailyXP();
+      if (mounted) {
+        setState(() {
+          _cachedDailyXP = dailyXP;
+        });
+      }
+      return _cachedDailyXP;
+    } catch (e) {
+      print('Error fetching daily XP: $e');
+      return _cachedDailyXP ?? 0;
+    } finally {
+      _isLoadingDailyXP = false;
     }
   }
 
@@ -370,7 +396,7 @@ class _HomePageState extends State<HomePage> {
                   DailyProgressCard(
                     profile: userProfile!,
                     streakDays: _cachedStreakDays,
-                    dailyXP: (userProfile!.experiencePoints ?? 0) % 100, // TODO: Get real daily XP
+                    dailyXP: _cachedDailyXP ?? 0,
                     dailyGoal: 50,
                   ),
                   const SizedBox(height: _largeSpacing),

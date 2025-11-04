@@ -70,6 +70,38 @@ class GameService {
     return UserProfileSummary.fromLevelAndStreak(levelJson: levelData!, streakJson: streakData!);
   }
 
+  Future<int> getDailyXP({bool forceRefresh = false}) async {
+    const cacheKey = 'game/daily_xp';
+    
+    if (!forceRefresh) {
+      final cached = await _cacheManager.getData<int>(cacheKey);
+      if (cached != null) return cached;
+    }
+    
+    try {
+      final Response response = await _apiClient.get('/api/gamification/daily-xp');
+      final data = response.data;
+      
+      if (data is Map<String, dynamic> && data['data'] is Map<String, dynamic>) {
+        final dailyData = data['data'] as Map<String, dynamic>;
+        final dailyXP = (dailyData['dailyXP'] as num?)?.toInt() ?? 0;
+        
+        // Cache for 2 minutes (short cache for real-time feel)
+        try {
+          await _cacheManager.setData(cacheKey, dailyXP, timeout: const Duration(minutes: 2));
+        } catch (_) {}
+        
+        return dailyXP;
+      }
+      
+      return 0;
+    } catch (e) {
+      // Return cached value or 0 on error
+      final cached = await _cacheManager.getData<int>(cacheKey);
+      return cached ?? 0;
+    }
+  }
+
   Future<List<dynamic>> getBadges({bool forceRefresh = false}) async {
     const cacheKey = 'game/badges';
     if (!forceRefresh) {
