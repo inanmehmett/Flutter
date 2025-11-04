@@ -28,10 +28,6 @@ import '../../features/reader/data/services/reading_session_service.dart'
 import '../../features/reader/data/services/translation_service.dart' as _i696;
 import '../../features/reader/domain/repositories/book_repository.dart'
     as _i413;
-import '../../features/reader/domain/services/achievement_manager.dart'
-    as _i689;
-import '../../features/reader/domain/services/auth_service.dart' as _i331;
-import '../../features/reader/domain/services/user_service.dart' as _i121;
 import '../analytics/event_service.dart' as _i859;
 import '../cache/cache_manager.dart' as _i326;
 import '../network/api_client.dart' as _i557;
@@ -74,7 +70,6 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i435.BookRemoteDataSource>(
         () => _i435.BookRemoteDataSourceImpl(gh<_i361.Dio>()));
-    gh.singleton<_i121.UserService>(() => _i121.UserService(gh<_i361.Dio>()));
     gh.singleton<_i392.StorageManager>(() =>
         _i392.StorageManager(gh<_i979.Box<String>>(instanceName: 'app_cache')));
     gh.singleton<_i666.SecureStorageService>(
@@ -86,11 +81,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i326.CacheManager>(() => _i326.CacheManager(
           gh<_i979.Box<String>>(instanceName: 'app_cache'),
           gh<Duration>(),
-        ));
-    gh.singleton<_i331.AuthService>(() => _i331.AuthService(
-          gh<_i361.Dio>(),
-          gh<_i326.CacheManager>(),
-          gh<_i666.SecureStorageService>(),
         ));
     gh.lazySingleton<_i859.EventService>(
         () => _i859.EventService(gh<_i557.ApiClient>()));
@@ -124,11 +114,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i449.AuthService>(() => _i449.AuthService(
           gh<_i474.NetworkManager>(),
           gh<_i666.SecureStorageService>(),
-          gh<_i326.CacheManager>(),
-        ));
-    gh.singleton<_i689.AchievementManager>(() => _i689.AchievementManager(
-          gh<_i361.Dio>(),
-          gh<_i474.NetworkManager>(),
           gh<_i326.CacheManager>(),
         ));
     gh.singleton<_i550.SignalRService>(() => _i550.SignalRService(
