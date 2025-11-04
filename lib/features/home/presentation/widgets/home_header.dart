@@ -165,7 +165,7 @@ class HomeHeader extends StatelessWidget {
               ),
               const SizedBox(width: 4),
               Text(
-                '$streakDays gün',
+                '$streakDays',
                 style: TextStyle(
                   fontSize: isCompact ? 12 : 13,
                   fontWeight: FontWeight.w600,

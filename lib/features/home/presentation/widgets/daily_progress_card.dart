@@ -41,7 +41,7 @@ class DailyProgressCard extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [AppColors.primary, AppColors.primaryLight],
@@ -55,11 +55,11 @@ class DailyProgressCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildHeader(progressPercentage, motivationMessage),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           _buildProgressBar(progressPercentage),
           const SizedBox(height: 4),
           _buildProgressLabel(dailyXP, dailyGoal),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           _buildMiniGoals(streak, hasStreak, hasStudied, reachedGoal),
         ],
       ),
@@ -145,20 +145,14 @@ class DailyProgressCard extends StatelessWidget {
     return Row(
       children: [
         _MiniGoalChip(
-          icon: hasStreak ? Icons.check_circle : Icons.circle_outlined,
-          label: 'Streak ${streak > 0 ? streak : ""}',
-          isCompleted: hasStreak,
-        ),
-        const SizedBox(width: 12),
-        _MiniGoalChip(
           icon: hasStudied ? Icons.check_circle : Icons.circle_outlined,
-          label: 'Çalış',
+          label: 'Bugün Çalış',
           isCompleted: hasStudied,
         ),
         const SizedBox(width: 12),
         _MiniGoalChip(
           icon: reachedGoal ? Icons.check_circle : Icons.circle_outlined,
-          label: 'XP Hedefi',
+          label: 'Günlük Hedef',
           isCompleted: reachedGoal,
         ),
       ],
