@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/error/app_error.dart';
+import '../../../../core/widgets/error_view.dart';
 import '../cubit/vocabulary_quiz_cubit.dart';
 import '../widgets/vocabulary_quiz_card.dart';
 import '../widgets/vocabulary_quiz_progress.dart';
@@ -327,56 +329,94 @@ class VocabularyQuizPage extends StatelessWidget {
   }
 
   Widget _buildErrorView(BuildContext context, VocabularyQuizError state) {
+    // Check if it's "not enough words" error
+    final isInsufficientWords = state.message.contains('Yeterli kelime yok') || 
+                                 state.message.contains('en az 4');
+    
+    if (isInsufficientWords) {
+      return _buildInsufficientWordsView(context);
+    }
+    
+    // General error view using standardized ErrorView
+    return ErrorView(
+      error: ValidationError(state.message, code: 'QUIZ_ERROR'),
+      onRetry: () {
+        context.read<VocabularyQuizCubit>().startQuizFromLearningList();
+      },
+    );
+  }
+
+  Widget _buildInsufficientWordsView(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.red.shade400,
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.book_outlined,
+                size: 64,
+                color: AppColors.primary,
+              ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Bir Hata Oluştu',
+            const SizedBox(height: 24),
+            const Text(
+              'Kelime Defteriniz Boş',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Colors.grey.shade800,
+                color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
-              state.message,
+              'Quiz çözmek için en az 4 kelime eklemeniz gerekiyor',
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.grey.shade600,
+                color: AppColors.textSecondary,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
+              child: ElevatedButton.icon(
                 onPressed: () {
-                  context.read<VocabularyQuizCubit>().startQuizFromLearningList();
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pushReplacementNamed('/vocabulary');
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                ),
-                child: const Text(
-                  'Tekrar Dene',
+                icon: const Icon(Icons.add_circle_outline, size: 20),
+                label: const Text(
+                  'Kelime Defterime Git',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Geri Dön',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
                 ),
               ),
             ),
