@@ -187,7 +187,7 @@ class _HomePageState extends State<HomePage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(_primaryOrange),
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
             ),
             const SizedBox(height: 16),
             Text(
@@ -225,13 +225,13 @@ class _HomePageState extends State<HomePage> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _primaryOrange.withOpacity(0.1),
+              color: AppColors.primary.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.menu_book_outlined,
               size: 48,
-              color: _primaryOrange,
+              color: AppColors.primary,
             ),
           ),
           const SizedBox(height: 20),
@@ -261,7 +261,7 @@ class _HomePageState extends State<HomePage> {
               Navigator.pushNamed(context, '/books');
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: _primaryOrange,
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
