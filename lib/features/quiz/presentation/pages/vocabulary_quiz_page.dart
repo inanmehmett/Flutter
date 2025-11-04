@@ -81,11 +81,8 @@ class VocabularyQuizPage extends StatelessWidget {
         },
         builder: (context, state) {
           if (state is VocabularyQuizInitial) {
-            // Auto-start quiz when page loads
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              // Prefer learning-list driven quiz if available
-              context.read<VocabularyQuizCubit>().startQuizFromLearningList();
-            });
+            // Quiz will auto-start if called with ..startQuiz() in BlocProvider
+            // Otherwise show loading
             return _buildLoadingView();
           } else if (state is VocabularyQuizLoading) {
             return _buildLoadingView();
