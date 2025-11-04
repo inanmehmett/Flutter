@@ -5,6 +5,7 @@ import '../../data/services/vocabulary_quiz_service.dart';
 import '../../../../core/di/injection.dart';
 import '../../../vocab/domain/services/vocab_learning_service.dart';
 import '../../../vocab/domain/entities/user_word_entity.dart' as ue;
+export '../../data/services/vocabulary_quiz_service.dart' show VocabularyQuizException;
 
 // States
 abstract class VocabularyQuizState extends Equatable {
@@ -144,7 +145,20 @@ class VocabularyQuizCubit extends Cubit<VocabularyQuizState> {
         timeRemaining: _timeRemaining,
       ));
     } catch (e) {
-      emit(VocabularyQuizError(message: e.toString()));
+      // Extract user-friendly message from exception
+      String errorMessage = 'Quiz başlatılamadı';
+      if (e is VocabularyQuizException) {
+        errorMessage = e.message;
+      } else if (e.toString().contains('En az 40 kelime')) {
+        errorMessage = 'Database\'de yeterli kelime yok. Lütfen admin ile iletişime geçin.';
+      } else if (e.toString().contains('Authentication required')) {
+        errorMessage = 'Lütfen giriş yapın';
+      } else if (e.toString().contains('Network error')) {
+        errorMessage = 'İnternet bağlantınızı kontrol edin';
+      }
+      
+      print('❌ Quiz start error: $e'); // Debug log
+      emit(VocabularyQuizError(message: errorMessage));
     }
   }
 
