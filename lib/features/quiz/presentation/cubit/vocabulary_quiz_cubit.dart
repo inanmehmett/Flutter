@@ -149,12 +149,14 @@ class VocabularyQuizCubit extends Cubit<VocabularyQuizState> {
       String errorMessage = 'Quiz başlatılamadı';
       if (e is VocabularyQuizException) {
         errorMessage = e.message;
-      } else if (e.toString().contains('En az 40 kelime')) {
-        errorMessage = 'Database\'de yeterli kelime yok. Lütfen admin ile iletişime geçin.';
-      } else if (e.toString().contains('Authentication required')) {
+      } else if (e.toString().contains('En az') && e.toString().contains('kelime')) {
+        errorMessage = 'Database\'de yeterli kelime yok. Lütfen daha sonra tekrar deneyin.';
+      } else if (e.toString().contains('Authentication')) {
         errorMessage = 'Lütfen giriş yapın';
       } else if (e.toString().contains('Network error')) {
         errorMessage = 'İnternet bağlantınızı kontrol edin';
+      } else if (e.toString().contains('Connection')) {
+        errorMessage = 'Backend bağlantısı kurulamadı';
       }
       
       print('❌ Quiz start error: $e'); // Debug log
