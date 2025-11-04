@@ -75,7 +75,7 @@ class HomeHeader extends StatelessWidget {
   }
 
   Widget _buildProfileSection(bool isCompact) {
-    final size = isCompact ? 56.0 : 64.0;
+    final size = isCompact ? 66.0 : 74.0;
     final level = profile.levelDisplay ?? profile.levelName ?? 'A1';
     
     return Stack(
