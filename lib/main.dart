@@ -42,6 +42,9 @@ import 'features/game/pages/leaderboard_page.dart';
 import 'features/quiz/presentation/pages/vocabulary_quiz_page.dart';
 import 'features/quiz/presentation/cubit/vocabulary_quiz_cubit.dart';
 import 'features/quiz/data/services/vocabulary_quiz_service.dart';
+import 'features/quiz/presentation/pages/quiz_page.dart';
+import 'features/quiz/presentation/cubit/quiz_cubit.dart';
+import 'features/quiz/domain/repositories/quiz_repository.dart';
 import 'features/vocabulary_notebook/presentation/pages/vocabulary_notebook_page.dart';
 import 'features/vocabulary_notebook/presentation/bloc/vocabulary_bloc.dart';
 import 'features/vocabulary_notebook/data/repositories/vocabulary_repository_impl.dart';
@@ -326,8 +329,8 @@ class _AppShellState extends State<AppShell> {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => BlocProvider(
-              create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>()),
-              child: const VocabularyQuizPage(),
+              create: (context) => QuizCubit(getIt<QuizRepository>())..startQuiz(),
+              child: const QuizPage(),
             ),
           ),
         );
@@ -399,8 +402,8 @@ class _GlobalBottomNav extends StatelessWidget {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => BlocProvider(
-          create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>()),
-          child: const VocabularyQuizPage(),
+          create: (context) => QuizCubit(getIt<QuizRepository>())..startQuiz(),
+          child: const QuizPage(),
         ),
       ),
     );

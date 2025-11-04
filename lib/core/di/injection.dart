@@ -20,6 +20,9 @@ import '../../features/reader/data/services/translation_service.dart';
 import '../../features/reader/data/services/reading_quiz_service.dart';
 import '../../features/game/services/game_service.dart';
 import '../../features/quiz/data/services/vocabulary_quiz_service.dart';
+import '../../features/quiz/data/services/quiz_service.dart';
+import '../../features/quiz/domain/repositories/quiz_repository.dart';
+import '../../features/quiz/data/repositories/quiz_repository_impl.dart';
 import '../network/api_client.dart';
 import '../analytics/event_service.dart';
 import 'injection.config.dart';
@@ -157,6 +160,16 @@ Future<void> configureDependencies() async {
     final repository = getIt<VocabularyRepositoryImpl>();
     getIt.registerLazySingleton<QuizAnswerGenerator>(
       () => QuizAnswerGenerator(repository),
+    );
+  }
+
+  // Register QuizService and QuizRepository for backend quiz
+  if (!getIt.isRegistered<QuizService>()) {
+    getIt.registerLazySingleton<QuizService>(() => QuizService(getIt<Dio>()));
+  }
+  if (!getIt.isRegistered<QuizRepository>()) {
+    getIt.registerLazySingleton<QuizRepository>(
+      () => QuizRepositoryImpl(getIt<QuizService>()),
     );
   }
 }
