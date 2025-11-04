@@ -344,7 +344,7 @@ class _HomePageState extends State<HomePage> {
                   // 1. Home Header (Profile + Level + XP + Streak)
                   HomeHeader(
                     profile: userProfile!,
-                    greeting: GreetingHelper.getPersonalizedGreeting(userProfile!.userName),
+                    greeting: GreetingHelper.getGreetingWithEmoji(userProfile!.userName),
                     streakDays: _cachedStreakDays ?? userProfile!.currentStreak,
                     onTap: () {
                       if (authState is AuthAuthenticated) {
