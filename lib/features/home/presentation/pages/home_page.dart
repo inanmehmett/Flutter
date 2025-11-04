@@ -9,18 +9,15 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/theme/app_shadows.dart';
-import '../../../../core/theme/app_radius.dart';
 import '../../../home/presentation/widgets/profile_header.dart';
+import '../../../home/presentation/widgets/daily_progress_card.dart';
+import '../../../home/presentation/widgets/vocabulary_notebook_card.dart';
+import '../../../home/presentation/widgets/quiz_advertisement_card.dart';
+import '../../../home/presentation/widgets/continue_reading_card.dart';
+import '../../../home/utils/greeting_helper.dart';
 import '../../../game/widgets/leaderboard_preview.dart';
-import '../../../../core/storage/last_read_manager.dart';
-import '../../../../core/config/app_config.dart';
 import '../../../game/services/game_service.dart';
-import '../../../quiz/presentation/pages/vocabulary_quiz_page.dart';
-import '../../../quiz/presentation/cubit/vocabulary_quiz_cubit.dart';
-import '../../../quiz/data/services/vocabulary_quiz_service.dart';
 import '../../../reader/presentation/widgets/unified_book_card.dart';
-// import removed: ApiClient no longer used for home counters
 
 class HomePage extends StatefulWidget {
   final bool showBottomNav;
@@ -41,9 +38,7 @@ class _HomePageState extends State<HomePage> {
   static const double _extraLargeSpacing = AppSpacing.spacing6;
   static const double _sectionSpacing = AppSpacing.spacing8;
   
-  // Design system colors (Orange-focused for English learning)
-  static const Color _primaryOrange = AppColors.primary;
-  static const Color _secondaryOrange = AppColors.primaryLight;
+  // Design system colors
   static const Color _textPrimary = AppColors.textPrimary;
   static const Color _textSecondary = AppColors.textSecondary;
   static const Color _backgroundWhite = AppColors.surface;
@@ -86,32 +81,8 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  String _resolveImageUrl(String? imageUrl, String? iconUrl) {
-    final url = (iconUrl != null && iconUrl.isNotEmpty)
-        ? iconUrl
-        : (imageUrl ?? '');
-    if (url.isEmpty) return '';
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    if (url.startsWith('/')) return '${AppConfig.apiBaseUrl}$url';
-    return '${AppConfig.apiBaseUrl}/$url';
-  }
-
-  // Removed: _extractCount helper for counters
-
   Widget _buildPersonalizedGreeting(BuildContext context, UserProfile profile) {
-    final now = DateTime.now();
-    final hour = now.hour;
-    
-    String greeting;
-    if (hour < 12) {
-      greeting = 'Günaydın';
-    } else if (hour < 17) {
-      greeting = 'İyi günler';
-    } else if (hour < 21) {
-      greeting = 'İyi akşamlar';
-    } else {
-      greeting = 'İyi geceler';
-    }
+    final greeting = GreetingHelper.getPersonalizedGreeting(profile.userName);
     
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -119,7 +90,7 @@ class _HomePageState extends State<HomePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '$greeting, ${profile.userName}!',
+            greeting,
             style: const TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
@@ -161,14 +132,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  String _greetingByTime() {
-    final hour = DateTime.now().hour;
-    if (hour < 5) return 'İyi geceler';
-    if (hour < 12) return 'Günaydın';
-    if (hour < 18) return 'İyi günler';
-    return 'İyi akşamlar';
-  }
-
 
   Widget _buildSectionTitle(String title, [String? subtitle]) {
     return LayoutBuilder(
@@ -200,511 +163,6 @@ class _HomePageState extends State<HomePage> {
           ],
         );
       },
-    );
-  }
-
-  Widget _buildDailyProgressCard(BuildContext context, UserProfile profile) {
-    final streakDays = _cachedStreakDays ?? profile.currentStreak ?? 0;
-    final dailyGoal = 50; // Günlük hedef XP
-    final currentXP = (profile.experiencePoints ?? 0) % 100; // Bugünkü XP (mock)
-    final progressPercentage = (currentXP / dailyGoal * 100).clamp(0, 100).toInt();
-    
-    // Motivasyonel mesaj
-    String motivationMessage;
-    if (progressPercentage == 0) {
-      motivationMessage = 'Bugünkü hedefine başla! 💪';
-    } else if (progressPercentage < 50) {
-      motivationMessage = 'Güzel! Devam et 🚀';
-    } else if (progressPercentage < 100) {
-      motivationMessage = 'Neredeyse! 🔥';
-    } else {
-      motivationMessage = 'Hedef tamamlandı! 🎉';
-    }
-    
-    // Mini goals
-    final hasStreak = streakDays > 0;
-    final hasStudied = currentXP > 0;
-    
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [_primaryOrange, _secondaryOrange],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(AppRadius.cardRadius),
-        boxShadow: AppShadows.cardShadowElevated,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Günlük Hedefler',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    motivationMessage,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.white.withOpacity(0.9),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '%$progressPercentage',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Progress bar
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(
-              value: (progressPercentage / 100).clamp(0.0, 1.0),
-              minHeight: 8,
-              backgroundColor: Colors.white.withOpacity(0.3),
-              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '$currentXP / $dailyGoal XP',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.white.withOpacity(0.8),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Mini goals row
-          Row(
-            children: [
-              _buildMiniGoal(
-                hasStreak ? Icons.check_circle : Icons.circle_outlined,
-                'Streak ${streakDays > 0 ? streakDays : ""}',
-                hasStreak,
-              ),
-              const SizedBox(width: 12),
-              _buildMiniGoal(
-                hasStudied ? Icons.check_circle : Icons.circle_outlined,
-                'Çalış',
-                hasStudied,
-              ),
-              const SizedBox(width: 12),
-              _buildMiniGoal(
-                progressPercentage >= 100 ? Icons.check_circle : Icons.circle_outlined,
-                'XP Hedefi',
-                progressPercentage >= 100,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMiniGoal(IconData icon, String label, bool isCompleted) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color: isCompleted ? Colors.white : Colors.white.withOpacity(0.5),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.white.withOpacity(isCompleted ? 0.95 : 0.7),
-                  fontWeight: FontWeight.w600,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProgressItem(String label, String value, IconData icon) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              icon,
-              color: Colors.white.withOpacity(0.8),
-              size: 16,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white.withOpacity(0.8),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 18,
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildModernIcon({
-    required String emoji,
-    required Gradient gradient,
-    required Color shadowColor,
-  }) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 600),
-      curve: Curves.easeOutBack,
-      builder: (context, value, child) {
-        return Transform.scale(
-          scale: 0.8 + (value * 0.2),
-          child: Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              gradient: gradient,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: shadowColor.withOpacity(0.3 * value),
-                  blurRadius: 12 * value,
-                  offset: Offset(0, 4 * value),
-                ),
-                BoxShadow(
-                  color: Colors.white.withOpacity(0.8 * value),
-                  blurRadius: 8 * value,
-                  offset: Offset(-2 * value, -2 * value),
-                  spreadRadius: -2,
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                // Inner glow
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.white.withOpacity(0.4),
-                        Colors.transparent,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                ),
-                // Emoji with rotation
-                Center(
-                  child: Transform.rotate(
-                    angle: (1 - value) * 0.5,
-                    child: Opacity(
-                      opacity: value,
-                      child: Text(
-                        emoji,
-                        style: const TextStyle(
-                          fontSize: 28,
-                          height: 1,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildVocabularyNotebookSection(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeInOut,
-      padding: const EdgeInsets.all(AppSpacing.paddingL),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.purple.shade400, Colors.purple.shade300],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(AppRadius.cardRadius),
-        boxShadow: AppShadows.cardShadowElevated,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _buildModernIcon(
-                emoji: '📚',
-                gradient: LinearGradient(
-                  colors: [Colors.white, Colors.purple.shade50],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                shadowColor: Colors.purple.shade900,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Kelime Defterim',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Spaced repetition ile %85 daha etkili öğren',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white.withOpacity(0.95),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.people_outline,
-                          size: 14,
-                          color: Colors.white.withOpacity(0.8),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '10,000+ öğrenci kullanıyor',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white.withOpacity(0.8),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: Semantics(
-              label: 'Kelime Defterini Aç',
-              hint: 'Kaydettiğin kelimeleri görüntülemek için dokunun',
-              button: true,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).pushReplacementNamed('/vocabulary');
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.surface,
-                  foregroundColor: Colors.purple.shade400,
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingM),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.buttonRadius),
-                  ),
-                  elevation: 0,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Text(
-                      'Kelimelerimi Tekrar Et',
-                      style: AppTypography.buttonMedium,
-                    ),
-                    SizedBox(width: 8),
-                    Icon(Icons.arrow_forward, size: 18),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuizAdvertisementSection(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeInOut,
-      padding: const EdgeInsets.all(AppSpacing.paddingL),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [_primaryOrange, _secondaryOrange],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(AppRadius.cardRadius),
-        boxShadow: AppShadows.cardShadowElevated,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _buildModernIcon(
-                emoji: '🎯',
-                gradient: LinearGradient(
-                  colors: [Colors.white, Colors.orange.shade50],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                shadowColor: Colors.orange.shade900,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Kelime Quiz\'e Başla',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Günde 10 dakika ile 500+ kelime öğren',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white.withOpacity(0.95),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.star,
-                          size: 14,
-                          color: Colors.white.withOpacity(0.9),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '4.8/5.0 ortalama başarı oranı',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white.withOpacity(0.8),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: Semantics(
-              label: 'Kelime Quiz\'ini Başlat',
-              hint: 'İngilizce kelime bilginizi test etmek için dokunun',
-              button: true,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => BlocProvider(
-                        create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>()),
-                        child: const VocabularyQuizPage(),
-                      ),
-                    ),
-                  );
-                },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.surface,
-                foregroundColor: _primaryOrange,
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingM),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.buttonRadius),
-                ),
-                elevation: 0,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Text(
-                    'Hemen Başla',
-                    style: AppTypography.buttonMedium,
-                  ),
-                  SizedBox(width: 8),
-                  Text(
-                    '⚡',
-                    style: TextStyle(fontSize: 18),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        ],
-      ),
     );
   }
 
@@ -827,7 +285,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final greeting = _greetingByTime();
     return Scaffold(
       backgroundColor: Colors.grey[50],
       body: SafeArea(
@@ -910,11 +367,16 @@ class _HomePageState extends State<HomePage> {
                   // 3. EĞİTİM ODAKLI BÖLÜMLER - Öğrenme hiyerarşisi
                   
                   // 3.1 Günlük İlerleme (En önemli - motivasyon)
-                  _buildDailyProgressCard(context, userProfile!),
+                  DailyProgressCard(
+                    profile: userProfile!,
+                    streakDays: _cachedStreakDays,
+                    dailyXP: (userProfile!.experiencePoints ?? 0) % 100, // TODO: Get real daily XP
+                    dailyGoal: 50,
+                  ),
                   const SizedBox(height: _largeSpacing),
                   
                   // 3.2 Devam Eden Okuma
-                  _buildContinueReading(context),
+                  const ContinueReadingCard(),
                   const SizedBox(height: _extraLargeSpacing),
                   
                   // 4. KİTAP ÖNERİLERİ - Öğrenme seviyesine göre
@@ -968,11 +430,11 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: _sectionSpacing),
                   
                   // 5. QUIZ REKLAMI - Liderlik tablosundan önce
-                  _buildQuizAdvertisementSection(context),
+                  const QuizAdvertisementCard(),
                   const SizedBox(height: _largeSpacing),
                   
                   // 5.1 KELİME DEFTERİ - Quiz'den sonra
-                  _buildVocabularyNotebookSection(context),
+                  const VocabularyNotebookCard(),
                   const SizedBox(height: _largeSpacing),
                   
                   // 6. SOSYAL VE MOTİVASYON - En altta
@@ -986,331 +448,6 @@ class _HomePageState extends State<HomePage> {
               },
             );
           },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildContinueReading(BuildContext context) {
-    final lastReadManager = getIt<LastReadManager>();
-    return StreamBuilder<LastReadInfo?>(
-      stream: lastReadManager.updates,
-      builder: (context, _) {
-        return FutureBuilder<List<LastReadInfo>>(
-          future: lastReadManager.getRecentReads(limit: 5),
-          builder: (context, snapshot) {
-            final items = snapshot.data ?? const <LastReadInfo>[];
-            
-            if (snapshot.connectionState == ConnectionState.waiting && items.isEmpty) {
-              return _buildIOSLoadingCard();
-            }
-
-            if (items.isEmpty) {
-              return _buildIOSEmptyCard();
-            }
-
-            // iOS 17 style continue reading section - single container
-            return Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.02),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Simple header - just title
-                  const Text(
-                    'Continue Reading',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 17,
-                      color: Color(0xFF1D1D1F), // iOS Black
-                      letterSpacing: -0.4,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // iOS style book cards - responsive height
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final screenWidth = MediaQuery.of(context).size.width;
-                      final cardHeight = screenWidth < 400 ? 110.0 : 128.0;
-                      
-                      return SizedBox(
-                        height: cardHeight,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: items.length.clamp(0, 5),
-                          separatorBuilder: (_, __) => const SizedBox(width: 12),
-                          itemBuilder: (context, index) {
-                            final info = items[index];
-                            return _buildIOSBookCard(context, info, cardHeight);
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildIOSLoadingCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF2F2F7), // iOS Light Gray
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Center(
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF007AFF)),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          const Expanded(
-            child: Text(
-              'Loading...',
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 17,
-                color: Color(0xFF1D1D1F),
-                letterSpacing: -0.4,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIOSEmptyCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF2F2F7), // iOS Light Gray
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.book_outlined,
-              color: Color(0xFF8E8E93), // iOS Gray
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 16),
-          const Expanded(
-            child: Text(
-              'No recent books',
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 17,
-                color: Color(0xFF1D1D1F),
-                letterSpacing: -0.4,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIOSBookCard(BuildContext context, LastReadInfo info, double cardHeight) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final cardWidth = screenWidth < 400 ? 300.0 : 340.0;
-    final coverHeight = cardHeight - 32; // Padding için alan bırak
-    final coverWidth = coverHeight * 0.68; // Oran koru
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color tintedBg = isDark
-        ? Colors.white.withOpacity(0.06)
-        : Theme.of(context).colorScheme.primary.withOpacity(0.06);
-    final Color tintedBorder = isDark
-        ? Colors.white.withOpacity(0.10)
-        : Theme.of(context).colorScheme.primary.withOpacity(0.12);
-    
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: () {
-        Navigator.pushNamed(context, '/reader', arguments: info.book);
-      },
-      child: Container(
-        width: cardWidth,
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: tintedBg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: tintedBorder, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-            BoxShadow(
-              color: Colors.black.withOpacity(0.02),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            // iOS style book cover - responsive
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    height: coverHeight,
-                    width: coverWidth,
-                    color: const Color(0xFFF2F2F7), // iOS Light Gray
-                    child: _RecentCoverThumb(info: info),
-                  ),
-                ),
-                // iOS style progress indicator
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    height: 3,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE5E5EA), // iOS Separator
-                      borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(8),
-                        bottomRight: Radius.circular(8),
-                      ),
-                    ),
-                    child: FractionallySizedBox(
-                      alignment: Alignment.centerLeft,
-                      widthFactor: (info.pageIndex + 1) / 50,
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF007AFF), // iOS Blue
-                          borderRadius: BorderRadius.only(
-                            bottomLeft: Radius.circular(8),
-                            bottomRight: Radius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Book title with better overflow handling
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      info.book.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: screenWidth < 400 ? 14 : 15,
-                        height: 1.2,
-                        color: const Color(0xFF1D1D1F), // iOS Black
-                        letterSpacing: -0.4,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  // iOS style secondary text with overflow protection
-                  Text(
-                    'Page ${info.pageIndex + 1} • ${info.book.estimatedReadingTimeInMinutes}m',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: screenWidth < 400 ? 12 : 13,
-                      color: const Color(0xFF8E8E93), // iOS Gray
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  // iOS style level text
-                  Text(
-                    'Level ${info.book.textLevel ?? '1'}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: screenWidth < 400 ? 10 : 11,
-                      color: const Color(0xFF34C759), // iOS Green
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.1,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            // iOS style chevron
-            Icon(
-              Icons.chevron_right_rounded,
-              color: const Color(0xFFC7C7CC), // iOS Light Gray
-              size: 18,
-            ),
-          ],
         ),
       ),
     );
@@ -1355,31 +492,6 @@ Widget _buildBooksScroller(BuildContext context, List<Book> books) {
   );
 }
 
-class _RecentCoverThumb extends StatelessWidget {
-  final LastReadInfo info;
-  const _RecentCoverThumb({required this.info});
-
-  @override
-  Widget build(BuildContext context) {
-    final state = context.findAncestorStateOfType<_HomePageState>();
-    final resolved = state?._resolveImageUrl(info.book.imageUrl, info.book.iconUrl) ?? '';
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        height: 48,
-        width: 48,
-        color: Theme.of(context).colorScheme.primary.withOpacity(0.06),
-        child: resolved.isEmpty
-            ? const Icon(Icons.menu_book, size: 24)
-            : Image.network(
-                resolved,
-                fit: BoxFit.cover,
-                errorBuilder: (c, e, s) => const Icon(Icons.menu_book, size: 24),
-              ),
-      ),
-    );
-  }
-}
-
 // Removed: _StatChip (home counters UI)
+// Removed: _RecentCoverThumb (moved to continue_reading_card.dart)
 
