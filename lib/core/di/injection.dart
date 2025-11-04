@@ -83,15 +83,6 @@ Future<void> configureDependencies() async {
     () => getIt<AuthService>(),
   );
 
-  // Register BookService
-  getIt.registerLazySingleton<BookService>(
-    () => BookService(
-      networkManager: getIt<NetworkManager>(),
-      cacheManager: getIt<CacheManager>(),
-      bookRepository: getIt<BookRepository>(),
-    ),
-  );
-
   // Register LastReadManager (manual to avoid codegen dependency)
   if (!getIt.isRegistered<LastReadManager>()) {
     getIt.registerLazySingleton<LastReadManager>(
