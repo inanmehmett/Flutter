@@ -10,6 +10,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../home/presentation/widgets/profile_header.dart';
+import '../../../home/presentation/widgets/home_header.dart';
 import '../../../home/presentation/widgets/daily_progress_card.dart';
 import '../../../home/presentation/widgets/vocabulary_notebook_card.dart';
 import '../../../home/presentation/widgets/quiz_advertisement_card.dart';
@@ -84,36 +85,6 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     // Clean up any resources
     super.dispose();
-  }
-
-  Widget _buildPersonalizedGreeting(BuildContext context, UserProfile profile) {
-    final greeting = GreetingHelper.getPersonalizedGreeting(profile.userName);
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            greeting,
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Bugün ne okumak istersiniz?',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<int?> _fetchStreakDays() async {
@@ -370,8 +341,11 @@ class _HomePageState extends State<HomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 1. Profil Header (En üstte - kişisel odaklı)
-                  GestureDetector(
+                  // 1. Home Header (Profile + Level + XP + Streak)
+                  HomeHeader(
+                    profile: userProfile!,
+                    greeting: GreetingHelper.getPersonalizedGreeting(userProfile!.userName),
+                    streakDays: _cachedStreakDays ?? userProfile!.currentStreak,
                     onTap: () {
                       if (authState is AuthAuthenticated) {
                         Navigator.pushNamed(context, '/profile');
@@ -379,15 +353,7 @@ class _HomePageState extends State<HomePage> {
                         Navigator.pushNamed(context, '/login');
                       }
                     },
-                    child: ProfileHeader(
-                      profile: userProfile!,
-                      streakDays: _cachedStreakDays ?? userProfile!.currentStreak,
-                    ),
                   ),
-                  const SizedBox(height: _mediumSpacing),
-                  
-                  // 2. Kişiselleştirilmiş Karşılama
-                  _buildPersonalizedGreeting(context, userProfile!),
                   const SizedBox(height: _largeSpacing),
                   
                   // 3. EĞİTİM ODAKLI BÖLÜMLER - Öğrenme hiyerarşisi
