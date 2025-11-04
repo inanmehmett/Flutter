@@ -75,7 +75,7 @@ class HomeHeader extends StatelessWidget {
   }
 
   Widget _buildProfileSection(bool isCompact) {
-    final size = isCompact ? 52.0 : 60.0;
+    final size = isCompact ? 56.0 : 64.0;
     final level = profile.levelDisplay ?? profile.levelName ?? 'A1';
     
     return Stack(
@@ -107,7 +107,7 @@ class HomeHeader extends StatelessWidget {
           right: -4,
           child: LevelChip(
             level: level,
-            height: isCompact ? 22 : 26,
+            height: isCompact ? 24 : 28,
           ),
         ),
       ],
@@ -202,7 +202,7 @@ class HomeHeader extends StatelessWidget {
     return XPProgressRing(
       currentXP: currentXP,
       totalXP: nextLevelXP,
-      size: isCompact ? 48 : 56,
+      size: isCompact ? 52 : 60,
       strokeWidth: 4,
     );
   }
