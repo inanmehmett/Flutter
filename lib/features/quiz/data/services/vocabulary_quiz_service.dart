@@ -31,12 +31,20 @@ class VocabularyQuizService {
     } on DioException catch (e) {
       if (e.response?.statusCode == 401) {
         throw VocabularyQuizException('Authentication required');
+      } else if (e.response?.statusCode == 400) {
+        // Backend'den gelen error mesajını göster (örn: "En az 40 kelime gereklidir")
+        final errorData = e.response?.data;
+        final message = errorData?['message'] ?? 'Quiz oluşturulamadı';
+        throw VocabularyQuizException(message);
       } else if (e.response?.statusCode == 404) {
         throw VocabularyQuizException('Quiz not found');
       } else {
         throw VocabularyQuizException('Network error: ${e.message}');
       }
     } catch (e) {
+      if (e is VocabularyQuizException) {
+        rethrow;
+      }
       throw VocabularyQuizException('Failed to load quiz: $e');
     }
   }

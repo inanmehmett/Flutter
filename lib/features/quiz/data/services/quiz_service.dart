@@ -25,8 +25,8 @@ class QuizService {
         // Reading quiz için özel endpoint
         endpoint = '/api/reading-quiz/start/$readingTextId';
       } else {
-        // Genel quiz için (backend quiz)
-        endpoint = '/api/quiz/random-quiz';
+        // Genel quiz için
+        endpoint = '/questions';
         queryParams = {
           'count': count,
           if (category != null) 'category': category,

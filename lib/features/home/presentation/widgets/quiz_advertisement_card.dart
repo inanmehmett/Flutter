@@ -138,7 +138,7 @@ class QuizAdvertisementCard extends StatelessWidget {
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (context) => BlocProvider(
-                  create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>())..startQuiz(),
+                  create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>()),
                   child: const VocabularyQuizPage(),
                 ),
               ),

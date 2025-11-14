@@ -653,12 +653,25 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
     List<VocabularyWord> reviewWords;
     switch (modeFilter) {
       case 'due':
-        // Review mode: Only due words
+        // Review mode: Only due words (Quiz widget kullanıyor - en az 4 kelime gerekiyor)
         reviewWords = await getDailyReviewWords();
+        // Quiz için yeterli kelime yoksa, tüm kelimeleri kullan
+        if (reviewWords.length < 4) {
+          final allWords = await getUserWords(limit: 100);
+          if (allWords.length < 4) {
+            throw Exception('Quiz için en az 4 kelime gereklidir. Şu anda ${allWords.length} kelimeniz var. Lütfen Vocabulary Notebook\'a daha fazla kelime ekleyin.');
+          }
+          // Due kelime yoksa, tüm kelimelerden quiz yap
+          reviewWords = allWords;
+        }
         break;
       case 'all':
         // Quiz mode: All words, randomized
-        reviewWords = await getUserWords(limit: 50);
+        // Quiz için en az 4 kelime gerekiyor (1 doğru + 3 yanlış cevap için)
+        reviewWords = await getUserWords(limit: 100);
+        if (reviewWords.length < 4) {
+          throw Exception('Quiz için en az 4 kelime gereklidir. Şu anda ${reviewWords.length} kelimeniz var. Lütfen Vocabulary Notebook\'a daha fazla kelime ekleyin.');
+        }
         reviewWords.shuffle();
         break;
       case 'difficult':

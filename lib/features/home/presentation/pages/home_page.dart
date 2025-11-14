@@ -216,9 +216,9 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -250,7 +250,7 @@ class _HomePageState extends State<HomePage> {
               fontWeight: FontWeight.w500,
             ),
             textAlign: TextAlign.center,
-          ),
+            ),
           const SizedBox(height: 20),
           ElevatedButton(
             onPressed: () {
@@ -272,8 +272,8 @@ class _HomePageState extends State<HomePage> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-          ),
-        ],
+            ),
+          ],
       ),
     );
   }

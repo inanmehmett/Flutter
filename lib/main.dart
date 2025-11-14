@@ -42,9 +42,6 @@ import 'features/game/pages/leaderboard_page.dart';
 import 'features/quiz/presentation/pages/vocabulary_quiz_page.dart';
 import 'features/quiz/presentation/cubit/vocabulary_quiz_cubit.dart';
 import 'features/quiz/data/services/vocabulary_quiz_service.dart';
-import 'features/quiz/presentation/pages/quiz_page.dart';
-import 'features/quiz/presentation/cubit/quiz_cubit.dart';
-import 'features/quiz/domain/repositories/quiz_repository.dart';
 import 'features/vocabulary_notebook/presentation/pages/vocabulary_notebook_page.dart';
 import 'features/vocabulary_notebook/presentation/bloc/vocabulary_bloc.dart';
 import 'features/vocabulary_notebook/data/repositories/vocabulary_repository_impl.dart';
@@ -206,7 +203,6 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   late int _currentIndex;
   late final SignalRService _signalRService;
-  bool _redirectedToLogin = false;
 
   final _pages = const [
     HomePage(showBottomNav: false),
@@ -222,9 +218,14 @@ class _AppShellState extends State<AppShell> {
     super.initState();
     _currentIndex = widget.initialIndex;
     
-    // Use SignalR service instead of polling
+    // Use SignalR service instead of polling (offline-safe)
     _signalRService = getIt<SignalRService>();
-    _signalRService.start();
+    try {
+      _signalRService.start();
+    } catch (e) {
+      print('⚠️ [AppShell] SignalR failed to start (offline mode): $e');
+      // Continue without SignalR - app will work offline
+    }
     
     _signalRService.events.listen((evt) {
       if (!mounted) return;
@@ -285,32 +286,21 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<AuthBloc, AuthState>(
-      listener: (context, state) {
-        if (state is AuthUnauthenticated && !_redirectedToLogin) {
-          // Auth yoksa login sayfasına yönlendir
-          _redirectedToLogin = true;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            Navigator.pushReplacementNamed(context, '/login');
-          });
-        }
-      },
-      child: Scaffold(
-        body: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 220),
-          switchInCurve: Curves.fastOutSlowIn,
-          switchOutCurve: Curves.fastOutSlowIn,
-          child: IndexedStack(
-            key: ValueKey<int>(_currentIndex),
-            index: _currentIndex,
-            children: _pages,
-          ),
+    // Login zorunluluğu kaldırıldı - direkt anasayfaya giriş
+    return Scaffold(
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        switchInCurve: Curves.fastOutSlowIn,
+        switchOutCurve: Curves.fastOutSlowIn,
+        child: IndexedStack(
+          key: ValueKey<int>(_currentIndex),
+          index: _currentIndex,
+          children: _pages,
         ),
-        bottomNavigationBar: _GlobalBottomNav(
-          currentIndex: _currentIndex,
-          onTap: (index) => _handleBottomNavTap(context, index),
-        ),
+      ),
+      bottomNavigationBar: _GlobalBottomNav(
+        currentIndex: _currentIndex,
+        onTap: (index) => _handleBottomNavTap(context, index),
       ),
     );
   }
@@ -329,8 +319,8 @@ class _AppShellState extends State<AppShell> {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => BlocProvider(
-              create: (context) => QuizCubit(getIt<QuizRepository>())..startQuiz(),
-              child: const QuizPage(),
+              create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>()),
+              child: const VocabularyQuizPage(),
             ),
           ),
         );
@@ -402,8 +392,8 @@ class _GlobalBottomNav extends StatelessWidget {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => BlocProvider(
-          create: (context) => QuizCubit(getIt<QuizRepository>())..startQuiz(),
-          child: const QuizPage(),
+          create: (context) => VocabularyQuizCubit(getIt<VocabularyQuizService>()),
+          child: const VocabularyQuizPage(),
         ),
       ),
     );

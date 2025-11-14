@@ -33,7 +33,6 @@ class _ProfilePageState extends State<ProfilePage> {
   _LevelGoalData? _lastLevelGoal;
   _ProgressData? _lastProgress;
   List<_BadgeItem>? _lastBadges;
-  bool _redirectedToLogin = false;
   int? _readingFinishedCount;
   int? _readingValidatedCount;
   final ImagePicker _imagePicker = ImagePicker();
@@ -41,15 +40,7 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    // İlk açılışta state'e göre yönlendirme yap (auth yoksa login'e)
-    final initialAuthState = context.read<AuthBloc>().state;
-    if (initialAuthState is! AuthAuthenticated) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _redirectedToLogin) return;
-        _redirectedToLogin = true;
-        Navigator.pushReplacementNamed(context, '/login');
-      });
-    }
+    // Login zorunluluğu kaldırıldı - misafir kullanıcılar da profile erişebilir
     _levelGoalFuture = _fetchLevelAndGoals();
     _badgesFuture = _fetchBadges();
 
@@ -88,39 +79,14 @@ class _ProfilePageState extends State<ProfilePage> {
                 _levelGoalFuture = _fetchLevelAndGoals();
                 _badgesFuture = _fetchBadges();
               });
-            } else if (state is AuthUnauthenticated && !_redirectedToLogin) {
-              // Auth yoksa cache'i temizle ve login sayfasına yönlendir
-              _redirectedToLogin = true;
-              
-              // Clear all profile-related caches
-              try {
-                final cacheManager = getIt<CacheManager>();
-                cacheManager.removeData('user/profile');
-                cacheManager.removeData('game/level');
-                cacheManager.removeData('game/streak');
-                cacheManager.removeData('game/badges');
-                cacheManager.removeData('game/goals');
-                cacheManager.removeData('game/leaderboard');
-                Logger.info('🔐 [ProfilePage] ✅ All caches cleared on logout');
-              } catch (e) {
-                Logger.warning('🔐 [ProfilePage] ⚠️ Error clearing caches: $e');
-              }
-              
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (!mounted) return;
-                Navigator.pushReplacementNamed(context, '/login');
-              });
             }
+            // Login zorunluluğu kaldırıldı - logout yapınca cache temizlenir ama yönlendirme olmaz
           },
           child: BlocBuilder<AuthBloc, AuthState>(
             builder: (context, state) {
             final UserProfile? authenticated = (state is AuthAuthenticated) ? state.user : null;
             if (authenticated != null) {
               _lastProfile = authenticated;
-            }
-            // Yönlendirme sürecinde boş bir görünüm dön
-            if ((state is! AuthAuthenticated) && _redirectedToLogin) {
-              return const SizedBox.shrink();
             }
             final UserProfile profile = _lastProfile ?? UserProfile(
               id: 'guest',

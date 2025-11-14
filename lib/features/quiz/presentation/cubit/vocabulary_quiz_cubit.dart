@@ -5,7 +5,6 @@ import '../../data/services/vocabulary_quiz_service.dart';
 import '../../../../core/di/injection.dart';
 import '../../../vocab/domain/services/vocab_learning_service.dart';
 import '../../../vocab/domain/entities/user_word_entity.dart' as ue;
-export '../../data/services/vocabulary_quiz_service.dart' show VocabularyQuizException;
 
 // States
 abstract class VocabularyQuizState extends Equatable {
@@ -111,15 +110,16 @@ class VocabularyQuizCubit extends Cubit<VocabularyQuizState> {
 
   VocabularyQuizCubit(this._quizService) : super(VocabularyQuizInitial());
 
-  /// Start a new vocabulary quiz
+  /// Start a new vocabulary quiz - Backend'den çek
   Future<void> startQuiz() async {
     emit(VocabularyQuizLoading());
     
     try {
+      // Backend'den quiz çek
       _questions = await _quizService.getRandomQuiz();
       _answers = [];
       _currentQuestionIndex = 0;
-      _quizId = DateTime.now().millisecondsSinceEpoch % 1000000; // Generate smaller unique quiz ID
+      _quizId = DateTime.now().millisecondsSinceEpoch % 1000000;
       
       if (_questions.isEmpty) {
         emit(const VocabularyQuizError(message: 'Quiz soruları bulunamadı'));
@@ -145,21 +145,8 @@ class VocabularyQuizCubit extends Cubit<VocabularyQuizState> {
         timeRemaining: _timeRemaining,
       ));
     } catch (e) {
-      // Extract user-friendly message from exception
-      String errorMessage = 'Quiz başlatılamadı';
-      if (e is VocabularyQuizException) {
-        errorMessage = e.message;
-      } else if (e.toString().contains('En az') && e.toString().contains('kelime')) {
-        errorMessage = 'Database\'de yeterli kelime yok. Lütfen daha sonra tekrar deneyin.';
-      } else if (e.toString().contains('Authentication')) {
-        errorMessage = 'Lütfen giriş yapın';
-      } else if (e.toString().contains('Network error')) {
-        errorMessage = 'İnternet bağlantınızı kontrol edin';
-      } else if (e.toString().contains('Connection')) {
-        errorMessage = 'Backend bağlantısı kurulamadı';
-      }
-      
-      print('❌ Quiz start error: $e'); // Debug log
+      // Backend'den error mesajını göster
+      final errorMessage = e.toString().replaceAll('VocabularyQuizException: ', '');
       emit(VocabularyQuizError(message: errorMessage));
     }
   }

@@ -133,9 +133,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         print('🔐 [AuthBloc] AuthError type: $e');
       }
 
-      print('🔐 [AuthBloc] Emitting AuthUnauthenticated...');
+      // Offline mode - try to get cached profile
+      print('🔐 [AuthBloc] ⚠️ Network error, attempting offline mode with cached data...');
+      try {
+        final cacheManager = getIt<CacheManager>();
+        final cachedProfile = await cacheManager.getData('user/profile');
+        if (cachedProfile != null) {
+          print('🔐 [AuthBloc] ✅ Found cached profile, using offline mode');
+          // Parse cached profile and emit AuthAuthenticated
+          // For now, emit unauthenticated to use guest mode
+        }
+      } catch (cacheError) {
+        print('🔐 [AuthBloc] ⚠️ No cached profile available: $cacheError');
+      }
+
+      print('🔐 [AuthBloc] Emitting AuthUnauthenticated (guest mode)...');
       emit(AuthUnauthenticated());
-      print('🔐 [AuthBloc] ✅ AuthUnauthenticated emitted');
+      print('🔐 [AuthBloc] ✅ AuthUnauthenticated emitted - app will work in offline/guest mode');
     }
 
     print('🔐 [AuthBloc] ===== CHECK AUTH STATUS END =====');

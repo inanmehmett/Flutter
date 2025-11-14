@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/error/app_error.dart';
-import '../../../../core/widgets/error_view.dart';
 import '../cubit/vocabulary_quiz_cubit.dart';
 import '../widgets/vocabulary_quiz_card.dart';
 import '../widgets/vocabulary_quiz_progress.dart';
@@ -72,6 +70,7 @@ class VocabularyQuizPage extends StatelessWidget {
                   label: 'Tekrar Dene',
                   textColor: Colors.white,
                   onPressed: () {
+                    // Backend'den tekrar çek
                     context.read<VocabularyQuizCubit>().startQuiz();
                   },
                 ),
@@ -81,8 +80,11 @@ class VocabularyQuizPage extends StatelessWidget {
         },
         builder: (context, state) {
           if (state is VocabularyQuizInitial) {
-            // Quiz will auto-start if called with ..startQuiz() in BlocProvider
-            // Otherwise show loading
+            // Auto-start quiz when page loads - Backend'den çek
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              // Backend'den quiz çek
+              context.read<VocabularyQuizCubit>().startQuiz();
+            });
             return _buildLoadingView();
           } else if (state is VocabularyQuizLoading) {
             return _buildLoadingView();
@@ -185,7 +187,8 @@ class VocabularyQuizPage extends StatelessWidget {
               height: 56,
               child: ElevatedButton(
                   onPressed: () {
-                    context.read<VocabularyQuizCubit>().startQuizFromLearningList();
+                    // Backend'den quiz başlat
+                    context.read<VocabularyQuizCubit>().startQuiz();
                   },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
@@ -326,94 +329,57 @@ class VocabularyQuizPage extends StatelessWidget {
   }
 
   Widget _buildErrorView(BuildContext context, VocabularyQuizError state) {
-    // Check if it's "not enough words" error
-    final isInsufficientWords = state.message.contains('Yeterli kelime yok') || 
-                                 state.message.contains('en az 4');
-    
-    if (isInsufficientWords) {
-      return _buildInsufficientWordsView(context);
-    }
-    
-    // General error view using standardized ErrorView
-    return ErrorView(
-      error: ValidationError(state.message, code: 'QUIZ_ERROR'),
-      onRetry: () {
-        context.read<VocabularyQuizCubit>().startQuizFromLearningList();
-      },
-    );
-  }
-
-  Widget _buildInsufficientWordsView(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.book_outlined,
-                size: 64,
-                color: AppColors.primary,
-              ),
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Colors.red.shade400,
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'Kelime Defteriniz Boş',
+            const SizedBox(height: 16),
+            Text(
+              'Bir Hata Oluştu',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
+                color: Colors.grey.shade800,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Text(
-              'Quiz çözmek için en az 4 kelime eklemeniz gerekiyor',
+              state.message,
               style: TextStyle(
                 fontSize: 16,
-                color: AppColors.textSecondary,
+                color: Colors.grey.shade600,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
+              height: 56,
+              child: ElevatedButton(
                 onPressed: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).pushReplacementNamed('/vocabulary');
+                  // Backend'den quiz başlat
+                  context.read<VocabularyQuizCubit>().startQuiz();
                 },
-                icon: const Icon(Icons.add_circle_outline, size: 20),
-                label: const Text(
-                  'Kelime Defterime Git',
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                ),
+                child: const Text(
+                  'Tekrar Dene',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                'Geri Dön',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
                 ),
               ),
             ),
