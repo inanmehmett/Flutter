@@ -7,7 +7,6 @@ import '../../domain/entities/learning_activity.dart';
 import '../../domain/repositories/vocabulary_repository.dart';
 import '../../domain/services/spaced_repetition_service.dart';
 import '../../domain/services/review_session.dart';
-import '../../domain/services/learning_analytics_service.dart';
 // Legacy service imports kept for fallback; to be removed after full migration
 import '../../../vocab/domain/services/vocab_learning_service.dart';
 import '../../../vocab/domain/entities/user_word_entity.dart' as ue;
@@ -112,10 +111,40 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
     final consecutive = e.getInt('consecutiveCorrectCount', defaultValue: 0);
     final difficulty = e.getDouble('difficulty', defaultValue: 0.5);
     
+    // WordLevel (CEFR seviyesi): Backend'den enum olarak geliyor (A1, A2, B1, B2, C1, C2, Unknown)
+    // Backend'de LevelTypeId enum: Unknown=0, A1=1, A2=2, B1=3, B2=4, C1=5, C2=6
+    String? wordLevelStr;
+    final wordLevelValue = e.getIgnoreCase('wordLevel');
+    
+    // 🔍 DEBUG: Raw WordLevel value
+    print('🔍 [VOCAB] WordLevel raw value for "$word": $wordLevelValue (type: ${wordLevelValue?.runtimeType})');
+    
+    if (wordLevelValue != null) {
+      // Enum string olarak geliyor (örn: "A1", "B2", "Unknown")
+      if (wordLevelValue is String) {
+        final levelStr = wordLevelValue.trim();
+        wordLevelStr = (levelStr == 'Unknown' || levelStr.isEmpty) ? null : levelStr;
+        print('🔍 [VOCAB] WordLevel parsed as String: "$levelStr" -> "$wordLevelStr"');
+      } else if (wordLevelValue is int) {
+        // Enum integer olarak gelirse
+        wordLevelStr = wordLevelValue == 0 ? null : _mapLevelTypeIdToString(wordLevelValue);
+        print('🔍 [VOCAB] WordLevel parsed as int: $wordLevelValue -> "$wordLevelStr"');
+      } else {
+        // Diğer durumlar için toString() dene
+        final levelStr = wordLevelValue.toString().trim();
+        if (levelStr.isNotEmpty && levelStr != 'Unknown' && levelStr != '0') {
+          wordLevelStr = levelStr;
+          print('🔍 [VOCAB] WordLevel parsed via toString(): "$levelStr"');
+        }
+      }
+    } else {
+      print('⚠️ [VOCAB] WordLevel is null for word "$word"');
+    }
+    
     // 🔍 DEBUG: Log parsed data to verify backend response
     print('🔄 [VOCAB] Parsing word "$word" (ID: $id) - '
           'ReviewCount: $reviewCount, CorrectCount: $correctCount, '
-          'Status: $status, Consecutive: $consecutive');
+          'Status: $status, Consecutive: $consecutive, WordLevel: $wordLevelStr');
     
     // Parse synonyms and antonyms from backend
     final synonymsList = e.getList<String>('synonyms');
@@ -134,6 +163,7 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
         consecutiveCorrectCount: consecutive,
         nextReviewAt: nextReviewAt,
         difficultyLevel: difficulty,
+        wordLevel: wordLevelStr, // CEFR seviyesi
         personalNote: (notes != null && notes.isNotEmpty) ? notes : null,
         description: (description != null && description.isNotEmpty) ? description : null,
         exampleSentence: (exampleSentence != null && exampleSentence.isNotEmpty) ? exampleSentence : null,
@@ -143,6 +173,19 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
         recentActivities: const [],
       ),
     );
+  }
+
+  // LevelTypeId enum değerini string'e çevir (0=Unknown, 1=A1, 2=A2, 3=B1, 4=B2, 5=C1, 6=C2)
+  String? _mapLevelTypeIdToString(int value) {
+    switch (value) {
+      case 1: return 'A1';
+      case 2: return 'A2';
+      case 3: return 'B1';
+      case 4: return 'B2';
+      case 5: return 'C1';
+      case 6: return 'C2';
+      default: return null;
+    }
   }
 
   @override

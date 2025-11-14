@@ -54,6 +54,7 @@ class VocabularyWord extends Equatable {
   final int consecutiveCorrectCount; // Ardışık doğru cevap sayısı
   final DateTime? nextReviewAt; // Bir sonraki review tarihi
   final double difficultyLevel; // 0.0-1.0 arası zorluk seviyesi
+  final String? wordLevel; // CEFR seviyesi: A1, A2, B1, B2, C1, C2 (backend'den WordLevel enum'u)
   final List<LearningActivity> recentActivities; // Son 10 aktivite
 
   const VocabularyWord({
@@ -74,6 +75,7 @@ class VocabularyWord extends Equatable {
     this.consecutiveCorrectCount = 0,
     this.nextReviewAt,
     this.difficultyLevel = 0.5,
+    this.wordLevel,
     this.recentActivities = const [],
   });
 
@@ -131,6 +133,7 @@ class VocabularyWord extends Equatable {
     int? consecutiveCorrectCount,
     DateTime? nextReviewAt,
     double? difficultyLevel,
+    String? wordLevel,
     List<LearningActivity>? recentActivities,
   }) {
     return VocabularyWord(
@@ -151,6 +154,7 @@ class VocabularyWord extends Equatable {
       consecutiveCorrectCount: consecutiveCorrectCount ?? this.consecutiveCorrectCount,
       nextReviewAt: nextReviewAt ?? this.nextReviewAt,
       difficultyLevel: difficultyLevel ?? this.difficultyLevel,
+      wordLevel: wordLevel ?? this.wordLevel,
       recentActivities: recentActivities ?? this.recentActivities,
     );
   }
@@ -174,6 +178,7 @@ class VocabularyWord extends Equatable {
         consecutiveCorrectCount,
         nextReviewAt,
         difficultyLevel,
+        wordLevel,
         recentActivities,
       ];
 }
