@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:ui';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -1182,8 +1182,9 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     if (overlay == null) return;
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color bg = isDark ? Colors.white.withOpacity(0.08) : Colors.white.withOpacity(0.7);
-    final Color border = isDark ? Colors.white.withOpacity(0.14) : Colors.black.withOpacity(0.08);
+    final Color primaryColor = Theme.of(context).colorScheme.primary;
+    final Color bg = isDark ? Colors.white.withOpacity(0.12) : Colors.white.withOpacity(0.95);
+    final Color border = isDark ? Colors.white.withOpacity(0.2) : primaryColor.withOpacity(0.2);
     final Color textPrimary = _getThemeOnSurfaceColor(themeManager);
     final Color textSecondary = _getThemeOnSurfaceVariantColor(themeManager);
 
@@ -1200,33 +1201,42 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
             bottom: mq.padding.bottom + ReaderLayoutConfig.mediaBarHeightApprox + 18,
             child: TweenAnimationBuilder<double>(
               tween: Tween(begin: 0.0, end: 1.0),
-              duration: const Duration(milliseconds: 220),
+              duration: const Duration(milliseconds: 300),
               curve: Curves.easeOutCubic,
               builder: (context, value, child) {
                 return Transform.translate(
-                  offset: Offset(0, (1 - value) * 12),
+                  offset: Offset(0, (1 - value) * 20),
                   child: Transform.scale(
-                    scale: 0.98 + value * 0.02,
-                    child: child,
+                    scale: 0.95 + value * 0.05,
+                    child: Opacity(
+                      opacity: value,
+                      child: child,
+                    ),
                   ),
                 );
               },
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                   child: Container(
                     constraints: BoxConstraints(maxWidth: maxWidth),
-                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: bg,
+                      color: isDark
+                          ? Colors.black.withOpacity(0.7)
+                          : Colors.white.withOpacity(0.95),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: border, width: 1),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withOpacity(0.1)
+                            : Colors.black.withOpacity(0.08),
+                        width: 1,
+                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(isDark ? 0.4 : 0.08),
-                          blurRadius: 18,
-                          offset: const Offset(0, 10),
+                          color: Colors.black.withOpacity(isDark ? 0.4 : 0.15),
+                          blurRadius: 20,
+                          offset: const Offset(0, 6),
                         ),
                       ],
                     ),
@@ -1234,59 +1244,58 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Icon(CupertinoIcons.globe, size: 16, color: textSecondary),
-                            const SizedBox(width: 6),
-                            Text('Translation', style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w600, letterSpacing: 0.2)),
-                            const Spacer(),
-                            GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: _hideSentenceOverlay,
-                              child: SizedBox(
-                                width: 44,
-                                height: 44,
-                                child: Center(
-                                  child: Icon(CupertinoIcons.xmark_circle_fill, size: 22, color: textSecondary.withOpacity(0.85)),
+                        // Minimal header
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
+                          child: Row(
+                            children: [
+                              Icon(
+                                CupertinoIcons.globe,
+                                size: 14,
+                                color: textSecondary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Çeviri',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: textSecondary,
+                                  letterSpacing: 0.2,
+                                  decoration: TextDecoration.none,
+                                  decorationColor: Colors.transparent,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                        if (!_overlayHintShown) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            'Kapatmak için boş alana dokun',
-                            style: TextStyle(fontSize: 11, color: textSecondary.withOpacity(0.8)),
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                        Text(
-                          translated.toLowerCase(),
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: textPrimary,
-                            height: 1.35,
+                              const Spacer(),
+                              GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: _hideSentenceOverlay,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(4),
+                                  child: Icon(
+                                    CupertinoIcons.xmark,
+                                    size: 14,
+                                    color: textSecondary.withOpacity(0.7),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Builder(
-                              builder: (context) {
-                                final word = (_selectedWord ?? '').trim();
-                                final isInVocab = word.isNotEmpty && _isWordInVocabulary(word);
-                                return _iconAction(
-                                  icon: isInVocab ? Icons.check_circle : Icons.star_border_rounded,
-                                  label: isInVocab ? '✅ Defterinde' : 'Favorilere ekle',
-                                  onTap: isInVocab ? () {} : _onAddWordToLearningList,
-                                  themeManager: themeManager,
-                                  isDisabled: isInVocab,
-                                );
-                              },
+                        // Translation text
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                          child: Text(
+                            translated,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: textPrimary,
+                              height: 1.5,
+                              decoration: TextDecoration.none,
+                              decorationColor: Colors.transparent,
                             ),
-                          ],
+                          ),
                         ),
                       ],
                     ),
@@ -1302,7 +1311,58 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     Overlay.of(context).insert(_sentenceOverlay!);
 
     _sentenceOverlayTimer?.cancel();
-    _sentenceOverlayTimer = Timer(const Duration(seconds: 7), _hideSentenceOverlay);
+    _sentenceOverlayTimer = Timer(const Duration(seconds: 10), _hideSentenceOverlay);
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback? onTap,
+    bool isDisabled = false,
+  }) {
+    return GestureDetector(
+      onTap: isDisabled ? null : onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: isDisabled
+              ? Colors.grey.withOpacity(0.1)
+              : color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDisabled
+                ? Colors.grey.withOpacity(0.2)
+                : color.withOpacity(0.3),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: isDisabled ? Colors.grey : color,
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: isDisabled ? Colors.grey : color,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _iconAction({

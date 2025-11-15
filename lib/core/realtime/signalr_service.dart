@@ -173,9 +173,11 @@ class SignalRService {
 
     // Badge Earned event
     _connection!.on('Badge Earned', (List<Object?>? args) {
+      print('🎯 SignalR: Badge Earned event received: $args');
       if (args != null && args.isNotEmpty) {
         final data = args[0] as Map<String, dynamic>?;
         if (data != null) {
+          print('🎯 SignalR: Badge data: $data');
           _controller.add(RealtimeEvent(RealtimeEventType.badgeEarned, {
             'badgeName': data['badgeName'] ?? '',
             'name': data['badgeName'] ?? '', // Alias for consistency
@@ -186,17 +188,23 @@ class SignalRService {
             'rarityColor': data['rarityColor'],
             'xpEarned': data['xpEarned'] ?? 0,
           }));
-          
+          print('✅ SignalR: Badge earned event added to controller');
           HapticFeedback.mediumImpact(); // Changed from selectionClick for more impact
+        } else {
+          print('❌ SignalR: Badge data is null');
         }
+      } else {
+        print('❌ SignalR: Badge Earned args is null or empty');
       }
     });
 
     // Badge Earned event (alternative event name)
     _connection!.on('BadgeEarned', (List<Object?>? args) {
+      print('🎯 SignalR: BadgeEarned event received: $args');
       if (args != null && args.isNotEmpty) {
         final data = args[0] as Map<String, dynamic>?;
         if (data != null) {
+          print('🎯 SignalR: Badge data: $data');
           _controller.add(RealtimeEvent(RealtimeEventType.badgeEarned, {
             'badgeName': data['badgeName'] ?? '',
             'name': data['badgeName'] ?? '', // Alias for consistency
@@ -207,9 +215,13 @@ class SignalRService {
             'rarityColor': data['rarityColor'],
             'xpEarned': data['xpEarned'] ?? 0,
           }));
-          
+          print('✅ SignalR: Badge earned event added to controller');
           HapticFeedback.mediumImpact();
+        } else {
+          print('❌ SignalR: Badge data is null');
         }
+      } else {
+        print('❌ SignalR: BadgeEarned args is null or empty');
       }
     });
 

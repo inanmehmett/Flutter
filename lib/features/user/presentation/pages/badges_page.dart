@@ -286,7 +286,15 @@ class _BadgeTileState extends State<_BadgeTile> with SingleTickerProviderStateMi
         final Widget interactive = InkWell(
           onTap: () {
             if (widget.earned) {
-              BadgeCelebration.show(context, name: widget.name, subtitle: widget.description ?? '', earned: true);
+              BadgeCelebration.show(
+                context,
+                name: widget.name,
+                subtitle: widget.description ?? '',
+                imageUrl: widget.imageUrl,
+                rarity: widget.rarity,
+                rarityColorHex: widget.rarityColor,
+                earned: true,
+              );
             } else {
               _shakeController.forward(from: 0);
             }

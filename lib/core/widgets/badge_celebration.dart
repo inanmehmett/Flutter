@@ -5,11 +5,25 @@ import 'package:share_plus/share_plus.dart';
 import 'badge_icon.dart';
 
 class BadgeCelebration {
-  static void show(BuildContext context, {required String name, String? subtitle, String? imageUrl, bool earned = true}) {
-    final OverlayState overlay = Overlay.of(context);
+  static void show(
+    BuildContext context, {
+    required String name,
+    String? subtitle,
+    String? imageUrl,
+    String? rarity,
+    String? rarityColorHex,
+    bool earned = true,
+  }) {
+    // Use rootOverlay to ensure it shows even if context is from a nested route
+    final OverlayState? overlay = Navigator.maybeOf(context)?.overlay ?? Overlay.of(context, rootOverlay: true);
+    if (overlay == null) {
+      print('❌ BadgeCelebration: Could not find overlay');
+      return;
+    }
 
+    final navigator = Navigator.maybeOf(context) ?? Navigator.of(context, rootNavigator: true);
     final AnimationController controller = AnimationController(
-      vsync: Navigator.of(context),
+      vsync: navigator,
       duration: const Duration(milliseconds: 1600),
     );
     final curved = CurvedAnimation(parent: controller, curve: Curves.easeOutCubic);
@@ -51,52 +65,24 @@ class BadgeCelebration {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Gradient ring + glowing badge icon
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: SweepGradient(
-                                colors: [
-                                  Colors.amber,
-                                  Colors.purpleAccent,
-                                  Colors.amber,
-                                ],
-                              ),
-                            ),
-                            child: Container(
-                              padding: const EdgeInsets.all(24),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.35), blurRadius: 52),
-                                  BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.18), blurRadius: 96),
-                                ],
-                              ),
-                              child: BadgeIcon(name: name, earned: earned, size: 134),
-                            ),
-                          ),
+                          // Rarity-based gradient ring + glowing badge icon
+                          _buildRarityRing(context, rarity, rarityColorHex, name, earned),
                           const SizedBox(height: 12),
-                          // Title with gradient ink + soft halo
+                          // Title with rarity-based gradient ink + soft halo
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: ShaderMask(
-                              shaderCallback: (bounds) => const LinearGradient(
-                                colors: [Color(0xFFFFD700), Color(0xFFFF8C00)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ).createShader(bounds),
+                              shaderCallback: (bounds) => _getRarityGradient(rarity, rarityColorHex).createShader(bounds),
                               child: Text(
                                 name,
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w900,
                                   color: Colors.white, // masked by shader
-                                  letterSpacing: 0.5,
+                                  letterSpacing: -0.5,
                                   shadows: [
-                                    Shadow(color: Colors.black45, blurRadius: 8),
+                                    Shadow(color: Colors.black.withOpacity(0.5), blurRadius: 12),
                                   ],
                                   decoration: TextDecoration.none,
                                 ),
@@ -147,8 +133,7 @@ class BadgeCelebration {
                     ),
                   ),
                 ),
-                // Share button (optional)
-                // Centered Share button with pop-in
+                // Share button with rarity-based styling
                 Positioned(
                   bottom: MediaQuery.of(context).padding.bottom + 28,
                   left: 0,
@@ -158,21 +143,80 @@ class BadgeCelebration {
                     child: Center(
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.colorScheme.primary,
-                          foregroundColor: theme.colorScheme.onPrimary,
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-                          elevation: 6,
+                          backgroundColor: _getRarityColor(rarity, rarityColorHex),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                          elevation: 8,
+                          shadowColor: _getRarityColor(rarity, rarityColorHex).withOpacity(0.5),
                         ),
                         onPressed: () {
-                          Share.share('Yeni rozet kazandım: $name');
+                          final rarityLabel = _getRarityLabel(rarity);
+                          Share.share('🏆 $rarityLabel rozet kazandım: $name!\n\n$subtitle');
                         },
-                        icon: const Icon(Icons.ios_share),
-                        label: const Text('Paylaş'),
+                        icon: const Icon(Icons.ios_share, size: 22),
+                        label: const Text(
+                          'Paylaş',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
+                
+                // Rarity Badge Display
+                if (rarity != null && rarity.isNotEmpty)
+                  Positioned(
+                    top: MediaQuery.of(context).padding.top + 20,
+                    left: 0,
+                    right: 0,
+                    child: FadeTransition(
+                      opacity: CurvedAnimation(parent: controller, curve: const Interval(0.4, 1.0)),
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: _getRarityColor(rarity, rarityColorHex).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: _getRarityColor(rarity, rarityColorHex).withOpacity(0.5),
+                              width: 2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _getRarityColor(rarity, rarityColorHex).withOpacity(0.3),
+                                blurRadius: 15,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.stars_rounded,
+                                color: _getRarityColor(rarity, rarityColorHex),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _getRarityLabel(rarity),
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: _getRarityColor(rarity, rarityColorHex),
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             );
           },
@@ -189,6 +233,143 @@ class BadgeCelebration {
         entry.remove();
       });
     });
+  }
+
+  static Widget _buildRarityRing(
+    BuildContext context,
+    String? rarity,
+    String? rarityColorHex,
+    String name,
+    bool earned,
+  ) {
+    final rarityColor = _getRarityColor(rarity, rarityColorHex);
+    
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: SweepGradient(
+          colors: [
+            rarityColor,
+            rarityColor.withOpacity(0.7),
+            rarityColor,
+            rarityColor.withOpacity(0.5),
+            rarityColor,
+          ],
+          stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: rarityColor.withOpacity(0.6),
+            blurRadius: 40,
+            spreadRadius: 8,
+          ),
+          BoxShadow(
+            color: rarityColor.withOpacity(0.3),
+            blurRadius: 80,
+            spreadRadius: 16,
+          ),
+        ],
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: rarityColor.withOpacity(0.4),
+              blurRadius: 60,
+              spreadRadius: 4,
+            ),
+            BoxShadow(
+              color: rarityColor.withOpacity(0.2),
+              blurRadius: 100,
+              spreadRadius: 8,
+            ),
+          ],
+        ),
+        child: BadgeIcon(
+          name: name,
+          rarity: rarity,
+          rarityColorHex: rarityColorHex,
+          earned: earned,
+          size: 150,
+        ),
+      ),
+    );
+  }
+
+  static Color _getRarityColor(String? rarity, String? rarityColorHex) {
+    if (rarityColorHex != null) {
+      final color = _parseHexColor(rarityColorHex);
+      if (color != null) return color;
+    }
+    
+    switch ((rarity ?? '').toLowerCase()) {
+      case 'legendary':
+      case 'diamond':
+        return Colors.cyan.shade400;
+      case 'epic':
+      case 'gold':
+        return Colors.amber.shade600;
+      case 'rare':
+      case 'silver':
+        return Colors.blue.shade400;
+      case 'uncommon':
+      case 'bronze':
+        return Colors.orange.shade400;
+      default:
+        return Colors.amber.shade600;
+    }
+  }
+
+  static LinearGradient _getRarityGradient(String? rarity, String? rarityColorHex) {
+    final baseColor = _getRarityColor(rarity, rarityColorHex);
+    
+    return LinearGradient(
+      colors: [
+        baseColor,
+        baseColor.withOpacity(0.8),
+        baseColor,
+      ],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+  }
+
+  static String _getRarityLabel(String? rarity) {
+    switch ((rarity ?? '').toLowerCase()) {
+      case 'legendary':
+      case 'diamond':
+        return 'Efsanevi';
+      case 'epic':
+      case 'gold':
+        return 'Epik';
+      case 'rare':
+      case 'silver':
+        return 'Nadir';
+      case 'uncommon':
+      case 'bronze':
+        return 'Yaygın';
+      default:
+        return 'Ortak';
+    }
+  }
+
+  static Color? _parseHexColor(String hex) {
+    try {
+      final cleaned = hex.replaceAll('#', '').trim();
+      if (cleaned.length == 6) {
+        return Color(int.parse('FF$cleaned', radix: 16));
+      }
+      if (cleaned.length == 8) {
+        return Color(int.parse(cleaned, radix: 16));
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 
   static List<Widget> _buildStars(ThemeData theme, double t, Size screenSize) {

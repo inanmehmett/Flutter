@@ -30,7 +30,7 @@ import 'features/reader/data/services/translation_service.dart';
 import 'core/analytics/event_service.dart';
 import 'features/reader/services/page_manager.dart';
 import 'core/storage/last_read_manager.dart';
-import 'features/user/presentation/pages/badges_page.dart';
+import 'features/user/presentation/pages/badges_page_v2.dart';
 import 'core/realtime/signalr_service.dart';
 import 'core/cache/cache_manager.dart';
 import 'core/widgets/toasts.dart';
@@ -146,7 +146,7 @@ class MyApp extends StatelessWidget {
           '/profile-details': (context) => const ProfileDetailsPage(),
           '/notifications': (context) => const NotificationsPage(),
           '/privacy': (context) => const PrivacyPage(),
-          '/badges': (context) => BadgesPage(),
+          '/badges': (context) => const BadgesPageV2(),
           '/leaderboard': (context) => const LeaderboardPage(),
           '/quiz': (context) => Scaffold(
                 body: Center(
@@ -267,18 +267,56 @@ class _AppShellState extends State<AppShell> {
           invalidateProfileCaches();
           break;
         case RealtimeEventType.badgeEarned:
-          // Full-screen celebration instead of simple toast
+          // Full-screen celebration + toast notification for better gamification
           final badgeName = (evt.payload['name'] ?? evt.payload['badgeName'] ?? 'Yeni Rozet') as String;
           final badgeDescription = (evt.payload['description'] ?? evt.payload['badgeDescription'] ?? 'Tebrikler! Yeni bir başarı kazandınız!') as String;
           final badgeImageUrl = (evt.payload['imageUrl'] ?? evt.payload['badgeImageUrl']) as String?;
+          final badgeRarity = (evt.payload['rarity'] ?? evt.payload['Rarity']) as String?;
+          final badgeRarityColor = (evt.payload['rarityColor'] ?? evt.payload['RarityColor']) as String?;
           
-          BadgeCelebration.show(
-            ctx,
-            name: badgeName,
-            subtitle: badgeDescription,
-            imageUrl: badgeImageUrl,
-            earned: true,
-          );
+          print('🏆 Badge earned event received: $badgeName, description: $badgeDescription');
+          print('🏆 Badge payload: ${evt.payload}');
+          
+          // Show toast notification immediately (quick feedback)
+          try {
+            ToastOverlay.show(
+              ctx,
+              BadgeToast(
+                badgeName,
+                rarity: badgeRarity,
+                rarityColorHex: badgeRarityColor,
+                imageUrl: badgeImageUrl,
+                onTap: () {
+                  // Optional: Navigate to badge detail page
+                },
+              ),
+              duration: const Duration(seconds: 4),
+              channel: 'badge',
+            );
+            print('✅ Badge toast shown');
+          } catch (e) {
+            print('❌ Error showing badge toast: $e');
+          }
+          
+          // Then show full-screen celebration (slight delay for better UX)
+          Future.delayed(const Duration(milliseconds: 600), () {
+            if (mounted) {
+              try {
+                BadgeCelebration.show(
+                  ctx,
+                  name: badgeName,
+                  subtitle: badgeDescription,
+                  imageUrl: badgeImageUrl,
+                  rarity: badgeRarity,
+                  rarityColorHex: badgeRarityColor,
+                  earned: true,
+                );
+                print('✅ Badge celebration shown');
+              } catch (e) {
+                print('❌ Error showing badge celebration: $e');
+              }
+            }
+          });
           
           // Also invalidate caches to refresh badge count
           invalidateProfileCaches();
