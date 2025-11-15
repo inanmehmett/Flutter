@@ -18,7 +18,6 @@ class _LoginPageState extends State<LoginPage> {
   final _userNameOrEmailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-  bool _navigated = false;
 
   @override
   void dispose() {
@@ -56,12 +55,10 @@ class _LoginPageState extends State<LoginPage> {
         );
         return;
       }
-      // Google login sonrası sadece state'i güncelle, navigasyonu listener yönetsin
-      final bloc = context.read<AuthBloc>();
-      await bloc.authService.googleLogin(idToken: idToken);
-      if (!mounted) return;
-      // Profil çekip state'i AuthAuthenticated'e taşımak için
-      bloc.add(CheckAuthStatus());
+      
+      // Google login - AuthBloc event'i kullan (normal login gibi)
+      // googleLogin() zaten UserProfile döndürüyor, AuthBloc bunu handle edecek
+      context.read<AuthBloc>().add(GoogleLoginRequested(idToken: idToken));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Google sign-in error: $e')),
@@ -73,17 +70,23 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
-        if (state is AuthAuthenticated && !_navigated) {
-          _navigated = true;
+        // Login başarılı olduğunda home'a yönlendir
+        // SignalR AppShell'de zaten başlatılıyor, burada tekrar başlatmaya gerek yok
+        if (state is AuthAuthenticated) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
+            
+            // Home'a yönlendir (SignalR AppShell'de başlatılacak)
             Navigator.of(context).pushReplacementNamed('/home');
           });
-        } else if (state is AuthErrorState) {
+        } 
+        // Login hatası durumunda kullanıcıyı bilgilendir
+        else if (state is AuthErrorState) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message),
               backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
             ),
           );
         }
@@ -91,42 +94,44 @@ class _LoginPageState extends State<LoginPage> {
       child: Scaffold(
         backgroundColor: AppColors.background,
         body: SafeArea(
-          child: Column(
-            children: [
-              // Üst turuncu alan ve ikon
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(40),
-                    bottomRight: Radius.circular(40),
-                  ),
-                ),
-                padding: EdgeInsets.only(top: 32, bottom: 24),
-                child: Column(
-                  children: [
-                    Icon(Icons.menu_book, color: Colors.white, size: 48),
-                    SizedBox(height: 12),
-                    Text('SIGN IN', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
-                    SizedBox(height: 8),
-                    Text(
-                      'Sign in to your account to continue where you left from',
-                      style: TextStyle(color: Colors.white, fontSize: 15),
-                      textAlign: TextAlign.center,
+          child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: Column(
+              children: [
+                // Üst turuncu alan ve ikon
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(40),
+                      bottomRight: Radius.circular(40),
                     ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 32),
-              // Inputlar
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Form(
-                  key: _formKey,
+                  ),
+                  padding: EdgeInsets.only(top: 32, bottom: 24),
                   child: Column(
                     children: [
-                      _RoundedInputField(
+                      Icon(Icons.menu_book, color: Colors.white, size: 48),
+                      SizedBox(height: 12),
+                      Text('SIGN IN', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+                      SizedBox(height: 8),
+                      Text(
+                        'Sign in to your account to continue where you left from',
+                        style: TextStyle(color: Colors.white, fontSize: 15),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 32),
+                // Inputlar
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        _RoundedInputField(
                         controller: _userNameOrEmailController,
                         hintText: 'Username or email',
                         icon: Icons.person_outline,
@@ -235,11 +240,12 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ],
                       ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -8,6 +8,7 @@ import '../../../../core/cache/cache_manager.dart';
 import '../../../../core/network/network_manager.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/storage/secure_storage_service.dart';
+import '../../../../core/utils/logger.dart';
 
 abstract class AuthServiceProtocol {
   Future<UserProfile> login(
@@ -15,7 +16,7 @@ abstract class AuthServiceProtocol {
   Future<UserProfile> register(
       String email, String userName, String password, String confirmPassword);
   Future<void> logout();
-  Future<UserProfile> fetchUserProfile();
+  Future<UserProfile> fetchUserProfile({bool forceRefresh = false});
   Future<void> updateProfileImage(File image);
   Future<void> updateUserProfile(UserProfile profile);
   Future<bool> resetPassword({required String email});
@@ -34,27 +35,19 @@ class AuthService implements AuthServiceProtocol {
     this._secureStorage,
     this._cacheManager,
   ) : _baseUrl = AppConfig.apiBaseUrl {
-    print('🔐 [AuthService] Initialized with baseUrl: $_baseUrl');
-    print('🔐 [AuthService] NetworkManager: ${_networkManager.runtimeType}');
+    Logger.auth('Initialized with baseUrl: $_baseUrl');
   }
 
   @override
   Future<UserProfile> login(
       String userNameOrEmail, String password, bool rememberMe) async {
-    print('🔐 [AuthService] ===== LOGIN START =====');
-    print('🔐 [AuthService] Username/Email: $userNameOrEmail');
-    print('🔐 [AuthService] Remember Me: $rememberMe');
-    print('🔐 [AuthService] NetworkManager: ${_networkManager.runtimeType}');
-    print('🔐 [AuthService] Base URL: $_baseUrl');
+    Logger.auth('Login attempt for: $userNameOrEmail');
 
     // Clear any existing tokens before login
-    print('🔐 [AuthService] Clearing existing tokens before login...');
     try {
       await _clearTokens();
-      print('🔐 [AuthService] ✅ Existing tokens cleared');
     } catch (e) {
-      print('🔐 [AuthService] ⚠️ Warning: Could not clear existing tokens: $e');
-      // Continue with login anyway
+      Logger.warning('Could not clear existing tokens: $e');
     }
 
     try {
@@ -66,65 +59,44 @@ class AuthService implements AuthServiceProtocol {
         'scope': 'offline_access roles profile email',
       };
 
-      print('🔐 [AuthService] Making POST request to /connect/token (password grant)...');
-
       final response = await _networkManager.post(
         '/connect/token',
         data: formData,
       );
 
-      print('🔐 [AuthService] ===== LOGIN RESPONSE =====');
-      print('🔐 [AuthService] Status Code: ${response.statusCode}');
-      print('🔐 [AuthService] Response Headers: ${response.headers}');
-      print('🔐 [AuthService] Response Data: ${response.data}');
-
       if (response.statusCode == 200) {
-        print('🔐 [AuthService] ✅ Login successful!');
+        Logger.auth('Login successful');
 
         final accessToken = response.data['access_token'] ?? response.data['accessToken'];
         final refreshToken = response.data['refresh_token'] ?? response.data['refreshToken'];
         final expiresIn = response.data['expires_in'] ?? 3600;
 
-        print('🔐 [AuthService] Saving tokens...');
         await _saveTokens(
           accessToken: '$accessToken',
           refreshToken: '$refreshToken',
           expiresIn: expiresIn is int ? expiresIn : int.tryParse('$expiresIn') ?? 3600,
         );
-        print('🔐 [AuthService] ✅ Tokens saved successfully');
 
-        // Profile çek
-        final userProfile = await fetchUserProfile();
-        print('🔐 [AuthService] ===== LOGIN END =====');
+        // Profile çek - forceRefresh ile (eski kullanıcı verilerini önlemek için)
+        final userProfile = await fetchUserProfile(forceRefresh: true);
         return userProfile;
       } else {
-        print('🔐 [AuthService] ❌ Login failed - Status code: ${response.statusCode}');
+        Logger.error('Login failed - Status code: ${response.statusCode}');
         throw AuthError.invalidCredentials;
       }
     } on DioException catch (e) {
-      print('🔐 [AuthService] ===== LOGIN DIO ERROR =====');
-      print('🔐 [AuthService] Error Type: ${e.type}');
-      print('🔐 [AuthService] Error Message: ${e.message}');
-      print('🔐 [AuthService] Error Response: ${e.response?.data}');
-      print('🔐 [AuthService] Error Status Code: ${e.response?.statusCode}');
-      print('🔐 [AuthService] Request URL: ${e.requestOptions.uri}');
-      print('🔐 [AuthService] Request Method: ${e.requestOptions.method}');
-      print('🔐 [AuthService] Request Data: ${e.requestOptions.data}');
-
       if (e.response?.statusCode == 401) {
-        print('🔐 [AuthService] ❌ 401 Unauthorized - Invalid credentials');
+        Logger.error('401 Unauthorized - Invalid credentials');
         throw AuthError.invalidCredentials;
       } else if (e.response?.statusCode == 400) {
-        print('🔐 [AuthService] ❌ 400 Bad Request - Server error');
+        Logger.error('400 Bad Request - Server error');
         throw AuthError.serverError;
       } else {
-        print('🔐 [AuthService] ❌ Network error');
+        Logger.error('Network error: ${e.message}');
         throw AuthError.networkError;
       }
     } catch (e) {
-      print('🔐 [AuthService] ===== LOGIN GENERAL ERROR =====');
-      print('🔐 [AuthService] Error: $e');
-      print('🔐 [AuthService] Error Type: ${e.runtimeType}');
+      Logger.error('Login error: $e', e);
       throw AuthError.unknown;
     }
   }
@@ -466,7 +438,8 @@ class AuthService implements AuthServiceProtocol {
           refreshToken: '$refreshToken',
           expiresIn: expiresIn is int ? expiresIn : int.tryParse('$expiresIn') ?? 3600,
         );
-        return await fetchUserProfile();
+        // Profile çek - forceRefresh ile (eski kullanıcı verilerini önlemek için)
+        return await fetchUserProfile(forceRefresh: true);
       }
       throw AuthError.invalidCredentials;
     } catch (e) {

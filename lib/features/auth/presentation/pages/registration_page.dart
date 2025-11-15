@@ -61,10 +61,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
         );
         return;
       }
-      final bloc = context.read<AuthBloc>();
-      final user = await bloc.authService.googleLogin(idToken: idToken);
-      if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed('/home');
+      // Google login - AuthBloc event'i kullan (normal login gibi)
+      context.read<AuthBloc>().add(GoogleLoginRequested(idToken: idToken));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Google sign-in error: $e')),
@@ -76,8 +74,15 @@ class _RegistrationPageState extends State<RegistrationPage> {
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
+        // Registration/Login başarılı olduğunda home'a yönlendir
+        // SignalR AppShell'de zaten başlatılıyor, burada tekrar başlatmaya gerek yok
         if (state is AuthAuthenticated) {
-          Navigator.of(context).pushReplacementNamed('/home');
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            
+            // Home'a yönlendir (SignalR AppShell'de başlatılacak)
+            Navigator.of(context).pushReplacementNamed('/home');
+          });
         } else if (state is AuthErrorState) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

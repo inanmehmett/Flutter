@@ -5,7 +5,6 @@ import '../bloc/vocabulary_bloc.dart';
 import '../bloc/vocabulary_event.dart';
 import 'vocabulary_word_card.dart';
 import '../pages/vocabulary_word_detail_page.dart';
-import '../pages/vocabulary_study_page.dart';
 
 class VocabularyWordList extends StatelessWidget {
   final List<VocabularyWord> words;
@@ -58,9 +57,10 @@ class VocabularyWordList extends StatelessWidget {
   Widget build(BuildContext context) {
     if (words.isEmpty) {
       return SliverFillRemaining(
-        child: Center(
+        hasScrollBody: false,
+        child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.all(40.0),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -84,7 +84,7 @@ class VocabularyWordList extends StatelessWidget {
                     color: Theme.of(context).colorScheme.primary.withOpacity(0.4),
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
                 Text(
                   'İlk Kelimeleri Ekle! 📚',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -103,7 +103,7 @@ class VocabularyWordList extends StatelessWidget {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 24),
                 // Benefit cards
                 _buildBenefitRow(
                   context,
@@ -125,7 +125,7 @@ class VocabularyWordList extends StatelessWidget {
                   'Hızlı Öğrenme',
                   '%85 daha etkili',
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 24),
                 // CTA Buttons
                 SizedBox(
                   width: double.infinity,
@@ -181,6 +181,7 @@ class VocabularyWordList extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(height: 24), // Bottom padding for scroll
               ],
             ),
           ),

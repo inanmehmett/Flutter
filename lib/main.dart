@@ -230,19 +230,26 @@ class _AppShellState extends State<AppShell> {
     _signalRService.events.listen((evt) {
       if (!mounted) return;
       final ctx = context;
-      // Invalidate profile-related caches and refresh profile on realtime updates
-      void invalidateProfileCachesAndRefresh() {
+      
+      // Logout sırasında CheckAuthStatus tetiklenmesini önle
+      final authState = context.read<AuthBloc>().state;
+      if (authState is AuthLoading || authState is AuthUnauthenticated) {
+        return; // Logout işlemi devam ediyor veya zaten logout olmuş
+      }
+      
+      // Invalidate profile-related caches (DO NOT trigger CheckAuthStatus to prevent infinite loops)
+      void invalidateProfileCaches() {
         final cache = getIt<CacheManager>();
         cache.removeData('user/profile');
         cache.removeData('game/level');
         cache.removeData('game/streak');
-        // Trigger profile refresh
-        context.read<AuthBloc>().add(CheckAuthStatus());
+        // DO NOT trigger CheckAuthStatus here - it causes infinite loops
+        // Profile will be refreshed when user navigates to profile page or manually refreshes
       }
       switch (evt.type) {
         case RealtimeEventType.xpChanged:
           ToastOverlay.show(ctx, XpToast((evt.payload['deltaXP'] ?? 0) as int), channel: 'xp');
-          invalidateProfileCachesAndRefresh();
+          invalidateProfileCaches();
           break;
         case RealtimeEventType.levelUp:
           // Full-screen level-up celebration (purple themed, different from badge)
@@ -257,7 +264,7 @@ class _AppShellState extends State<AppShell> {
           
           // Also show a small toast for quick feedback
           ToastOverlay.show(ctx, LevelUpToast(levelLabel), channel: 'level');
-          invalidateProfileCachesAndRefresh();
+          invalidateProfileCaches();
           break;
         case RealtimeEventType.badgeEarned:
           // Full-screen celebration instead of simple toast
@@ -274,11 +281,11 @@ class _AppShellState extends State<AppShell> {
           );
           
           // Also invalidate caches to refresh badge count
-          invalidateProfileCachesAndRefresh();
+          invalidateProfileCaches();
           break;
         case RealtimeEventType.streakUpdated:
           ToastOverlay.show(ctx, StreakToast((evt.payload['currentStreak'] ?? 0) as int), channel: 'streak');
-          invalidateProfileCachesAndRefresh();
+          invalidateProfileCaches();
           break;
       }
     });
@@ -309,8 +316,16 @@ class _AppShellState extends State<AppShell> {
     switch (index) {
       case 0:
       case 1:
-      case 4: // Home, Books, Profile
         setState(() => _currentIndex = index);
+        break;
+      case 4: // Profile - auth kontrolü yap
+        final authState = context.read<AuthBloc>().state;
+        if (authState is AuthAuthenticated) {
+          setState(() => _currentIndex = index);
+        } else {
+          // Login olmamış - login sayfasına yönlendir
+          Navigator.of(context).pushReplacementNamed('/login');
+        }
         break;
       case 2: // Vocabulary Notebook
         setState(() => _currentIndex = index);

@@ -70,27 +70,23 @@ class StudyModeSelector extends StatelessWidget {
 
   IconData _getModeIcon(StudyMode mode) {
     switch (mode) {
-      case StudyMode.review:
+      case StudyMode.study:
         return Icons.refresh_rounded;
-      case StudyMode.quiz:
+      case StudyMode.practice:
         return Icons.quiz_outlined;
       case StudyMode.flashcards:
         return Icons.style_outlined;
-      case StudyMode.practice:
-        return Icons.fitness_center_outlined;
     }
   }
 
   String _getModeLabel(StudyMode mode) {
     switch (mode) {
-      case StudyMode.review:
+      case StudyMode.study:
         return 'Tekrar';
-      case StudyMode.quiz:
+      case StudyMode.practice:
         return 'Quiz';
       case StudyMode.flashcards:
         return 'Kartlar';
-      case StudyMode.practice:
-        return 'Pratik';
     }
   }
 }

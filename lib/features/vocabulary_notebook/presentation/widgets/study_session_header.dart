@@ -96,19 +96,6 @@ class StudySessionHeader extends StatelessWidget {
     );
   }
 
-  String _getModeDisplayName(StudyMode mode) {
-    switch (mode) {
-      case StudyMode.review:
-        return 'Günlük Tekrar';
-      case StudyMode.quiz:
-        return 'Quiz Modu';
-      case StudyMode.flashcards:
-        return 'Flashcard';
-      case StudyMode.practice:
-        return 'Pratik';
-    }
-  }
-
   int _calculateEstimatedTime() {
     // Her kelime için ortalama 15 saniye
     return (session.totalWords * 15 / 60).round().clamp(1, 60);

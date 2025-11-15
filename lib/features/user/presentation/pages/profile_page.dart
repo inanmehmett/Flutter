@@ -36,28 +36,65 @@ class _ProfilePageState extends State<ProfilePage> {
   int? _readingFinishedCount;
   int? _readingValidatedCount;
   final ImagePicker _imagePicker = ImagePicker();
+  bool _wasAuthenticated = false; // Logout sonrası yönlendirme için kullanılır
 
   @override
   void initState() {
     super.initState();
-    // Login zorunluluğu kaldırıldı - misafir kullanıcılar da profile erişebilir
+    // Mevcut auth durumunu kaydet (logout kontrolü için)
+    _wasAuthenticated = context.read<AuthBloc>().state is AuthAuthenticated;
+    
     _levelGoalFuture = _fetchLevelAndGoals();
     _badgesFuture = _fetchBadges();
 
-    // Prefetch reading counts (finished + validated)
-    Future.microtask(() async {
-      try {
-        final api = getIt<ApiClient>();
-        final respFinished = await api.getMeReadingCount(mode: 'finished');
-        final respValidated = await api.getMeReadingCount(mode: 'validated');
-        if (mounted) {
-          setState(() {
-            _readingFinishedCount = _extractCount(respFinished.data);
-            _readingValidatedCount = _extractCount(respValidated.data);
-          });
-        }
-      } catch (_) {}
-    });
+    // Prefetch reading counts (finished + validated) - sadece authenticated durumda
+    if (_wasAuthenticated) {
+      Future.microtask(() async {
+        try {
+          final api = getIt<ApiClient>();
+          final respFinished = await api.getMeReadingCount(mode: 'finished');
+          final respValidated = await api.getMeReadingCount(mode: 'validated');
+          if (mounted) {
+            setState(() {
+              _readingFinishedCount = _extractCount(respFinished.data);
+              _readingValidatedCount = _extractCount(respValidated.data);
+            });
+          }
+        } catch (_) {}
+      });
+    }
+  }
+
+  /// Logout işlemini yönetir - tüm state'leri temizler ve home'a yönlendirir
+  void _handleLogout() {
+    if (!mounted) return;
+    
+    // Tüm state'leri temizle (setState çağırmadan - gereksiz yenilenmeyi önlemek için)
+    _lastProfile = null;
+    _lastLevelGoal = null;
+    _lastProgress = null;
+    _lastBadges = null;
+    _readingFinishedCount = null;
+    _readingValidatedCount = null;
+    _wasAuthenticated = false;
+    
+    // Future'ları olduğu gibi bırak (late oldukları için null yapamayız)
+    // Sayfa zaten kapanacak, gereksiz API çağrıları olmayacak
+    
+    // Kullanıcıyı bilgilendir
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Çıkış yapıldı'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+    
+    // Home'a yönlendir (login sayfasına değil - misafir modu için)
+    // Delay'i kaldırdık - hemen yönlendir (gereksiz yenilenmeyi önlemek için)
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      '/home',
+      (route) => route.isFirst,
+    );
   }
 
   @override
@@ -73,36 +110,79 @@ class _ProfilePageState extends State<ProfilePage> {
       body: SafeArea(
         child: BlocListener<AuthBloc, AuthState>(
           listener: (context, state) {
+            // Login olduğunda - profil verilerini güncelle
             if (state is AuthAuthenticated) {
+              _wasAuthenticated = true;
               _lastProfile = state.user;
               setState(() {
                 _levelGoalFuture = _fetchLevelAndGoals();
                 _badgesFuture = _fetchBadges();
               });
+            } 
+            // Logout olduğunda - state'i temizle ve yönlendir
+            else if (state is AuthUnauthenticated) {
+              // Eğer daha önce authenticated idiyse, bu bir logout işlemidir
+              if (_wasAuthenticated) {
+                _handleLogout();
+              }
+              // Eğer hiç authenticated olmamışsa, bu sayfaya erişim izni yoktur
+              // BlocBuilder'da zaten login'e yönlendirme yapılacak
+            } 
+            // Auth hatası durumunda kullanıcıyı bilgilendir
+            else if (state is AuthErrorState) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.message),
+                    backgroundColor: Colors.red,
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+              }
             }
-            // Login zorunluluğu kaldırıldı - logout yapınca cache temizlenir ama yönlendirme olmaz
           },
           child: BlocBuilder<AuthBloc, AuthState>(
             builder: (context, state) {
-            final UserProfile? authenticated = (state is AuthAuthenticated) ? state.user : null;
-            if (authenticated != null) {
-              _lastProfile = authenticated;
+            // Auth kontrolü - sadece authenticated kullanıcılar profil sayfasını görebilir
+            
+            // Loading/Checking durumunda loading göster
+            if (state is AuthChecking || state is AuthLoading) {
+              return const Center(
+                child: CircularProgressIndicator(),
+              );
             }
-            final UserProfile profile = _lastProfile ?? UserProfile(
-              id: 'guest',
-              userName: 'Misafir',
-              email: '',
-              profileImageUrl: null,
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
-              isActive: false,
-              level: 0,
-              experiencePoints: 0,
-              totalReadBooks: 0,
-              totalQuizScore: 0,
-              currentStreak: 0,
-              longestStreak: 0,
-            );
+            
+            // Unauthenticated durumunda login sayfasına yönlendir
+            if (state is AuthUnauthenticated) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  Navigator.of(context).pushReplacementNamed('/login');
+                }
+              });
+              return const Center(
+                child: CircularProgressIndicator(),
+              );
+            }
+            
+            // Sadece AuthAuthenticated durumunda profil sayfasını göster
+            if (state is! AuthAuthenticated) {
+              return const Center(
+                child: CircularProgressIndicator(),
+              );
+            }
+            
+            // AuthAuthenticated durumunda - profil bilgilerini güncelle ve göster
+            final authenticatedUser = state.user;
+            _lastProfile = authenticatedUser;
+            
+            // Profil bilgisi yoksa loading göster (bu durum olmamalı ama güvenlik için)
+            if (_lastProfile == null) {
+              return const Center(
+                child: CircularProgressIndicator(),
+              );
+            }
+            
+            final UserProfile profile = _lastProfile!;
 
             return FutureBuilder<_LevelGoalData>(
               future: _levelGoalFuture,
@@ -389,6 +469,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         const SizedBox(height: 12),
                         _buildStatRow(context, booksCount, profile),
                         const SizedBox(height: 24),
+                        // Çıkış yap butonu - authenticated durumda gösterilir (zaten burada authenticated olmalıyız)
                         SafeArea(
                           top: false,
                           child: Padding(
@@ -404,12 +485,13 @@ class _ProfilePageState extends State<ProfilePage> {
                                   color: CupertinoColors.systemRed,
                                   borderRadius: BorderRadius.circular(14),
                                   onPressed: () {
+                                    // Logout işlemini başlat
                                     context.read<AuthBloc>().add(LogoutRequested());
                                   },
-                                  child: Row(
+                                  child: const Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     mainAxisSize: MainAxisSize.min,
-                                    children: const [
+                                    children: [
                                       Icon(CupertinoIcons.power, color: CupertinoColors.white, size: 20),
                                       SizedBox(width: 8),
                                       Text(

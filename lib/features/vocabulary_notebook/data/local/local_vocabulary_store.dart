@@ -48,6 +48,11 @@ class LocalVocabularyStore {
   }
 
   List<VocabularyWord> allWords() => _wordStateById.values.toList();
+
+  /// Clear all words from the store (used during logout)
+  void clearAll() {
+    _wordStateById.clear();
+  }
 }
 
 

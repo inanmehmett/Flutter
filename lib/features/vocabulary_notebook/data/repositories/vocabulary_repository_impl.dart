@@ -18,6 +18,12 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
   final LocalVocabularyStore _store = LocalVocabularyStore();
   final NetworkManager _net = getIt<NetworkManager>();
   int? _activeSessionId;
+  
+  /// Logout sonrası tüm cache'leri ve state'leri temizle
+  void clearCache() {
+    _activeSessionId = null;
+    _store.clearAll();
+  }
 
   Future<T> _retry<T>(Future<T> Function() run, {int attempts = 2}) async {
     int left = attempts;
@@ -217,17 +223,11 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
           .where((w) => !serverList.any((s) => s.id == w.id))
           .toList();
       return [...localOnly, ...serverList];
-    } on DioException {
-      // Fallback to legacy service if backend not ready
-      final list = await _svc.listWords(query: searchQuery);
-      var words = list.map(_mapEntity).toList();
-      if (status != null) {
-        words = words.where((w) => w.status == status).toList();
-      }
-      final int start = offset.clamp(0, words.length);
-      final int end = (offset + limit).clamp(0, words.length);
-      if (start >= end) return <VocabularyWord>[];
-      return words.sublist(start, end);
+    } on DioException catch (e) {
+      // Backend hata verirse boş liste döndür (eski kullanıcı verilerini göstermemek için)
+      // Fallback legacy service'i kaldırdık - güvenlik sorunu yaratıyordu
+      print('⚠️ [VocabularyRepository] Backend error, returning empty list: ${e.message}');
+      return <VocabularyWord>[];
     }
   }
 

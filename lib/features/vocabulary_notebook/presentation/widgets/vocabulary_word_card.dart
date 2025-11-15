@@ -19,6 +19,10 @@ class VocabularyWordCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final isCompactScreen = mediaQuery.size.height < 700;
+    final textScale = mediaQuery.textScaleFactor.clamp(1.0, 1.2); // Limit text scaling
+    
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
@@ -43,11 +47,14 @@ class VocabularyWordCard extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          child: MediaQuery(
+            data: mediaQuery.copyWith(textScaleFactor: textScale),
+            child: Padding(
+              padding: EdgeInsets.all(isCompactScreen ? 14 : 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -101,7 +108,7 @@ class VocabularyWordCard extends StatelessWidget {
                               ],
                             ],
                           ),
-                          const SizedBox(height: 6),
+                          SizedBox(height: MediaQuery.of(context).size.height < 700 ? 4 : 6),
                           Text(
                             word.meaning,
                             style: TextStyle(
@@ -110,6 +117,8 @@ class VocabularyWordCard extends StatelessWidget {
                               color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.75),
                               height: 1.3,
                             ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
@@ -137,14 +146,15 @@ class VocabularyWordCard extends StatelessWidget {
                     _buildDeleteButton(context),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: isCompactScreen ? 10 : 12),
                 _buildStatsRow(context),
               ],
             ),
-          ),
-        ),
-      ),
-    );
+          ), // Padding
+          ), // MediaQuery
+        ), // InkWell
+      ), // Material
+    ); // Container
   }
 
   Widget _buildStatusChip(BuildContext context) {
@@ -203,41 +213,47 @@ class VocabularyWordCard extends StatelessWidget {
   }
 
   Widget _buildStatsRow(BuildContext context) {
+    final isCompactScreen = MediaQuery.of(context).size.height < 700;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: isCompactScreen ? 10 : 12,
+        vertical: isCompactScreen ? 6 : 8,
+      ),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
-        children: [
-          // Review count
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.quiz_outlined,
-                  size: 12,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '${word.reviewCount}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            // Review count
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.quiz_outlined,
+                    size: 12,
                     color: Theme.of(context).colorScheme.primary,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 4),
+                  Text(
+                    '${word.reviewCount}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
           
           // Doğruluk oranı (sadece tekrar yapıldıysa göster - kompakt)
           if (word.reviewCount > 0) ...[
@@ -334,6 +350,7 @@ class VocabularyWordCard extends StatelessWidget {
             ),
           ),
         ],
+        ),
       ),
     );
   }
@@ -484,20 +501,6 @@ class VocabularyWordCard extends StatelessWidget {
     final accuracy = word.accuracyRate;
     if (accuracy >= 0.8) return Colors.green;
     if (accuracy >= 0.6) return Colors.orange;
-    return Colors.red;
-  }
-
-  String _getDifficultyLabel() {
-    final difficulty = word.difficultyLevel;
-    if (difficulty < 0.3) return 'Kolay';
-    if (difficulty < 0.7) return 'Orta';
-    return 'Zor';
-  }
-
-  Color _getDifficultyColor(BuildContext context) {
-    final difficulty = word.difficultyLevel;
-    if (difficulty < 0.3) return Colors.green;
-    if (difficulty < 0.7) return Colors.orange;
     return Colors.red;
   }
 

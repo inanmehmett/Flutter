@@ -464,7 +464,7 @@ Widget _buildBooksScroller(BuildContext context, List<Book> books) {
       }
       
       final double coverHeight = cardWidth * 1.30; // Keep aspect ratio
-      final double listHeight = coverHeight + (screenHeight < 600 ? 70 : 82); // Responsive text area
+      final double listHeight = coverHeight + (screenHeight < 600 ? 76 : 90); // Responsive text area (increased to prevent overflow)
       
       return SizedBox(
         height: listHeight,

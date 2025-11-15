@@ -312,7 +312,7 @@ class _BookListPageState extends State<BookListPage> {
           cardWidth = 135;
         }
         final double coverHeight = cardWidth * 1.30;
-        final double listHeight = coverHeight + (screenHeight < 600 ? 70 : 82);
+        final double listHeight = coverHeight + (screenHeight < 600 ? 76 : 90); // Increased to prevent overflow
 
         return SizedBox(
           height: listHeight,

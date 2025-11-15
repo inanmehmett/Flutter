@@ -1,10 +1,16 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:hive/hive.dart';
 import '../../data/services/auth_service.dart';
 import '../../data/models/user_profile.dart';
 import '../../data/models/auth_models.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/cache/cache_manager.dart';
+import '../../../vocabulary_notebook/data/local/local_vocabulary_store.dart';
+import '../../../vocabulary_notebook/data/repositories/vocabulary_repository_impl.dart';
+import '../../../../core/utils/logger.dart';
+import '../../../../core/realtime/signalr_service.dart';
+import '../../../../core/storage/secure_storage_service.dart';
 
 // Events
 abstract class AuthEvent extends Equatable {
@@ -48,6 +54,15 @@ class RegisterRequested extends AuthEvent {
   List<Object?> get props => [email, userName, password, confirmPassword];
 }
 
+class GoogleLoginRequested extends AuthEvent {
+  final String idToken;
+
+  const GoogleLoginRequested({required this.idToken});
+
+  @override
+  List<Object?> get props => [idToken];
+}
+
 class LogoutRequested extends AuthEvent {}
 
 // States
@@ -89,18 +104,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthServiceProtocol _authService;
 
   AuthBloc(this._authService) : super(AuthInitial()) {
-    print('🔐 [AuthBloc] ===== INITIALIZATION =====');
-    print(
-        '🔐 [AuthBloc] AuthBloc created with AuthService: ${_authService.runtimeType}');
-
     on<CheckAuthStatus>(_onCheckAuthStatus);
     on<LoginRequested>(_onLoginRequested);
+    on<GoogleLoginRequested>(_onGoogleLoginRequested);
     on<RegisterRequested>(_onRegisterRequested);
     on<LogoutRequested>(_onLogoutRequested);
-
-    print('🔐 [AuthBloc] Event handlers registered');
-    print('🔐 [AuthBloc] Initial state: AuthInitial');
-    print('🔐 [AuthBloc] ===== INITIALIZATION COMPLETE =====');
   }
 
   // Getter to access the auth service
@@ -110,218 +118,265 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     CheckAuthStatus event,
     Emitter<AuthState> emit,
   ) async {
-    print('🔐 [AuthBloc] ===== CHECK AUTH STATUS START =====');
-    print('🔐 [AuthBloc] Current state: $state');
-    print('🔐 [AuthBloc] Emitting AuthChecking...');
+    // Eğer zaten AuthUnauthenticated durumundaysa tekrar kontrol etme
+    if (state is AuthUnauthenticated) {
+      Logger.auth('Already unauthenticated, skipping check');
+      return;
+    }
+
+    // Eğer zaten AuthAuthenticated durumundaysa ve cache'den geliyorsa tekrar kontrol etme
+    // (Sonsuz döngüyü önlemek için)
+    if (state is AuthAuthenticated) {
+      Logger.auth('Already authenticated, skipping check to prevent infinite loops');
+      return;
+    }
+
     emit(AuthChecking());
-    print('🔐 [AuthBloc] ✅ AuthChecking emitted');
 
     try {
-      print('🔐 [AuthBloc] Calling _authService.fetchUserProfile()...');
-      final user = await _authService.fetchUserProfile();
-      print('🔐 [AuthBloc] ✅ User profile fetched successfully');
-      print('🔐 [AuthBloc] User: ${user.userName} (${user.email})');
-      print('🔐 [AuthBloc] Emitting AuthAuthenticated...');
+      final user = await _authService.fetchUserProfile(forceRefresh: false);
       emit(AuthAuthenticated(user));
-      print('🔐 [AuthBloc] ✅ AuthAuthenticated emitted');
     } catch (e) {
-      print('🔐 [AuthBloc] ===== CHECK AUTH STATUS ERROR =====');
-      print('🔐 [AuthBloc] Error: $e');
-      print('🔐 [AuthBloc] Error Type: ${e.runtimeType}');
-
-      if (e is AuthError) {
-        print('🔐 [AuthBloc] AuthError type: $e');
-      }
+      Logger.warning('Auth check failed: $e');
 
       // Offline mode - try to get cached profile
-      print('🔐 [AuthBloc] ⚠️ Network error, attempting offline mode with cached data...');
       try {
         final cacheManager = getIt<CacheManager>();
         final cachedProfile = await cacheManager.getData('user/profile');
         if (cachedProfile != null) {
-          print('🔐 [AuthBloc] ✅ Found cached profile, using offline mode');
+          Logger.auth('Found cached profile, using offline mode');
           // Parse cached profile and emit AuthAuthenticated
           // For now, emit unauthenticated to use guest mode
         }
       } catch (cacheError) {
-        print('🔐 [AuthBloc] ⚠️ No cached profile available: $cacheError');
+        Logger.warning('No cached profile available: $cacheError');
       }
 
-      print('🔐 [AuthBloc] Emitting AuthUnauthenticated (guest mode)...');
       emit(AuthUnauthenticated());
-      print('🔐 [AuthBloc] ✅ AuthUnauthenticated emitted - app will work in offline/guest mode');
     }
-
-    print('🔐 [AuthBloc] ===== CHECK AUTH STATUS END =====');
   }
 
   Future<void> _onLoginRequested(
     LoginRequested event,
     Emitter<AuthState> emit,
   ) async {
-    print('🔐 [AuthBloc] ===== LOGIN REQUESTED START =====');
-    print('🔐 [AuthBloc] Current state: $state');
-    print('🔐 [AuthBloc] Username/Email: ${event.userNameOrEmail}');
-    print('🔐 [AuthBloc] Remember Me: ${event.rememberMe}');
-    print('🔐 [AuthBloc] Password length: ${event.password.length}');
+    Logger.auth('Login requested for: ${event.userNameOrEmail}');
 
-    print('🔐 [AuthBloc] Emitting AuthLoading...');
     emit(AuthLoading());
-    print('🔐 [AuthBloc] ✅ AuthLoading emitted');
 
     try {
-      print('🔐 [AuthBloc] Calling _authService.login()...');
+      // AuthService.login() zaten fetchUserProfile(forceRefresh: true) çağırıyor
       final user = await _authService.login(
         event.userNameOrEmail,
         event.password,
         event.rememberMe,
       );
-      print('🔐 [AuthBloc] ✅ Login successful');
-      print('🔐 [AuthBloc] User: ${user.userName} (${user.email})');
-      print('🔐 [AuthBloc] Emitting AuthAuthenticated...');
+      Logger.auth('Login successful: ${user.userName}');
       emit(AuthAuthenticated(user));
-      print('🔐 [AuthBloc] ✅ AuthAuthenticated emitted');
     } catch (e) {
-      print('🔐 [AuthBloc] ===== LOGIN REQUESTED ERROR =====');
-      print('🔐 [AuthBloc] Error: $e');
-      print('🔐 [AuthBloc] Error Type: ${e.runtimeType}');
-
       String errorMessage = 'Login failed';
       if (e is AuthError) {
-        print('🔐 [AuthBloc] AuthError type: $e');
         errorMessage = e.localizedDescription;
       }
-
-      print('🔐 [AuthBloc] Error message: $errorMessage');
-      print('🔐 [AuthBloc] Emitting AuthErrorState...');
+      Logger.error('Login error: $errorMessage', e);
       emit(AuthErrorState(errorMessage));
-      print('🔐 [AuthBloc] ✅ AuthErrorState emitted');
     }
+  }
 
-    print('🔐 [AuthBloc] ===== LOGIN REQUESTED END =====');
+  Future<void> _onGoogleLoginRequested(
+    GoogleLoginRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    Logger.auth('Google login requested');
+
+    emit(AuthLoading());
+
+    try {
+      // AuthService.googleLogin() zaten fetchUserProfile(forceRefresh: true) çağırıyor
+      final user = await _authService.googleLogin(idToken: event.idToken);
+      Logger.auth('Google login successful: ${user.userName}');
+      emit(AuthAuthenticated(user));
+    } catch (e) {
+      String errorMessage = 'Google login failed';
+      if (e is AuthError) {
+        errorMessage = e.localizedDescription;
+      }
+      Logger.error('Google login error: $errorMessage', e);
+      emit(AuthErrorState(errorMessage));
+    }
   }
 
   Future<void> _onRegisterRequested(
     RegisterRequested event,
     Emitter<AuthState> emit,
   ) async {
-    print('🔐 [AuthBloc] ===== REGISTER REQUESTED START =====');
-    print('🔐 [AuthBloc] Current state: $state');
-    print('🔐 [AuthBloc] Email: ${event.email}');
-    print('🔐 [AuthBloc] Username: ${event.userName}');
-    print('🔐 [AuthBloc] Password length: ${event.password.length}');
-    print(
-        '🔐 [AuthBloc] Confirm password length: ${event.confirmPassword.length}');
+    Logger.auth('Register requested for: ${event.email}');
 
-    print('🔐 [AuthBloc] Emitting AuthLoading...');
     emit(AuthLoading());
-    print('🔐 [AuthBloc] ✅ AuthLoading emitted');
 
     try {
-      print('🔐 [AuthBloc] Calling _authService.register()...');
       final user = await _authService.register(
         event.email,
         event.userName,
         event.password,
         event.confirmPassword,
       );
-      print('🔐 [AuthBloc] ✅ Registration successful');
-      print('🔐 [AuthBloc] User: ${user.userName} (${user.email})');
-      print('🔐 [AuthBloc] Emitting AuthAuthenticated...');
+      Logger.auth('Registration successful: ${user.userName}');
       emit(AuthAuthenticated(user));
-      print('🔐 [AuthBloc] ✅ AuthAuthenticated emitted');
     } catch (e) {
-      print('🔐 [AuthBloc] ===== REGISTER REQUESTED ERROR =====');
-      print('🔐 [AuthBloc] Error: $e');
-      print('🔐 [AuthBloc] Error Type: ${e.runtimeType}');
-
       String errorMessage = 'Registration failed';
       if (e is AuthError) {
-        print('🔐 [AuthBloc] AuthError type: $e');
         errorMessage = e.localizedDescription;
       } else if (e is Exception) {
-        // Surface service-provided messages (e.g., "Username already exists")
         final msg = e.toString();
         final idx = msg.indexOf(':');
         errorMessage = idx != -1 ? msg.substring(idx + 1).trim() : msg;
       }
-
-      print('🔐 [AuthBloc] Error message: $errorMessage');
-      print('🔐 [AuthBloc] Emitting AuthErrorState...');
+      Logger.error('Registration error: $errorMessage', e);
       emit(AuthErrorState(errorMessage));
-      print('🔐 [AuthBloc] ✅ AuthErrorState emitted');
     }
-
-    print('🔐 [AuthBloc] ===== REGISTER REQUESTED END =====');
   }
 
+  /// Logout işlemi - doğru sıralama ile temizlik yapar
+  /// 
+  /// Sıralama:
+  /// 1. SignalR bağlantısını kapat (realtime event'leri durdur)
+  /// 2. API'ye logout request gönder
+  /// 3. Token'ları temizle (SecureStorage)
+  /// 4. Cache'leri temizle (CacheManager)
+  /// 5. Hive box'ları temizle (user data)
+  /// 6. In-memory store'ları temizle
+  /// 7. State'i AuthUnauthenticated yap
   Future<void> _onLogoutRequested(
     LogoutRequested event,
     Emitter<AuthState> emit,
   ) async {
-    print('🔐 [AuthBloc] ===== LOGOUT REQUESTED START =====');
-    print('🔐 [AuthBloc] Current state: $state');
+    Logger.auth('Logout requested - starting cleanup sequence');
 
-    print('🔐 [AuthBloc] Emitting AuthLoading...');
     emit(AuthLoading());
-    print('🔐 [AuthBloc] ✅ AuthLoading emitted');
 
     try {
-      print('🔐 [AuthBloc] Calling _authService.logout()...');
-      await _authService.logout();
-      print('🔐 [AuthBloc] ✅ Logout successful');
-      
-      // Clear all caches after logout
-      print('🔐 [AuthBloc] Clearing all caches...');
+      // 1. SignalR bağlantısını kapat (realtime event'leri durdur)
+      Logger.auth('Step 1: Stopping SignalR connection...');
+      try {
+        final signalRService = getIt<SignalRService>();
+        await signalRService.stop();
+        Logger.auth('SignalR connection stopped');
+      } catch (e) {
+        Logger.warning('Error stopping SignalR: $e');
+      }
+
+      // 2. API'ye logout request gönder ve token'ları temizle
+      // AuthService.logout() hem API'ye request gönderir hem de token'ları temizler
+      Logger.auth('Step 2: Calling logout API and clearing tokens...');
+      try {
+        await _authService.logout();
+        Logger.auth('Logout API call and token cleanup successful');
+      } catch (e) {
+        Logger.warning('Logout API call failed, continuing with local cleanup: $e');
+        // API başarısız olsa bile token'ları temizle
+        try {
+          final secureStorage = getIt<SecureStorageService>();
+          await secureStorage.clearTokens();
+          Logger.auth('Tokens cleared locally');
+        } catch (tokenError) {
+          Logger.warning('Error clearing tokens: $tokenError');
+        }
+      }
+
+      // 3. Cache'leri temizle (AuthService.logout() zaten temizliyor ama tekrar kontrol)
+      Logger.auth('Step 3: Clearing all caches...');
       try {
         final cacheManager = getIt<CacheManager>();
         await cacheManager.clearAll();
-        print('🔐 [AuthBloc] ✅ All caches cleared');
-      } catch (cacheError) {
-        print('🔐 [AuthBloc] ⚠️ Error clearing caches: $cacheError');
+        Logger.auth('All caches cleared');
+      } catch (e) {
+        Logger.warning('Error clearing caches: $e');
+      }
+
+      // 4. Hive box'ları temizle (user data)
+      Logger.auth('Step 4: Clearing Hive boxes...');
+      try {
+        await _clearAllHiveBoxes();
+        Logger.auth('All Hive boxes cleared');
+      } catch (e) {
+        Logger.warning('Error clearing Hive boxes: $e');
+      }
+
+      // 5. State'i AuthUnauthenticated yap
+      Logger.auth('Step 5: Emitting AuthUnauthenticated state...');
+      emit(AuthUnauthenticated());
+      Logger.auth('Logout completed successfully');
+    } catch (e) {
+      Logger.error('Logout error: $e', e);
+      emit(AuthErrorState('Logout failed'));
+    }
+  }
+
+  Future<void> _clearAllHiveBoxes() async {
+    try {
+      // Clear user_words box
+      if (Hive.isBoxOpen('user_words')) {
+        final userWordsBox = Hive.box('user_words');
+        await userWordsBox.clear();
       }
       
-      print('🔐 [AuthBloc] Emitting AuthUnauthenticated...');
-      emit(AuthUnauthenticated());
-      print('🔐 [AuthBloc] ✅ AuthUnauthenticated emitted');
+      // Clear user_preferences box
+      if (Hive.isBoxOpen('user_preferences')) {
+        final userPrefsBox = Hive.box('user_preferences');
+        await userPrefsBox.clear();
+      }
+      
+      // Clear favorites box
+      if (Hive.isBoxOpen('favorites')) {
+        final favoritesBox = Hive.box('favorites');
+        await favoritesBox.clear();
+      }
+      
+      // Clear app_cache box (already cleared by CacheManager, but clear again to be sure)
+      if (Hive.isBoxOpen('app_cache')) {
+        final appCacheBox = Hive.box('app_cache');
+        await appCacheBox.clear();
+      }
+      
+      // Clear LocalVocabularyStore (in-memory store)
+      try {
+        final localStore = LocalVocabularyStore();
+        localStore.clearAll();
+        Logger.auth('LocalVocabularyStore cleared');
+      } catch (e) {
+        Logger.warning('Error clearing LocalVocabularyStore: $e');
+      }
+      
+      // Clear VocabularyRepository cache and state
+      try {
+        final vocabularyRepo = getIt<VocabularyRepositoryImpl>();
+        vocabularyRepo.clearCache();
+        Logger.auth('VocabularyRepository cache cleared');
+      } catch (e) {
+        Logger.warning('Error clearing VocabularyRepository cache: $e');
+      }
     } catch (e) {
-      print('🔐 [AuthBloc] ===== LOGOUT REQUESTED ERROR =====');
-      print('🔐 [AuthBloc] Error: $e');
-      print('🔐 [AuthBloc] Error Type: ${e.runtimeType}');
-
-      print('🔐 [AuthBloc] Emitting AuthErrorState...');
-      emit(AuthErrorState('Logout failed'));
-      print('🔐 [AuthBloc] ✅ AuthErrorState emitted');
+      Logger.warning('Error clearing Hive boxes: $e');
+      rethrow;
     }
-
-    print('🔐 [AuthBloc] ===== LOGOUT REQUESTED END =====');
   }
 
   @override
   void onChange(Change<AuthState> change) {
     super.onChange(change);
-    print('🔐 [AuthBloc] ===== STATE CHANGE =====');
-    print('🔐 [AuthBloc] Previous state: ${change.currentState}');
-    print('🔐 [AuthBloc] New state: ${change.nextState}');
-    print('🔐 [AuthBloc] ===== STATE CHANGE END =====');
+    Logger.auth('State changed: ${change.currentState.runtimeType} -> ${change.nextState.runtimeType}');
   }
 
   @override
   void onEvent(AuthEvent event) {
     super.onEvent(event);
-    print('🔐 [AuthBloc] ===== EVENT RECEIVED =====');
-    print('🔐 [AuthBloc] Event: $event');
-    print('🔐 [AuthBloc] Event type: ${event.runtimeType}');
-    print('🔐 [AuthBloc] ===== EVENT RECEIVED END =====');
+    Logger.auth('Event received: ${event.runtimeType}');
   }
 
   @override
   void onError(Object error, StackTrace stackTrace) {
     super.onError(error, stackTrace);
-    print('🔐 [AuthBloc] ===== ERROR OCCURRED =====');
-    print('🔐 [AuthBloc] Error: $error');
-    print('🔐 [AuthBloc] Error Type: ${error.runtimeType}');
-    print('🔐 [AuthBloc] Stack Trace: $stackTrace');
-    print('🔐 [AuthBloc] ===== ERROR OCCURRED END =====');
+    Logger.error('AuthBloc error: $error', error, stackTrace);
   }
 }

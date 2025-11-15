@@ -11,7 +11,6 @@ import '../../domain/entities/study_mode.dart';
 import '../widgets/quiz_widget.dart';
 import '../widgets/flashcard_widget.dart';
 import '../widgets/practice_widget.dart';
-import '../widgets/quiz_score_display.dart';
 import '../constants/study_constants.dart';
 
 /// Modern, beautiful study page with glassmorphism and micro-interactions

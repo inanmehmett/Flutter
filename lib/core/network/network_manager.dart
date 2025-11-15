@@ -45,59 +45,48 @@ class NetworkManager {
 
   Future<Response> get(String path,
       {Map<String, dynamic>? queryParameters, Options? options}) async {
-    try {
-      return await _dio.get(
-        path,
-        queryParameters: queryParameters,
-        options: options ?? Options(extra: {'dio': _dio}),
-      );
-    } catch (e) {
-      // Offline mode - return cached data if available
-      print('⚠️ Network error, attempting to use cached data: $e');
-      rethrow;
-    }
+    return await _dio.get(
+      path,
+      queryParameters: queryParameters,
+      options: options ?? Options(extra: {'dio': _dio}),
+    );
   }
 
   Future<Response> post(String path, {dynamic data, Options? options}) async {
-    try {
-      // Token endpoint'i x-www-form-urlencoded bekler
-      if (path == '/connect/token') {
-        return await _dio.post(
-          path,
-          data: data,
-          options: Options(
-            headers: {
-              ..._dio.options.headers,
-              'Content-Type': Headers.formUrlEncodedContentType,
-            },
-            contentType: Headers.formUrlEncodedContentType,
-            extra: {'dio': _dio},
-          ),
-        );
-      }
-      final isMultipart = data is FormData;
-      final effectiveOptions = (options ?? Options()).copyWith(
-        contentType: isMultipart ? Headers.multipartFormDataContentType : null,
-        extra: {
-          ...(options?.extra ?? {}),
-          'dio': _dio,
-        },
-        headers: {
-          // Varsayılan 'Content-Type' başlığını ezme; Dio FormData için boundary ekleyecek
-          ..._dio.options.headers,
-          ...(options?.headers ?? {}),
-        },
-      );
-
+    // Token endpoint'i x-www-form-urlencoded bekler
+    if (path == '/connect/token') {
       return await _dio.post(
         path,
         data: data,
-        options: effectiveOptions,
+        options: Options(
+          headers: {
+            ..._dio.options.headers,
+            'Content-Type': Headers.formUrlEncodedContentType,
+          },
+          contentType: Headers.formUrlEncodedContentType,
+          extra: {'dio': _dio},
+        ),
       );
-    } catch (e) {
-      print('⚠️ Network error in POST: $e');
-      rethrow;
     }
+    final isMultipart = data is FormData;
+    final effectiveOptions = (options ?? Options()).copyWith(
+      contentType: isMultipart ? Headers.multipartFormDataContentType : null,
+      extra: {
+        ...(options?.extra ?? {}),
+        'dio': _dio,
+      },
+      headers: {
+        // Varsayılan 'Content-Type' başlığını ezme; Dio FormData için boundary ekleyecek
+        ..._dio.options.headers,
+        ...(options?.headers ?? {}),
+      },
+    );
+
+    return await _dio.post(
+      path,
+      data: data,
+      options: effectiveOptions,
+    );
   }
 
   Future<Response> put(String path, {dynamic data, Options? options}) async {
