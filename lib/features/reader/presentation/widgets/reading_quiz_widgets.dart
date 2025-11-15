@@ -829,24 +829,25 @@ class _ReadingQuizResultViewState extends State<ReadingQuizResultView> {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(20.0),
           child: Column(
             children: [
               // Header - iOS tarzı minimal
               _buildIOSHeader(context, isPassed),
-              const SizedBox(height: 40),
+              const SizedBox(height: 32),
               
               // Ana Sonuç - iOS tarzı büyük kart
               _buildIOSMainResult(context, isPassed),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
               
               // İstatistik - iOS tarzı kompakt
               _buildIOSStats(context),
-              const SizedBox(height: 40),
+              const SizedBox(height: 32),
               
               // Geri sayım ve butonlar - iOS tarzı
               _buildIOSActions(context),
+              const SizedBox(height: 20), // Bottom padding for scroll
             ],
           ),
         ),
@@ -857,42 +858,58 @@ class _ReadingQuizResultViewState extends State<ReadingQuizResultView> {
   Widget _buildIOSHeader(BuildContext context, bool isPassed) {
     return Column(
       children: [
-        // iOS tarzı büyük ikon
+        // iOS tarzı büyük ikon - daha çekici animasyonlu
         Container(
-          width: 80,
-          height: 80,
+          width: 100,
+          height: 100,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: isPassed ? Colors.green.shade100 : Colors.orange.shade100,
+            gradient: LinearGradient(
+              colors: isPassed 
+                ? [Colors.green.shade400, Colors.green.shade600]
+                : [Colors.orange.shade400, Colors.orange.shade600],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: (isPassed ? Colors.green : Colors.orange).withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+                spreadRadius: 2,
+              ),
+            ],
           ),
           child: Icon(
-            isPassed ? Icons.check_circle : Icons.refresh,
-            size: 40,
-            color: isPassed ? Colors.green.shade600 : Colors.orange.shade600,
+            isPassed ? Icons.check_circle_rounded : Icons.refresh_rounded,
+            size: 50,
+            color: Colors.white,
           ),
         ),
         const SizedBox(height: 24),
         
-        // iOS tarzı başlık
+        // iOS tarzı başlık - daha büyük ve çekici
         Text(
-          isPassed ? 'Tebrikler!' : 'Tekrar Deneyin',
-          style: const TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w600,
+          isPassed ? 'Harika İş! 🎉' : 'Tekrar Deneyin 💪',
+          style: TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.w800,
             color: Colors.black87,
+            letterSpacing: -1,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         
-        // iOS tarzı alt başlık
+        // iOS tarzı alt başlık - motivasyon mesajları
         Text(
           isPassed 
-            ? 'Quiz\'i başarıyla tamamladınız'
-            : 'Biraz daha çalışarak başarabilirsiniz',
+            ? 'Quiz\'i başarıyla tamamladınız!\nHer adım ilerlemedir ✨'
+            : 'Biraz daha çalışarak başarabilirsiniz!\nHer deneme bir öğrenme fırsatıdır 📚',
           style: TextStyle(
             fontSize: 16,
-            color: Colors.grey.shade600,
-            fontWeight: FontWeight.w400,
+            color: Colors.grey.shade700,
+            fontWeight: FontWeight.w500,
+            height: 1.5,
           ),
           textAlign: TextAlign.center,
         ),
@@ -901,45 +918,101 @@ class _ReadingQuizResultViewState extends State<ReadingQuizResultView> {
   }
 
   Widget _buildIOSMainResult(BuildContext context, bool isPassed) {
+    final percentage = widget.result.percentage.toStringAsFixed(0);
+    final percentageInt = int.tryParse(percentage) ?? 0;
+    
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(32),
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: isPassed
+            ? [Colors.green.shade50, Colors.white]
+            : [Colors.orange.shade50, Colors.white],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: (isPassed ? Colors.green : Colors.orange).withOpacity(0.2),
+          width: 2,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: (isPassed ? Colors.green : Colors.orange).withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+            spreadRadius: 2,
           ),
         ],
       ),
       child: Column(
         children: [
-          // iOS tarzı büyük yüzde
-          Text(
-            '${widget.result.percentage.toStringAsFixed(0)}%',
-            style: TextStyle(
-              fontSize: 48,
-              fontWeight: FontWeight.w700,
-              color: isPassed ? Colors.green.shade600 : Colors.orange.shade600,
-            ),
+          // iOS tarzı büyük yüzde - daha çekici
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                percentage,
+                style: TextStyle(
+                  fontSize: 64,
+                  fontWeight: FontWeight.w900,
+                  color: isPassed ? Colors.green.shade600 : Colors.orange.shade600,
+                  letterSpacing: -2,
+                  height: 1,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  '%',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w700,
+                    color: isPassed ? Colors.green.shade600 : Colors.orange.shade600,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           
-          // iOS tarzı durum
-          Text(
-            isPassed ? 'Başarılı' : 'Gelişim Gerekli',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey.shade700,
+          // iOS tarzı durum - motivasyon mesajları
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+              color: (isPassed ? Colors.green : Colors.orange).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              isPassed 
+                ? _getSuccessMessage(percentageInt)
+                : _getImprovementMessage(percentageInt),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: isPassed ? Colors.green.shade700 : Colors.orange.shade700,
+              ),
+              textAlign: TextAlign.center,
             ),
           ),
         ],
       ),
     );
+  }
+
+  String _getSuccessMessage(int percentage) {
+    if (percentage >= 90) return 'Mükemmel! 🌟';
+    if (percentage >= 80) return 'Harika İş! 🎯';
+    if (percentage >= 70) return 'Başarılı! ✨';
+    return 'Geçtiniz! 💪';
+  }
+
+  String _getImprovementMessage(int percentage) {
+    if (percentage >= 60) return 'Yaklaştınız! Biraz daha çalışın 📈';
+    if (percentage >= 50) return 'Gelişim Gerekli! Tekrar deneyin 💪';
+    return 'Daha fazla pratik yapın! Her deneme öğrenmedir 📚';
   }
 
   Widget _buildIOSStats(BuildContext context) {
