@@ -116,6 +116,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
   Timer? _highlightTimer;
   final Map<int, GlobalKey> _textKeys = {};
   bool _suppressOnPageChanged = false;
+  int? _lastTotalPages;
   final Map<int, ScrollController> _scrollControllers = {};
   
   // Word detection variables
@@ -507,19 +508,37 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
               );
             }
           },
-          child: Scaffold(
-            body: BlocBuilder<AdvancedReaderBloc, ReaderState>(
-              builder: (context, state) {
-                if (state is ReaderLoading) {
-                  return _buildLoadingView();
-                } else if (state is ReaderError) {
-                  return _buildErrorView(state.message);
-                } else if (state is ReaderLoaded) {
-                  return _buildReaderView(state);
-                } else {
-                  return _buildInitialView();
+          child: BlocListener<AdvancedReaderBloc, ReaderState>(
+            listener: (context, state) {
+              // When pagination is updated (e.g., font size changes), update PageController
+              if (state is ReaderLoaded && _pageController.hasClients) {
+                final currentPage = _pageController.page?.round() ?? _pageController.initialPage;
+                final newPage = state.currentPage;
+                
+                // If page index changed or total pages changed, update PageController
+                if (currentPage != newPage || _lastTotalPages != state.totalPages) {
+                  _lastTotalPages = state.totalPages;
+                  if (newPage != currentPage) {
+                    _suppressOnPageChanged = true;
+                    _pageController.jumpToPage(newPage);
+                  }
                 }
-              },
+              }
+            },
+            child: Scaffold(
+              body: BlocBuilder<AdvancedReaderBloc, ReaderState>(
+                builder: (context, state) {
+                  if (state is ReaderLoading) {
+                    return _buildLoadingView();
+                  } else if (state is ReaderError) {
+                    return _buildErrorView(state.message);
+                  } else if (state is ReaderLoaded) {
+                    return _buildReaderView(state);
+                  } else {
+                    return _buildInitialView();
+                  }
+                },
+              ),
             ),
           ),
         );
@@ -779,7 +798,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     if (!isAtLastPage) {
       return true;
     }
-
+    
     final decision = await _showExitQuizSheet(state, themeManager);
     if (decision == false) {
       // User chose to take the quiz
@@ -970,23 +989,6 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Sayfa numarası göstergesi
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: _getThemePrimaryColor(themeManager).withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              'Sayfa ${index + 1}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: _getThemePrimaryColor(themeManager),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
                           // Sayfa içeriği (dokunulan cümleyi bul)
                            GestureDetector(
                             behavior: HitTestBehavior.opaque,
@@ -1791,6 +1793,14 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
   }
 
   void _showSettingsSheet(ReaderLoaded state, ThemeManager themeManager) {
+    // Sepia temaya göre sabit renkler (ayar sayfası her zaman sepia görünür)
+    const sepiaPrimary = Color(0xFFD4B483);
+    const sepiaSurface = Color(0xFFF5F1E8);
+    const sepiaOnSurface = Color(0xFF2C1810);
+    const sepiaOutlineVariant = Color(0xFFD4B483);
+    const sepiaSurfaceContainerHighest = Color(0xFFE8E0D0);
+    const sepiaOnSurfaceVariant = Color(0xFF5D4A3A);
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1815,6 +1825,11 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                 _readerBloc.add(UpdateFontSize(clamped));
               }
 
+              void setRate(double v) {
+                setSheetState(() => currentRate = v);
+                _readerBloc.add(UpdateSpeechRate(v));
+              }
+
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1825,7 +1840,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                       height: 4,
                       margin: const EdgeInsets.only(bottom: 12),
                       decoration: BoxDecoration(
-                        color: _getThemeOutlineVariantColor(themeManager),
+                        color: sepiaOutlineVariant,
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
@@ -1839,61 +1854,52 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _buildRateChip(label: 'Yavaş', value: 0.30, current: currentRate, themeManager: themeManager),
-                      _buildRateChip(label: 'Normal', value: 0.40, current: currentRate, themeManager: themeManager),
-                      _buildRateChip(label: 'Orta-Hızlı', value: 0.50, current: currentRate, themeManager: themeManager),
-                      _buildRateChip(label: 'Hızlı', value: 0.65, current: currentRate, themeManager: themeManager),
+                      _buildRateChipForSheet(
+                        label: 'Yavaş',
+                        value: 0.30,
+                        current: currentRate,
+                        onChanged: setRate,
+                        primary: sepiaPrimary,
+                        surface: sepiaSurfaceContainerHighest,
+                        outline: sepiaOutlineVariant,
+                        onSurface: sepiaOnSurface,
+                      ),
+                      _buildRateChipForSheet(
+                        label: 'Normal',
+                        value: 0.40,
+                        current: currentRate,
+                        onChanged: setRate,
+                        primary: sepiaPrimary,
+                        surface: sepiaSurfaceContainerHighest,
+                        outline: sepiaOutlineVariant,
+                        onSurface: sepiaOnSurface,
+                      ),
+                      _buildRateChipForSheet(
+                        label: 'Orta-Hızlı',
+                        value: 0.50,
+                        current: currentRate,
+                        onChanged: setRate,
+                        primary: sepiaPrimary,
+                        surface: sepiaSurfaceContainerHighest,
+                        outline: sepiaOutlineVariant,
+                        onSurface: sepiaOnSurface,
+                      ),
+                      _buildRateChipForSheet(
+                        label: 'Hızlı',
+                        value: 0.65,
+                        current: currentRate,
+                        onChanged: setRate,
+                        primary: sepiaPrimary,
+                        surface: sepiaSurfaceContainerHighest,
+                        outline: sepiaOutlineVariant,
+                        onSurface: sepiaOnSurface,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildThemeSection(themeManager),
+                  _buildThemeSectionForSheet(themeManager, setSheetState, sepiaPrimary, sepiaSurfaceContainerHighest, sepiaOutlineVariant, sepiaOnSurface),
                   const SizedBox(height: 16),
-                  _buildFontPresetsSection(currentFont, setFont, themeManager),
-                  const SizedBox(height: 16),
-                  // Auto-translation toggle removed per request
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Yazı Boyutu',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.text_decrease_rounded),
-                        onPressed: () => setFont(currentFont - 1.0),
-                        tooltip: 'Azalt',
-                      ),
-                      Expanded(
-                        child: Slider(
-                          value: currentFont,
-                          min: 12.0,
-                          max: 32.0,
-                          divisions: 20,
-                          onChanged: (v) => setFont(v),
-                        ),
-                      ),
-                      Text('${currentFont.round()}'),
-                      IconButton(
-                        icon: const Icon(Icons.text_increase_rounded),
-                        onPressed: () => setFont(currentFont + 1.0),
-                        tooltip: 'Artır',
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: _getThemeSurfaceContainerHighestColor(themeManager),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Önizleme: Reading makes a full man.',
-                      style: TextStyle(fontSize: currentFont, height: 1.4),
-                    ),
-                  ),
+                  _buildFontPresetsSectionForSheet(currentFont, setFont, sepiaPrimary, sepiaSurfaceContainerHighest, sepiaOutlineVariant, sepiaOnSurfaceVariant),
                   const SizedBox(height: 16),
                   Align(
                     alignment: Alignment.centerRight,
@@ -1917,16 +1923,81 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     required double value, 
     required double current,
     required ThemeManager themeManager,
+    required void Function(double) onChanged,
   }) {
     final bool selected = (current - value).abs() < 0.02;
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => _readerBloc.add(UpdateSpeechRate(value)),
-      selectedColor: _getThemePrimaryColor(themeManager).withValues(alpha: 0.15),
-      labelStyle: TextStyle(
-        color: selected ? _getThemePrimaryColor(themeManager) : _getThemeOnSurfaceColor(themeManager),
-        fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+    final primary = _getThemePrimaryColor(themeManager);
+    final surface = _getThemeSurfaceContainerHighestColor(themeManager);
+    final outline = _getThemeOutlineVariantColor(themeManager);
+    final onSurface = _getThemeOnSurfaceColor(themeManager);
+
+    return InkWell(
+      onTap: () => onChanged(value),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        decoration: BoxDecoration(
+          color: selected 
+              ? primary.withValues(alpha: 0.25)
+              : surface.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selected ? primary : outline.withValues(alpha: 0.4),
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected 
+                ? primary 
+                : onSurface.withValues(alpha: 0.6),
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Ayar sayfası için sepia renkleriyle rate chip
+  Widget _buildRateChipForSheet({
+    required String label, 
+    required double value, 
+    required double current,
+    required void Function(double) onChanged,
+    required Color primary,
+    required Color surface,
+    required Color outline,
+    required Color onSurface,
+  }) {
+    final bool selected = (current - value).abs() < 0.02;
+
+    return InkWell(
+      onTap: () => onChanged(value),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        decoration: BoxDecoration(
+          color: selected 
+              ? primary.withValues(alpha: 0.25)
+              : surface.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selected ? primary : outline.withValues(alpha: 0.4),
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected 
+                ? primary 
+                : onSurface.withValues(alpha: 0.6),
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+            fontSize: 13,
+          ),
+        ),
       ),
     );
   }
@@ -1981,6 +2052,10 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     required ThemeManager themeManager,
   }) {
     final isSelected = themeManager.currentTheme == theme;
+    final primary = _getThemePrimaryColor(themeManager);
+    final surface = _getThemeSurfaceContainerHighestColor(themeManager);
+    final outline = _getThemeOutlineVariantColor(themeManager);
+    final onSurface = _getThemeOnSurfaceColor(themeManager);
     
     return InkWell(
       onTap: () => themeManager.setTheme(theme),
@@ -1989,14 +2064,14 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           color: isSelected
-              ? _getThemePrimaryColor(themeManager).withValues(alpha: 0.15)
-              : _getThemeSurfaceContainerHighestColor(themeManager),
+              ? primary.withValues(alpha: 0.25)
+              : surface.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected
-                ? _getThemePrimaryColor(themeManager)
-                : _getThemeOutlineVariantColor(themeManager),
-            width: 1,
+                ? primary
+                : outline.withValues(alpha: 0.4),
+            width: isSelected ? 2 : 1,
           ),
         ),
         child: Column(
@@ -2005,18 +2080,144 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
               icon,
               size: 20,
               color: isSelected
-                  ? _getThemePrimaryColor(themeManager)
-                  : _getThemeOnSurfaceColor(themeManager),
+                  ? primary
+                  : onSurface.withValues(alpha: 0.6),
             ),
             const SizedBox(height: 8),
             Text(
               label,
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
                 color: isSelected
-                    ? _getThemePrimaryColor(themeManager)
-                    : _getThemeOnSurfaceColor(themeManager),
+                    ? primary
+                    : onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Ayar sayfası için sepia renkleriyle tema bölümü
+  Widget _buildThemeSectionForSheet(
+    ThemeManager themeManager,
+    StateSetter setSheetState,
+    Color primary,
+    Color surface,
+    Color outline,
+    Color onSurface,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Tema',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildThemeChipForSheet(
+                icon: Icons.light_mode,
+                label: 'Açık',
+                theme: AppTheme.light,
+                themeManager: themeManager,
+                setSheetState: setSheetState,
+                primary: primary,
+                surface: surface,
+                outline: outline,
+                onSurface: onSurface,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildThemeChipForSheet(
+                icon: Icons.filter_vintage,
+                label: 'Sepia',
+                theme: AppTheme.sepia,
+                themeManager: themeManager,
+                setSheetState: setSheetState,
+                primary: primary,
+                surface: surface,
+                outline: outline,
+                onSurface: onSurface,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildThemeChipForSheet(
+                icon: Icons.dark_mode,
+                label: 'Koyu',
+                theme: AppTheme.dark,
+                themeManager: themeManager,
+                setSheetState: setSheetState,
+                primary: primary,
+                surface: surface,
+                outline: outline,
+                onSurface: onSurface,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // Ayar sayfası için sepia renkleriyle tema chip
+  Widget _buildThemeChipForSheet({
+    required IconData icon,
+    required String label,
+    required AppTheme theme,
+    required ThemeManager themeManager,
+    required StateSetter setSheetState,
+    required Color primary,
+    required Color surface,
+    required Color outline,
+    required Color onSurface,
+  }) {
+    final isSelected = themeManager.currentTheme == theme;
+    
+    return InkWell(
+      onTap: () {
+        themeManager.setTheme(theme);
+        setSheetState(() {}); // Sheet'i yeniden render et
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? primary.withValues(alpha: 0.25)
+              : surface.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected
+                ? primary
+                : outline.withValues(alpha: 0.4),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: isSelected
+                  ? primary
+                  : onSurface.withValues(alpha: 0.6),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+                color: isSelected
+                    ? primary
+                    : onSurface.withValues(alpha: 0.6),
               ),
             ),
           ],
@@ -2030,7 +2231,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Yazı Boyutu Önayarları',
+          'Yazı Boyutu',
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
@@ -2079,18 +2280,24 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     required ThemeManager themeManager,
   }) {
     final isSelected = (current - size).abs() < 1.0;
-    
+    final primary = _getThemePrimaryColor(themeManager);
+    final surface = _getThemeSurfaceContainerHighestColor(themeManager);
+    final outline = _getThemeOutlineVariantColor(themeManager);
+    final onSurfaceVariant = _getThemeOnSurfaceVariantColor(themeManager);
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: _getThemePrimaryColor(themeManager).withValues(alpha: 0.15),
+          color: isSelected 
+              ? primary.withValues(alpha: 0.25)
+              : surface.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: _getThemePrimaryColor(themeManager),
-            width: 1,
+            color: isSelected ? primary : outline.withValues(alpha: 0.4),
+            width: isSelected ? 2 : 1,
           ),
         ),
         child: Column(
@@ -2100,7 +2307,9 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
               style: TextStyle(
                 fontSize: size * 0.6,
                 fontWeight: FontWeight.w500,
-                color: _getThemeOnSurfaceVariantColor(themeManager),
+                color: isSelected 
+                    ? primary 
+                    : onSurfaceVariant.withValues(alpha: 0.6),
               ),
             ),
             const SizedBox(height: 4),
@@ -2108,8 +2317,130 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
               label,
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: _getThemeOnSurfaceVariantColor(themeManager),
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+                color: isSelected 
+                    ? primary 
+                    : onSurfaceVariant.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Ayar sayfası için sepia renkleriyle font preset bölümü
+  Widget _buildFontPresetsSectionForSheet(
+    double currentFont,
+    Function(double) setFont,
+    Color primary,
+    Color surface,
+    Color outline,
+    Color onSurfaceVariant,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Yazı Boyutu',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildFontPresetChipForSheet(
+                label: 'Küçük',
+                size: 20.0,
+                current: currentFont,
+                onTap: () => setFont(20.0),
+                primary: primary,
+                surface: surface,
+                outline: outline,
+                onSurfaceVariant: onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildFontPresetChipForSheet(
+                label: 'Orta',
+                size: 24.0,
+                current: currentFont,
+                onTap: () => setFont(24.0),
+                primary: primary,
+                surface: surface,
+                outline: outline,
+                onSurfaceVariant: onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildFontPresetChipForSheet(
+                label: 'Büyük',
+                size: 28.0,
+                current: currentFont,
+                onTap: () => setFont(28.0),
+                primary: primary,
+                surface: surface,
+                outline: outline,
+                onSurfaceVariant: onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // Ayar sayfası için sepia renkleriyle font preset chip
+  Widget _buildFontPresetChipForSheet({
+    required String label,
+    required double size,
+    required double current,
+    required VoidCallback onTap,
+    required Color primary,
+    required Color surface,
+    required Color outline,
+    required Color onSurfaceVariant,
+  }) {
+    final isSelected = (current - size).abs() < 1.0;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected 
+              ? primary.withValues(alpha: 0.25)
+              : surface.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? primary : outline.withValues(alpha: 0.4),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Text(
+              'Aa',
+              style: TextStyle(
+                fontSize: size * 0.6,
+                fontWeight: FontWeight.w500,
+                color: isSelected 
+                    ? primary 
+                    : onSurfaceVariant.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+                color: isSelected 
+                    ? primary 
+                    : onSurfaceVariant.withValues(alpha: 0.6),
               ),
             ),
           ],

@@ -804,16 +804,39 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     }
   }
 
-  void _onUpdateFontSize(UpdateFontSize event, Emitter<ReaderState> emit) {
+  Future<void> _onUpdateFontSize(UpdateFontSize event, Emitter<ReaderState> emit) async {
     _fontSize = event.size;
     
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
+      final currentPageIndex = currentState.currentPage;
+      
+      // Emit immediate update with new font size
       emit(currentState.copyWith(fontSize: _fontSize));
       
       // Reinitialize pagination with new font size
       if (_currentBook != null) {
-        _initializePagination(_currentBook!.content);
+        await _initializePagination(_currentBook!.content);
+        
+        // After pagination completes, update state with new page count and content
+        // Preserve current page index (clamped to new total)
+        final newPageIndex = currentPageIndex.clamp(0, _pageManager.totalPages > 0 ? _pageManager.totalPages - 1 : 0);
+        
+        // Navigate to the preserved page index
+        if (newPageIndex != _pageManager.currentPageIndex) {
+          await _pageManager.goToPage(newPageIndex);
+        }
+        
+        // Emit updated state with new pagination info
+        if (state is ReaderLoaded) {
+          final updatedState = state as ReaderLoaded;
+          emit(updatedState.copyWith(
+            fontSize: _fontSize,
+            totalPages: _pageManager.totalPages,
+            currentPage: _pageManager.currentPageIndex,
+            currentPageContent: _getCurrentPageContent(),
+          ));
+        }
       }
     }
   }
