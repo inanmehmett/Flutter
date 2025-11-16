@@ -256,6 +256,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               children: [
                                 Hero(
                                   tag: 'avatar_${profile.id}',
+                                  transitionOnUserGestures: true,
                                   child: CircleAvatar(
                                     radius: 56,
                                     backgroundColor: Colors.white,
@@ -345,7 +346,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               const Icon(Icons.calendar_today, size: 16),
                               const SizedBox(width: 6),
                               Text(
-                                'Joined: ${_formatJoined(profile.createdAt)}',
+                                'Katıldı: ${_formatJoined(profile.createdAt)}',
                                 style: TextStyle(color: Colors.grey[700]),
                               ),
                             ],
@@ -448,23 +449,23 @@ class _ProfilePageState extends State<ProfilePage> {
                           },
                         ),
                         const SizedBox(height: 24),
-                        const Text('Settings', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                        const Text('Ayarlar', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 12),
                         GestureDetector(
                           onTap: () => Navigator.pushNamed(context, '/profile-details'),
-                          child: _settingsTile(context, Icons.person_outline, 'Profile Details'),
+                          child: _settingsTile(context, Icons.person_outline, 'Profil Bilgileri'),
                         ),
                         GestureDetector(
                           onTap: () => Navigator.pushNamed(context, '/notifications'),
-                          child: _settingsTile(context, Icons.notifications_outlined, 'Notifications'),
+                          child: _settingsTile(context, Icons.notifications_outlined, 'Bildirimler'),
                         ),
                         GestureDetector(
                           onTap: () => Navigator.pushNamed(context, '/privacy'),
-                          child: _settingsTile(context, Icons.privacy_tip_outlined, 'Privacy'),
+                          child: _settingsTile(context, Icons.privacy_tip_outlined, 'Gizlilik'),
                         ),
                         GestureDetector(
                           onTap: () => Navigator.pushNamed(context, '/learning-list'),
-                          child: _settingsTile(context, Icons.book_outlined, 'Learning List'),
+                          child: _settingsTile(context, Icons.book_outlined, 'Öğrenme Listem'),
                         ),
                         const SizedBox(height: 12),
                         _buildStatRow(context, booksCount, profile),
@@ -566,6 +567,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             child: Center(
                               child: Hero(
                                 tag: 'avatar_${_lastProfile?.id}',
+                                transitionOnUserGestures: true,
                                 child: Image.network(url),
                               ),
                             ),
@@ -1025,11 +1027,11 @@ class _StatsStrip extends StatelessWidget {
         children: [
           Row(
             children: [
-              _stat(context, Icons.stairs, levelLabel, 'Level'),
+              _stat(context, Icons.stairs, levelLabel, 'Seviye'),
               const SizedBox(width: 12),
               _stat(context, Icons.star, xp, 'XP'),
               const SizedBox(width: 12),
-              _stat(context, Icons.menu_book, books, 'Books'),
+              _stat(context, Icons.menu_book, books, 'Kitap'),
             ],
           ),
           const SizedBox(height: 16),
@@ -1136,15 +1138,15 @@ class _LearningProgressCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Learning Progress', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const Text('Öğrenme İlerlemesi', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           Row(
             children: [
-              _ring(context, reading, 'Reading'),
+              _ring(context, reading, 'Okuma'),
               const SizedBox(width: 12),
-              _ring(context, listening, 'Listening'),
+              _ring(context, listening, 'Dinleme'),
               const SizedBox(width: 12),
-              _ring(context, speaking, 'Speaking'),
+              _ring(context, speaking, 'Konuşma'),
             ],
           )
         ],

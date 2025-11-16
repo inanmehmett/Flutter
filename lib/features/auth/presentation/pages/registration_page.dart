@@ -136,10 +136,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
                         ),
                       ),
                       SizedBox(height: 12),
-                      Text('REGISTER', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+                      Text('KAYIT OL', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
                       SizedBox(height: 8),
                       Text(
-                        'Fill out these fields to create an account with Book App',
+                        'Daily English hesabı oluşturmak için aşağıdaki alanları doldur.',
                         style: TextStyle(color: Colors.white, fontSize: 15),
                         textAlign: TextAlign.center,
                       ),
@@ -156,14 +156,14 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       children: [
                         _RoundedInputField(
                           controller: _userNameController,
-                          hintText: 'Username',
+                          hintText: 'Kullanıcı adı',
                           icon: Icons.person_outline,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Please enter username';
+                              return 'Lütfen bir kullanıcı adı girin';
                             }
                             if (value.length < 3) {
-                              return 'Username must be at least 3 characters';
+                              return 'Kullanıcı adı en az 3 karakter olmalı';
                             }
                             return null;
                           },
@@ -171,14 +171,14 @@ class _RegistrationPageState extends State<RegistrationPage> {
                         SizedBox(height: 18),
                         _RoundedInputField(
                           controller: _emailController,
-                          hintText: 'Email Address',
+                          hintText: 'E‑posta adresi',
                           icon: Icons.email_outlined,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Please enter email';
+                              return 'Lütfen bir e‑posta adresi girin';
                             }
                             if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                              return 'Please enter a valid email';
+                              return 'Lütfen geçerli bir e‑posta adresi girin';
                             }
                             return null;
                           },
@@ -186,7 +186,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                         SizedBox(height: 18),
                         _RoundedInputField(
                           controller: _passwordController,
-                          hintText: 'Password',
+                          hintText: 'Şifre',
                           icon: Icons.visibility_off_outlined,
                           isPassword: true,
                           obscureText: _obscurePassword,
@@ -197,10 +197,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
                           },
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Please enter password';
+                              return 'Lütfen bir şifre girin';
                             }
                             if (value.length < 6) {
-                              return 'Password must be at least 6 characters';
+                              return 'Şifre en az 6 karakter olmalı';
                             }
                             return null;
                           },
@@ -208,7 +208,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                         SizedBox(height: 18),
                         _RoundedInputField(
                           controller: _confirmPasswordController,
-                          hintText: 'Confirm Password',
+                          hintText: 'Şifreyi tekrar gir',
                           icon: Icons.visibility_off_outlined,
                           isPassword: true,
                           obscureText: _obscureConfirmPassword,
@@ -219,10 +219,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
                           },
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Please confirm password';
+                              return 'Lütfen şifrenizi tekrar girin';
                             }
                             if (value != _passwordController.text) {
-                              return 'Passwords do not match';
+                              return 'Şifreler eşleşmiyor';
                             }
                             return null;
                           },
@@ -232,18 +232,19 @@ class _RegistrationPageState extends State<RegistrationPage> {
                           alignment: Alignment.centerLeft,
                           child: Padding(
                             padding: const EdgeInsets.only(left: 8.0),
-                            child: Text.rich(
-                              TextSpan(
-                                text: 'By continuing you confirm that you agree with our ',
-                                style: TextStyle(fontSize: 13, color: Colors.grey[700]),
-                                children: [
+                                child: Text.rich(
                                   TextSpan(
-                                    text: 'Terms and Condition',
-                                    style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+                                    text: 'Devam ederek ',
+                                    style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                                    children: [
+                                      TextSpan(
+                                        text: 'Kullanım Koşulları',
+                                        style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+                                      ),
+                                      const TextSpan(text: 'nı kabul etmiş olursun.'),
+                                    ],
                                   ),
-                                ],
-                              ),
-                            ),
+                                ),
                           ),
                         ),
                         SizedBox(height: 18),
@@ -272,7 +273,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                                               valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                             ),
                                           )
-                                        : Text('CONTINUE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                                        : Text('KAYDI TAMAMLA', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
                                   ),
                                 ),
                                 SizedBox(height: 12),
@@ -287,7 +288,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                                     ),
                                     onPressed: state is AuthLoading ? null : _googleRegister,
                                     icon: Icon(Icons.g_mobiledata, color: Colors.redAccent),
-                                    label: Text('Continue with Google'),
+                                    label: const Text('Google ile devam et'),
                                   ),
                                 ),
                               ],
@@ -298,12 +299,12 @@ class _RegistrationPageState extends State<RegistrationPage> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text('Already a user? ', style: TextStyle(color: Colors.grey[700], fontSize: 15)),
+                            Text('Zaten hesabın var mı? ', style: TextStyle(color: Colors.grey[700], fontSize: 15)),
                             GestureDetector(
                               onTap: () {
                                 Navigator.pushReplacementNamed(context, '/login');
                               },
-                              child: Text('SIGN IN', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 15)),
+                              child: const Text('GİRİŞ YAP', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 15)),
                             ),
                           ],
                         ),

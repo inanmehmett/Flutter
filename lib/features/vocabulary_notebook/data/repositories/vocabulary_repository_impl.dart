@@ -634,25 +634,17 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
     List<VocabularyWord> reviewWords;
     switch (modeFilter) {
       case 'due':
-        // Review mode: Only due words (Quiz widget kullanıyor - en az 4 kelime gerekiyor)
+        // Review mode: öncelikle sadece "due" kelimeler
         reviewWords = await getDailyReviewWords();
-        // Quiz için yeterli kelime yoksa, tüm kelimeleri kullan
-        if (reviewWords.length < 4) {
+        // Eğer due kelime yoksa, tüm kelimelerden bir oturum oluştur
+        if (reviewWords.isEmpty) {
           final allWords = await getUserWords(limit: 100);
-          if (allWords.length < 4) {
-            throw Exception('Quiz için en az 4 kelime gereklidir. Şu anda ${allWords.length} kelimeniz var. Lütfen Vocabulary Notebook\'a daha fazla kelime ekleyin.');
-          }
-          // Due kelime yoksa, tüm kelimelerden quiz yap
           reviewWords = allWords;
         }
         break;
       case 'all':
-        // Quiz mode: All words, randomized
-        // Quiz için en az 4 kelime gerekiyor (1 doğru + 3 yanlış cevap için)
+        // Quiz mode: tüm kelimelerden rastgele oturum
         reviewWords = await getUserWords(limit: 100);
-        if (reviewWords.length < 4) {
-          throw Exception('Quiz için en az 4 kelime gereklidir. Şu anda ${reviewWords.length} kelimeniz var. Lütfen Vocabulary Notebook\'a daha fazla kelime ekleyin.');
-        }
         reviewWords.shuffle();
         break;
       case 'difficult':
@@ -662,7 +654,7 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
           w.difficultyLevel > 0.6 || w.consecutiveCorrectCount < 2
         ).toList();
         if (reviewWords.isEmpty) {
-          // Fallback: use words that need review
+          // Fallback: review gereken kelimeleri kullan
           reviewWords = await getDailyReviewWords();
         }
         break;
@@ -671,7 +663,12 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
         reviewWords = await getUserWords(limit: 20);
         reviewWords.shuffle();
     }
-    
+
+    // En az bir kelime olmadan oturum başlatma
+    if (reviewWords.isEmpty) {
+      throw Exception('Çalışacak kelime bulunamadı. Lütfen kelime defterinize yeni kelimeler ekleyin.');
+    }
+
     return SpacedRepetitionService.startReviewSession(reviewWords);
   }
 

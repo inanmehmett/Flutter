@@ -560,11 +560,11 @@ class _GlobalBottomNav extends StatelessWidget {
   const _GlobalBottomNav({required this.currentIndex, this.onTap});
 
   static const List<_NavItem> _navItems = [
-    _NavItem(icon: Icons.home, label: 'Home', route: '/home'),
-    _NavItem(icon: Icons.menu_book, label: 'Books', route: '/books'),
+    _NavItem(icon: Icons.home, label: 'Ana Sayfa', route: '/home'),
+    _NavItem(icon: Icons.menu_book, label: 'Kitaplar', route: '/books'),
     _NavItem(icon: Icons.book_outlined, label: 'Kelime', route: '/vocabulary'),
-    _NavItem(icon: Icons.quiz, label: 'Quiz', route: null), // Special handling
-    _NavItem(icon: Icons.person, label: 'Profile', route: '/profile'),
+    _NavItem(icon: Icons.quiz, label: 'Quiz', route: null), // Quiz terimi kasıtlı olarak İngilizce bırakıldı
+    _NavItem(icon: Icons.person, label: 'Profil', route: '/profile'),
   ];
 
   @override

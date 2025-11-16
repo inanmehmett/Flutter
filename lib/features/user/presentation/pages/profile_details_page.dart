@@ -214,7 +214,7 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile Details')),
+      appBar: AppBar(title: const Text('Profil Bilgileri')),
       backgroundColor: AppColors.background,
       body: Column(
         children: [

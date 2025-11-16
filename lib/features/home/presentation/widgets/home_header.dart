@@ -81,24 +81,28 @@ class HomeHeader extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // Profile picture
-        Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [AppColors.primary.withOpacity(0.2), AppColors.primaryLight.withOpacity(0.3)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+        // Profile picture with Hero for smooth transition to ProfilePage
+        Hero(
+          tag: 'avatar_${profile.id}',
+          transitionOnUserGestures: true,
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [AppColors.primary.withOpacity(0.2), AppColors.primaryLight.withOpacity(0.3)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(
+                color: AppColors.primary.withOpacity(0.2),
+                width: 2,
+              ),
             ),
-            border: Border.all(
-              color: AppColors.primary.withOpacity(0.2),
-              width: 2,
+            child: ClipOval(
+              child: _buildProfileImage(),
             ),
-          ),
-          child: ClipOval(
-            child: _buildProfileImage(),
           ),
         ),
         // Level badge

@@ -195,22 +195,7 @@ class _BookListPageState extends State<BookListPage> {
                     },
                   ),
                 ),
-                const SizedBox(width: 8),
-                if (kDebugMode)
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.bug_report_rounded, color: AppColors.white),
-                      onPressed: () {
-                        final viewModel = Provider.of<BookListViewModel>(context, listen: false);
-                        viewModel.debugBooks();
-                      },
-                      tooltip: 'Debug Books',
-                    ),
-                  ),
+                // Uğur böceği / debug butonu kaldırıldı; kullanıcıya sadece yenile butonu gösteriliyor.
               ],
             ),
           ],

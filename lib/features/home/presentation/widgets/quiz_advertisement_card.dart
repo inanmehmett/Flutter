@@ -27,11 +27,7 @@ class QuizAdvertisementCard extends StatelessWidget {
       curve: Curves.easeInOut,
       padding: const EdgeInsets.all(AppSpacing.paddingL),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primary, AppColors.primaryLight],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppColors.primary,
         borderRadius: BorderRadius.circular(AppRadius.cardRadius),
         boxShadow: AppShadows.cardShadowElevated,
       ),
@@ -47,7 +43,7 @@ class QuizAdvertisementCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           _buildCTAButton(context),
         ],
       ),
@@ -90,13 +86,13 @@ class QuizAdvertisementCard extends StatelessWidget {
           'Kelime Quiz\'e Başla',
           style: TextStyle(
             fontSize: 20,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w700,
             color: Colors.white,
           ),
         ),
         const SizedBox(height: 4),
         Text(
-          'Günde 10 dakika ile 500+ kelime öğren',
+          'Günde 10 dakikayla kelime bilginizi ölçün ve güçlendirin.',
           style: TextStyle(
             fontSize: 14,
             color: Colors.white.withOpacity(0.95),
@@ -113,7 +109,7 @@ class QuizAdvertisementCard extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Text(
-              '4.8/5.0 ortalama başarı oranı',
+              '4.8/5.0 ortalama quiz skoru',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.white.withOpacity(0.8),

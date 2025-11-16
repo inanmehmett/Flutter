@@ -22,10 +22,10 @@ class VocabularyNotebookCard extends StatelessWidget {
       curve: Curves.easeInOut,
       padding: const EdgeInsets.all(AppSpacing.paddingL),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.purple.shade400, Colors.purple.shade300],
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          colors: [AppColors.primary, AppColors.accent],
         ),
         borderRadius: BorderRadius.circular(AppRadius.cardRadius),
         boxShadow: AppShadows.cardShadowElevated,
@@ -42,7 +42,7 @@ class VocabularyNotebookCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           _buildCTAButton(context),
         ],
       ),
@@ -53,9 +53,9 @@ class VocabularyNotebookCard extends StatelessWidget {
     return Container(
       width: 56,
       height: 56,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.white, Colors.purple.shade50],
+        decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Colors.white, AppColors.accentContainer],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -85,13 +85,13 @@ class VocabularyNotebookCard extends StatelessWidget {
           'Kelime Defterim',
           style: TextStyle(
             fontSize: 20,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w700,
             color: Colors.white,
           ),
         ),
         const SizedBox(height: 4),
         Text(
-          'Spaced repetition ile %85 daha etkili öğren',
+          'Öğrendiğin tüm kelimeleri tek yerde topla ve düzenli tekrar et.',
           style: TextStyle(
             fontSize: 14,
             color: Colors.white.withOpacity(0.95),
@@ -104,11 +104,11 @@ class VocabularyNotebookCard extends StatelessWidget {
             Icon(
               Icons.people_outline,
               size: 14,
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withOpacity(0.9),
             ),
             const SizedBox(width: 4),
             Text(
-              '10,000+ öğrenci kullanıyor',
+              '10,000+ öğrenci aktif kullanıyor',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.white.withOpacity(0.8),

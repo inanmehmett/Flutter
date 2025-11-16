@@ -37,7 +37,7 @@ class _LearningListPageState extends State<LearningListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Learning List'),
+        title: const Text('Öğrenme Listem'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

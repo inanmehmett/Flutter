@@ -46,7 +46,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Notifications')),
+      appBar: AppBar(title: const Text('Bildirimler')),
       body: AbsorbPointer(
         absorbing: _saving,
         child: ListView(

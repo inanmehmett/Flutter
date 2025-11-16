@@ -136,10 +136,10 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       SizedBox(height: 12),
-                      Text('SIGN IN', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+                      Text('GİRİŞ YAP', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
                       SizedBox(height: 8),
                       Text(
-                        'Sign in to your account to continue where you left from',
+                        'Kaldığın yerden devam etmek için hesabına giriş yap.',
                         style: TextStyle(color: Colors.white, fontSize: 15),
                         textAlign: TextAlign.center,
                       ),
@@ -156,11 +156,11 @@ class _LoginPageState extends State<LoginPage> {
                       children: [
                         _RoundedInputField(
                         controller: _userNameOrEmailController,
-                        hintText: 'Username or email',
+                        hintText: 'Kullanıcı adı veya e‑posta',
                         icon: Icons.person_outline,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Please enter username or email';
+                            return 'Lütfen kullanıcı adı veya e‑posta girin';
                           }
                           return null;
                         },
@@ -168,7 +168,7 @@ class _LoginPageState extends State<LoginPage> {
                       SizedBox(height: 18),
                       _RoundedInputField(
                         controller: _passwordController,
-                        hintText: 'Password',
+                        hintText: 'Şifre',
                         icon: Icons.visibility_off_outlined,
                         isPassword: true,
                         obscureText: _obscurePassword,
@@ -179,27 +179,30 @@ class _LoginPageState extends State<LoginPage> {
                         },
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Please enter password';
+                            return 'Lütfen şifrenizi girin';
                           }
                           if (value.length < 6) {
-                            return 'Password must be at least 6 characters';
+                            return 'Şifre en az 6 karakter olmalı';
                           }
                           return null;
                         },
                         suffix: Align(
                           alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: () {
-                              // TODO: Implement forgot password
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Forgot password feature coming soon!'),
-                                  backgroundColor: Colors.orange,
-                                ),
-                              );
-                            },
-                            child: Text('Forgot Password?', style: TextStyle(color: Colors.orange, fontSize: 13)),
-                          ),
+                            child: TextButton(
+                              onPressed: () {
+                                // TODO: Şifre sıfırlama eklenecek
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Şifre sıfırlama özelliği yakında eklenecek.'),
+                                    backgroundColor: Colors.orange,
+                                  ),
+                                );
+                              },
+                              child: const Text(
+                                'Şifreni mi unuttun?',
+                                style: TextStyle(color: Colors.orange, fontSize: 13),
+                              ),
+                            ),
                         ),
                       ),
                       SizedBox(height: 32),
@@ -228,7 +231,7 @@ class _LoginPageState extends State<LoginPage> {
                                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                           ),
                                         )
-                                      : Text('CONTINUE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                                      : Text('DEVAM ET', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
                                 ),
                               ),
                               SizedBox(height: 12),
@@ -243,7 +246,7 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                     onPressed: state is AuthLoading ? null : _googleLogin,
                                     icon: Icon(Icons.g_mobiledata, color: Colors.redAccent),
-                                  label: Text('Continue with Google'),
+                                  label: const Text('Google ile devam et'),
                                 ),
                               ),
                             ],
@@ -254,12 +257,12 @@ class _LoginPageState extends State<LoginPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text('New to Book App? ', style: TextStyle(color: Colors.grey[700], fontSize: 15)),
+                          Text('Daily English\'e yeni misin? ', style: TextStyle(color: Colors.grey[700], fontSize: 15)),
                           GestureDetector(
                             onTap: () {
                               Navigator.pushNamed(context, '/register');
                             },
-                            child: Text('REGISTER', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 15)),
+                            child: const Text('KAYIT OL', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 15)),
                           ),
                         ],
                       ),

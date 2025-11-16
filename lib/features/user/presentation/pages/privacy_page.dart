@@ -57,7 +57,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Privacy')),
+      appBar: AppBar(title: const Text('Gizlilik')),
       body: AbsorbPointer(
         absorbing: _saving,
         child: ListView(

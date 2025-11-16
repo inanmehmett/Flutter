@@ -220,9 +220,10 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     } else {
       emit(WordDeleting(wordId: event.wordId));
     }
+
     try {
       await repository.deleteWord(event.wordId);
-      // Update stats only (no full refresh needed)
+      // Backend'den güncel istatistikleri çek
       _lastStats = null;
       final stats = await repository.getUserStats();
 
@@ -234,7 +235,7 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
         emit(WordDeleted(wordId: event.wordId));
       }
     } catch (e) {
-      // Rollback on error
+      // Hata olursa, eski state'e rollback
       if (beforeDelete is VocabularyLoaded) {
         emit(beforeDelete);
       }
