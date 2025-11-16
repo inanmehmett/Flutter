@@ -23,44 +23,13 @@ abstract class VocabularyRepository {
   // İstatistikler
   Future<VocabularyStats> getUserStats();
 
-  // Arama
-  Future<List<VocabularyWord>> searchWords(String query);
-
   // Tekrar sistemi
-  Future<List<VocabularyWord>> getWordsForReview(int limit);
-  
   Future<void> markWordReviewed(int wordId, bool isCorrect);
-
-  // Toplu işlemler
-  Future<List<VocabularyWord>> addWordsFromText(
-    String text, 
-    int readingTextId,
-  );
-
-  // Senkronizasyon
-  Future<void> syncWords();
-
-  // Yeni öğrenme sistemi metodları
-  Future<void> recordLearningActivity(LearningActivity activity);
-  
-  Future<List<LearningActivity>> getWordActivities(int wordId, {int limit = 10});
-  
-  Future<List<VocabularyWord>> getWordsNeedingReview({int limit = 20});
-  
-  Future<List<VocabularyWord>> getOverdueWords({int limit = 10});
-  
-  Future<Map<String, dynamic>> getLearningAnalytics();
 
   // Aralıklı tekrar sistemi metodları
   Future<List<VocabularyWord>> getDailyReviewWords();
-  
-  Future<ReviewStats> getReviewStats();
-  
+
   Future<ReviewSession> startReviewSession({String? modeFilter});
-  
+
   Future<List<VocabularyWord>> completeReviewSession(ReviewSession session);
-  
-  Future<DateTime> getNextReviewTime();
-  
-  Future<int> getReviewStreak();
 }

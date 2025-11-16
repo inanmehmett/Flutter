@@ -32,6 +32,16 @@ class FilterByStatus extends VocabularyEvent {
   List<Object?> get props => [status];
 }
 
+/// CEFR seviye filtresi (A1, A2, B1, B2, C1, C2)
+class FilterByLevel extends VocabularyEvent {
+  final String? level;
+
+  const FilterByLevel({this.level});
+
+  @override
+  List<Object?> get props => [level];
+}
+
 class AddWord extends VocabularyEvent {
   final VocabularyWord word;
 
@@ -72,66 +82,10 @@ class MarkWordReviewed extends VocabularyEvent {
   List<Object?> get props => [wordId, isCorrect];
 }
 
-class AddWordsFromText extends VocabularyEvent {
-  final String text;
-  final int readingTextId;
-
-  const AddWordsFromText({
-    required this.text,
-    required this.readingTextId,
-  });
-
-  @override
-  List<Object?> get props => [text, readingTextId];
-}
-
-class SyncWords extends VocabularyEvent {}
-
-class LoadWordsForReview extends VocabularyEvent {
-  final int limit;
-
-  const LoadWordsForReview({this.limit = 10});
-
-  @override
-  List<Object?> get props => [limit];
-}
-
 class LoadMoreVocabulary extends VocabularyEvent {}
 
 // Yeni öğrenme sistemi event'leri
-class RecordLearningActivity extends VocabularyEvent {
-  final LearningActivity activity;
-
-  const RecordLearningActivity({required this.activity});
-
-  @override
-  List<Object?> get props => [activity];
-}
-
-class LoadWordsNeedingReview extends VocabularyEvent {
-  final int limit;
-
-  const LoadWordsNeedingReview({this.limit = 20});
-
-  @override
-  List<Object?> get props => [limit];
-}
-
-class LoadOverdueWords extends VocabularyEvent {
-  final int limit;
-
-  const LoadOverdueWords({this.limit = 10});
-
-  @override
-  List<Object?> get props => [limit];
-}
-
-class LoadLearningAnalytics extends VocabularyEvent {}
-
-// Aralıklı tekrar sistemi event'leri
-class LoadDailyReviewWords extends VocabularyEvent {}
-
-class LoadReviewStats extends VocabularyEvent {}
+// (Gelişmiş öğrenme/stats event'leri şimdilik kaldırıldı; çekirdek fonksiyonlara odaklanıyoruz)
 
 class StartReviewSession extends VocabularyEvent {
   final String? modeFilter; // 'due', 'all', 'difficult'
@@ -150,7 +104,3 @@ class CompleteReviewSession extends VocabularyEvent {
   @override
   List<Object?> get props => [session];
 }
-
-class LoadNextReviewTime extends VocabularyEvent {}
-
-class LoadReviewStreak extends VocabularyEvent {}

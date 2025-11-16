@@ -133,6 +133,13 @@ class ProfileHeader extends StatelessWidget {
   }
 
   String _normalize(String url) {
+    // localhost içeren URL'leri AppConfig.apiBaseUrl ile değiştir
+    if (url.contains('localhost') || url.contains('127.0.0.1')) {
+      final uri = Uri.parse(url);
+      final path = uri.path;
+      return '${AppConfig.apiBaseUrl}$path${uri.query.isNotEmpty ? '?${uri.query}' : ''}';
+    }
+    
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
     if (url.startsWith('/')) return '${AppConfig.apiBaseUrl}$url';
     return '${AppConfig.apiBaseUrl}/$url';

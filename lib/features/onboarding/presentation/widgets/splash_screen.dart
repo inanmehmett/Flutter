@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
 
 class SplashScreen extends StatefulWidget {
   final VoidCallback onComplete;
@@ -62,24 +63,36 @@ class _SplashScreenState extends State<SplashScreen>
                   scale: _scaleAnimation.value,
                   child: Opacity(
                     opacity: _opacityAnimation.value,
-                    child: Image.asset(
-                      'assets/images/logo.png',
-                      width: 120,
-                      height: 120,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(Icons.menu_book, size: 64, color: Colors.orange),
-                            SizedBox(height: 12),
-                            Text(
-                              'Daily English',
-                              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.orange),
+                    child: ClipOval(
+                      child: Image.asset(
+                        Platform.isIOS 
+                          ? 'assets/icons/AppIcons/Assets.xcassets/AppIcon.appiconset/120.png'
+                          : 'assets/icons/AppIcons/android/mipmap-xxhdpi/ic_launcher.png',
+                        width: 120,
+                        height: 120,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            width: 120,
+                            height: 120,
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withOpacity(0.2),
+                              shape: BoxShape.circle,
                             ),
-                          ],
-                        );
-                      },
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(Icons.menu_book, size: 64, color: Colors.orange),
+                                SizedBox(height: 8),
+                                Text(
+                                  'Daily English',
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.orange),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
                 );

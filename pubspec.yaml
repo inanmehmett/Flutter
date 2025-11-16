@@ -44,6 +44,7 @@ dev_dependencies:
   json_serializable: ^6.7.1
   mocktail: ^1.0.3
   bloc_test: ^9.1.5
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
@@ -53,3 +54,19 @@ flutter:
     - assets/icons/crown.png
     - assets/icons/trophy.png
     - assets/icons/star.png
+    - assets/icons/AppIcons/appstore.png
+    - assets/icons/AppIcons/playstore.png
+    - assets/icons/AppIcons/Assets.xcassets/AppIcon.appiconset/120.png
+    - assets/icons/AppIcons/android/mipmap-xxhdpi/ic_launcher.png
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path_ios: "assets/icons/AppIcons/appstore.png" # iOS App Store icon (1024x1024)
+  image_path_android: "assets/icons/AppIcons/playstore.png" # Android Play Store icon
+  min_sdk_android: 21 # android min sdk min:16, default 21
+  adaptive_icon_background: "#00000000" # android adaptive icon background color (şeffaf - beyazlık yok)
+  adaptive_icon_foreground: "assets/icons/AppIcons/playstore.png" # android adaptive icon foreground image
+  # adaptive_icon_padding kaldırıldı - kare format için gerek yok
+  remove_alpha_ios: true # iOS App Store gereksinimi için alpha channel kaldırılıyor
+

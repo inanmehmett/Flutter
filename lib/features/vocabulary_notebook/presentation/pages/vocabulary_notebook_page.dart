@@ -6,6 +6,7 @@ import '../bloc/vocabulary_event.dart';
 import '../bloc/vocabulary_state.dart';
 import '../widgets/vocabulary_search_bar.dart';
 import '../widgets/vocabulary_status_filter.dart';
+import '../widgets/vocabulary_level_filter.dart';
 import '../widgets/vocabulary_word_list.dart';
 import '../widgets/vocabulary_stats_header.dart';
 import 'vocabulary_study_page.dart';
@@ -21,20 +22,55 @@ class VocabularyNotebookPage extends StatefulWidget {
   State<VocabularyNotebookPage> createState() => _VocabularyNotebookPageState();
 }
 
-class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
+class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> with WidgetsBindingObserver {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   Timer? _searchDebounce;
+  DateTime? _lastRefreshTime;
+  bool _isPageVisible = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     context.read<VocabularyBloc>().add(LoadVocabulary());
     _scrollController.addListener(_onScroll);
+    _lastRefreshTime = DateTime.now();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Check if page is visible and refresh if needed
+    final route = ModalRoute.of(context);
+    if (route != null && route.isCurrent) {
+      _refreshIfNeeded();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed && _isPageVisible) {
+      _refreshIfNeeded();
+    }
+  }
+
+  void _refreshIfNeeded() {
+    final now = DateTime.now();
+    // Refresh if it's been more than 2 seconds since last refresh
+    if (_lastRefreshTime == null || now.difference(_lastRefreshTime!).inSeconds > 2) {
+      _lastRefreshTime = now;
+      if (mounted) {
+        _isPageVisible = true;
+        context.read<VocabularyBloc>().add(RefreshVocabulary());
+      }
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchDebounce?.cancel();
     _searchController.dispose();
     _scrollController.removeListener(_onScroll);
@@ -46,16 +82,29 @@ class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 300), () {
       if (!mounted) return;
+      final bloc = context.read<VocabularyBloc>();
+      final currentState = bloc.state;
+      final currentFilter = currentState is VocabularyLoaded ? currentState.selectedStatus : null;
+      
       if (query.isEmpty) {
-        context.read<VocabularyBloc>().add(LoadVocabulary());
+        // If there's a filter, reload with filter, otherwise load all
+        if (currentFilter != null) {
+          bloc.add(FilterByStatus(status: currentFilter));
+        } else {
+          bloc.add(LoadVocabulary());
+        }
       } else {
-        context.read<VocabularyBloc>().add(SearchWords(query: query));
+        bloc.add(SearchWords(query: query));
       }
     });
   }
 
   void _onStatusFilterChanged(status) {
     context.read<VocabularyBloc>().add(FilterByStatus(status: status));
+  }
+
+  void _onLevelFilterChanged(String? level) {
+    context.read<VocabularyBloc>().add(FilterByLevel(level: level));
   }
 
   void _onRefresh() {
@@ -277,7 +326,24 @@ class _VocabularyNotebookPageState extends State<VocabularyNotebookPage> {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: VocabularyStatusFilter(
                         selectedStatus: state.selectedStatus,
+                        stats: state.stats,
                         onStatusChanged: _onStatusFilterChanged,
+                      ),
+                    ),
+                  ),
+                  
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: 8),
+                  ),
+
+                  // CEFR seviye filtresi
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: VocabularyLevelFilter(
+                        selectedLevel: state.selectedLevel,
+                        words: state.words,
+                        onLevelChanged: _onLevelFilterChanged,
                       ),
                     ),
                   ),

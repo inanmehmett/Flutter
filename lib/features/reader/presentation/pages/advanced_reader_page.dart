@@ -134,6 +134,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
   
   // Reading session tracker (minimal analytics)
   ReadingSessionTracker? _sessionTracker;
+  String? _lastAddedVocabWord;
   
   // Tooltip state
   bool _isTooltipVisible = false;
@@ -346,7 +347,12 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
       
       // Bloc'a gönder - Duplicate kontrolü ve feedback BlocListener'da!
       context.read<VocabularyBloc>().add(AddWord(word: vocabWord));
-      
+
+      // Animasyon için bu kelimeyi geçici olarak "yeni eklendi" olarak işaretle
+      setState(() {
+        _lastAddedVocabWord = word.toLowerCase().trim();
+      });
+
       // Toast ve SnackBar artık BlocListener'da gösteriliyor
     } catch (e) {
       Logger.error('📚 [Vocabulary] Error adding word', e);
@@ -484,11 +490,11 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                 SnackBar(
                   content: Row(
                     children: [
-                      const Icon(Icons.star, color: Colors.white),
+                      const Icon(Icons.favorite, color: Colors.white),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          '⭐ "${vocabState.word.word}" kelime defterine eklendi!',
+                          '❤️ "${vocabState.word.word}" kelime defterine eklendi!',
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ),
@@ -2581,17 +2587,47 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
                                                 // Vocabulary button (context-aware)
-                                                Builder(
-                                                  builder: (context) {
-                                                    final isInVocab = _isWordInVocabulary(word);
+                                                StatefulBuilder(
+                                                  builder: (context, setInnerState) {
+                                                    final normalizedWord =
+                                                        word.toLowerCase().trim();
+                                                    final isInVocab =
+                                                        _isWordInVocabulary(word) ||
+                                                            _lastAddedVocabWord ==
+                                                                normalizedWord;
                                                     return GestureDetector(
-                                                      onTap: isInVocab ? null : () => _addToVocabulary(word),
+                                                      onTap: isInVocab
+                                                          ? null
+                                                          : () {
+                                                              _addToVocabulary(word);
+                                                              setInnerState(() {});
+                                                            },
                                                       child: Container(
                                                         padding: const EdgeInsets.all(6),
-                                                        child: Icon(
-                                                          isInVocab ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.star,
-                                                          size: 18,
-                                                          color: isInVocab ? Colors.green.shade600 : Colors.amber,
+                                                        child: TweenAnimationBuilder<double>(
+                                                          duration: const Duration(
+                                                            milliseconds: 300,
+                                                          ),
+                                                          curve: Curves.elasticOut,
+                                                          tween: Tween(
+                                                            begin: 1.0,
+                                                            end: isInVocab ? 1.2 : 1.0,
+                                                          ),
+                                                          builder: (context, scale, child) {
+                                                            return Transform.scale(
+                                                              scale: scale,
+                                                              child: child,
+                                                            );
+                                                          },
+                                                          child: Icon(
+                                                            isInVocab
+                                                                ? CupertinoIcons.heart_fill
+                                                                : CupertinoIcons.heart,
+                                                            size: 18,
+                                                            color: isInVocab
+                                                                ? Colors.redAccent
+                                                                : Colors.grey,
+                                                          ),
                                                         ),
                                                       ),
                                                     );

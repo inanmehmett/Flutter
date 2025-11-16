@@ -49,6 +49,14 @@ class UserProfile {
     // Profile image URL'yi tam URL'ye çevir
     String? processProfileImageUrl(String? profileImageUrl) {
       if (profileImageUrl == null || profileImageUrl.isEmpty) return null;
+      
+      // localhost içeren URL'leri AppConfig.apiBaseUrl ile değiştir
+      if (profileImageUrl.contains('localhost') || profileImageUrl.contains('127.0.0.1')) {
+        final uri = Uri.parse(profileImageUrl);
+        final path = uri.path;
+        return '${AppConfig.apiBaseUrl}$path${uri.query.isNotEmpty ? '?${uri.query}' : ''}';
+      }
+      
       if (profileImageUrl.startsWith('http://') || profileImageUrl.startsWith('https://')) {
         return profileImageUrl;
       }

@@ -111,7 +111,30 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   padding: EdgeInsets.only(top: 32, bottom: 24),
                   child: Column(
                     children: [
-                      Icon(Icons.menu_book, color: Colors.white, size: 48),
+                      ClipOval(
+                        child: Image.asset(
+                          Platform.isIOS 
+                            ? 'assets/icons/AppIcons/Assets.xcassets/AppIcon.appiconset/120.png'
+                            : 'assets/icons/AppIcons/android/mipmap-xxhdpi/ic_launcher.png',
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.cover,
+                          filterQuality: FilterQuality.high,
+                          cacheWidth: 160, // Load at 2x resolution for better quality
+                          cacheHeight: 160,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.menu_book, color: Colors.white, size: 48),
+                            );
+                          },
+                        ),
+                      ),
                       SizedBox(height: 12),
                       Text('REGISTER', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
                       SizedBox(height: 8),

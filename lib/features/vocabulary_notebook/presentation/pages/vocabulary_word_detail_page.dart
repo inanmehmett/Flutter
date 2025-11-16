@@ -395,7 +395,7 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
             ),
           ],
 
-          // Öğrenme İstatistikleri ve Durumu (Birleştirildi)
+          // Öğrenme Durumu ve İstatistikleri (Birleştirildi)
           const SizedBox(height: 16),
           _glassCard(
             context,
@@ -403,6 +403,32 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Önce Öğrenme Durumu başlığı ve kartı
+                Row(
+                  children: [
+                    Icon(
+                      Icons.trending_up_rounded,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Öğrenme Durumu',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _buildStatusCard(context, word),
+
+                const SizedBox(height: 20),
+                const Divider(),
+                const SizedBox(height: 16),
+
+                // Ardından Öğrenme İstatistikleri başlığı ve içerik
                 Row(
                   children: [
                     Icon(
@@ -470,30 +496,6 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
                   const SizedBox(height: 12),
                   _buildNextReviewInfo(context, word),
                 ],
-                
-                // Öğrenme Durumu - İstatistiklerin altına eklendi
-                const SizedBox(height: 20),
-                const Divider(),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.trending_up_rounded,
-                      size: 20,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Öğrenme Durumu',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 18,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _buildStatusCard(context, word),
               ],
             ),
           ),

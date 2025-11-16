@@ -574,17 +574,20 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                   ],
                 ),
               ),
-              // Circular progress indicator
+              // Circular progress indicator (yüzde etrafında hizalanmış halka)
               SizedBox(
                 width: 60,
                 height: 60,
                 child: Stack(
+                  alignment: Alignment.center,
                   children: [
                     // Background circle
-                    Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.2),
+                    SizedBox.expand(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withOpacity(0.2),
+                        ),
                       ),
                     ),
                     // Animated progress circle
@@ -593,11 +596,14 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                       tween: Tween(begin: 0, end: progress),
                       curve: Curves.easeOutCubic,
                       builder: (context, value, child) {
-                        return CircularProgressIndicator(
-                          value: value,
-                          strokeWidth: 5,
-                          backgroundColor: Colors.transparent,
-                          valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                        return SizedBox.expand(
+                          child: CircularProgressIndicator(
+                            value: value,
+                            strokeWidth: 5,
+                            backgroundColor: Colors.transparent,
+                            valueColor:
+                                const AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
                         );
                       },
                     ),

@@ -55,104 +55,102 @@ class VocabularyWordCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Hero(
-                                  tag: 'vocab_word_${word.id}',
-                                  child: Material(
-                                    type: MaterialType.transparency,
-                                    child: Text(
-                                      word.word,
-                                      style: const TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: -0.4,
-                                        height: 1.2,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Hero(
+                                    tag: 'vocab_word_${word.id}',
+                                    child: Material(
+                                      type: MaterialType.transparency,
+                                      child: Text(
+                                        word.word,
+                                        style: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: -0.4,
+                                          height: 1.2,
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              // CEFR seviyesi - kelimenin yanında göster
-                              if (word.wordLevel != null && word.wordLevel!.isNotEmpty) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: _getWordLevelColor(context).withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: _getWordLevelColor(context).withOpacity(0.3),
-                                      width: 1,
+                                // CEFR seviyesi - kelimenin yanında göster
+                                if (word.wordLevel != null && word.wordLevel!.isNotEmpty) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: _getWordLevelColor(context).withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: _getWordLevelColor(context).withOpacity(0.3),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      word.wordLevel!,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: _getWordLevelColor(context),
+                                        letterSpacing: 0.5,
+                                      ),
                                     ),
                                   ),
-                                  child: Text(
-                                    word.wordLevel!,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: _getWordLevelColor(context),
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ),
+                                ],
                               ],
-                            ],
-                          ),
-                          SizedBox(height: MediaQuery.of(context).size.height < 700 ? 4 : 6),
-                          Text(
-                            word.meaning,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w400,
-                              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.75),
-                              height: 1.3,
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                            SizedBox(height: MediaQuery.of(context).size.height < 700 ? 4 : 6),
+                            Text(
+                              word.meaning,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w400,
+                                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.75),
+                                height: 1.3,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    GestureDetector(
-                      onTap: () => _showStatusMenu(context),
-                      behavior: HitTestBehavior.opaque,
-                      child: _buildStatusChip(context),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () async {
-                        try {
-                          final tts = getIt<FlutterTts>();
-                          await tts.stop();
-                          await tts.setLanguage('en-US');
-                          await tts.speak(word.word);
-                        } catch (_) {}
-                      },
-                      behavior: HitTestBehavior.opaque,
-                      child: _buildSpeakButton(context),
-                    ),
-                    const SizedBox(width: 4),
-                    _buildDeleteButton(context),
-                  ],
-                ),
-                SizedBox(height: isCompactScreen ? 10 : 12),
-                _buildStatsRow(context),
-              ],
+                      const SizedBox(width: 12),
+                      GestureDetector(
+                        onTap: () => _showStatusMenu(context),
+                        behavior: HitTestBehavior.opaque,
+                        child: _buildStatusChip(context),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () async {
+                          try {
+                            final tts = getIt<FlutterTts>();
+                            await tts.stop();
+                            await tts.setLanguage('en-US');
+                            await tts.speak(word.word);
+                          } catch (_) {}
+                        },
+                        behavior: HitTestBehavior.opaque,
+                        child: _buildSpeakButton(context),
+                      ),
+                      const SizedBox(width: 4),
+                      _buildDeleteButton(context),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ), // Padding
-          ), // MediaQuery
-        ), // InkWell
+          ),
+        ),
       ), // Material
     ); // Container
   }
@@ -208,149 +206,6 @@ class VocabularyWordCard extends StatelessWidget {
         Icons.volume_up_rounded,
         size: 16,
         color: Theme.of(context).colorScheme.primary,
-      ),
-    );
-  }
-
-  Widget _buildStatsRow(BuildContext context) {
-    final isCompactScreen = MediaQuery.of(context).size.height < 700;
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isCompactScreen ? 10 : 12,
-        vertical: isCompactScreen ? 6 : 8,
-      ),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            // Review count
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.quiz_outlined,
-                    size: 12,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${word.reviewCount}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          
-          // Doğruluk oranı (sadece tekrar yapıldıysa göster - kompakt)
-          if (word.reviewCount > 0) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              decoration: BoxDecoration(
-                color: _getAccuracyColor(context).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.trending_up_rounded,
-                    size: 12,
-                    color: _getAccuracyColor(context),
-                  ),
-                  const SizedBox(width: 3),
-                  Text(
-                    '${(word.accuracyRate * 100).toStringAsFixed(0)}%',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: _getAccuracyColor(context),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          
-          // Kelime seviyesi (CEFR) - backend'den geliyorsa göster (stats row'da daha küçük)
-          // Not: Seviye bilgisi artık kelime başlığının yanında gösteriliyor, burada opsiyonel olarak gösterilebilir
-          
-          const SizedBox(width: 8),
-          
-          // Next review time (if available)
-          if (word.nextReviewAt != null) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.amber.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.alarm_rounded,
-                    size: 12,
-                    color: Colors.amber,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _formatNextReview(word.nextReviewAt!),
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.amber,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-
-          // Added date
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.access_time_rounded,
-                  size: 12,
-                  color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.6),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  _formatDate(word.addedAt),
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.6),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-        ),
       ),
     );
   }
@@ -526,25 +381,5 @@ class VocabularyWordCard extends StatelessWidget {
       default:
         return Colors.purple;
     }
-  }
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date).inDays;
-    
-    if (difference == 0) return 'Bugün';
-    if (difference == 1) return 'Dün';
-    if (difference < 7) return '$difference gün önce';
-    if (difference < 30) return '${(difference / 7).round()} hafta önce';
-    return '${(difference / 30).round()} ay önce';
-  }
-
-  String _formatNextReview(DateTime when) {
-    final now = DateTime.now();
-    if (when.isBefore(now)) return 'Şimdi';
-    final diff = when.difference(now);
-    if (diff.inMinutes < 60) return '${diff.inMinutes} dk';
-    if (diff.inHours < 24) return '${diff.inHours} sa';
-    return '${diff.inDays} gün';
   }
 }

@@ -15,24 +15,14 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     on<RefreshVocabulary>(_onRefreshVocabulary);
     on<SearchWords>(_onSearchWords);
     on<FilterByStatus>(_onFilterByStatus);
+    on<FilterByLevel>(_onFilterByLevel);
     on<LoadMoreVocabulary>(_onLoadMore);
     on<AddWord>(_onAddWord);
     on<UpdateWord>(_onUpdateWord);
     on<DeleteWord>(_onDeleteWord);
     on<MarkWordReviewed>(_onMarkWordReviewed);
-    on<AddWordsFromText>(_onAddWordsFromText);
-    on<SyncWords>(_onSyncWords);
-    on<LoadWordsForReview>(_onLoadWordsForReview);
-    on<RecordLearningActivity>(_onRecordLearningActivity);
-    on<LoadWordsNeedingReview>(_onLoadWordsNeedingReview);
-    on<LoadOverdueWords>(_onLoadOverdueWords);
-    on<LoadLearningAnalytics>(_onLoadLearningAnalytics);
-    on<LoadDailyReviewWords>(_onLoadDailyReviewWords);
-    on<LoadReviewStats>(_onLoadReviewStats);
     on<StartReviewSession>(_onStartReviewSession);
     on<CompleteReviewSession>(_onCompleteReviewSession);
-    on<LoadNextReviewTime>(_onLoadNextReviewTime);
-    on<LoadReviewStreak>(_onLoadReviewStreak);
   }
 
   Future<void> _onLoadVocabulary(
@@ -70,13 +60,24 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     Emitter<VocabularyState> emit,
   ) async {
     try {
-      final words = await repository.searchWords(event.query);
+      // Get current filter status from state
+      final currentState = state;
+      final currentFilter = currentState is VocabularyLoaded ? currentState.selectedStatus : null;
+      
+      // Use getUserWords with search query and current filter
+      final words = await repository.getUserWords(
+        searchQuery: event.query,
+        status: currentFilter,
+        limit: 50,
+        offset: 0,
+      );
       final stats = _lastStats ?? await repository.getUserStats();
       _lastStats = stats;
       emit(VocabularyLoaded(
         words: words,
         stats: stats, 
         searchQuery: event.query,
+        selectedStatus: currentFilter,
       ));
     } catch (e) {
       emit(VocabularyError(message: e.toString()));
@@ -88,6 +89,7 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     Emitter<VocabularyState> emit,
   ) async {
     try {
+      // Status filtresi backend üzerinden uygulanıyor
       final words = await repository.getUserWords(status: event.status, limit: 50, offset: 0);
       final stats = _lastStats ?? await repository.getUserStats();
       _lastStats = stats;
@@ -95,6 +97,7 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
         words: words,
         stats: stats,
         selectedStatus: event.status,
+        selectedLevel: null, // status değişince seviye filtresini sıfırla
         hasMore: words.length == 50,
       ));
     } catch (e) {
@@ -102,27 +105,71 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     }
   }
 
+  Future<void> _onFilterByLevel(
+    FilterByLevel event,
+    Emitter<VocabularyState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! VocabularyLoaded) return;
+
+    final level = event.level?.toUpperCase().trim();
+
+    // Seviye filtresi tamamen client-side uygulanıyor (backend'e extra parametre yok)
+    final filtered = level == null || level.isEmpty
+        ? currentState.words
+        : currentState.words.where((w) => w.wordLevel?.toUpperCase().trim() == level).toList();
+
+    emit(currentState.copyWith(
+      words: filtered,
+      selectedLevel: level,
+      hasMore: false, // seviye filtreliyken sayfalama kapalı
+    ));
+  }
+
   Future<void> _onAddWord(
     AddWord event,
     Emitter<VocabularyState> emit,
   ) async {
-    emit(WordAdding(word: event.word));
-    try {
-      // Pre-check duplicate locally if possible
-      final currentState = state;
-      if (currentState is VocabularyLoaded) {
-        final exists = currentState.words.any((w) => w.word.toLowerCase().trim() == event.word.word.toLowerCase().trim());
-        if (exists) {
-          emit(WordExists(word: event.word));
-          return;
-        }
+    // Optimistic update: add word to local list immediately
+    final currentState = state;
+    VocabularyLoaded? previousState;
+    if (currentState is VocabularyLoaded) {
+      // Pre-check duplicate locally
+      final exists = currentState.words.any((w) => w.word.toLowerCase().trim() == event.word.word.toLowerCase().trim());
+      if (exists) {
+        emit(WordExists(word: event.word));
+        return;
       }
+      // Save previous state for rollback
+      previousState = currentState;
+      // Optimistically add word
+      final optimisticWord = event.word.copyWith(id: -1); // Temporary ID
+      emit(currentState.copyWith(words: [...currentState.words, optimisticWord]));
+    } else {
+      emit(WordAdding(word: event.word));
+    }
+    
+    try {
       final addedWord = await repository.addWord(event.word);
-      emit(WordAdded(word: addedWord));
-      // After mutation, force refresh of stats
+      // Update stats only (no full refresh needed)
       _lastStats = null;
-      add(RefreshVocabulary());
+      final stats = await repository.getUserStats();
+      
+      // Update state with real word from backend
+      if (previousState != null) {
+        final updatedList = previousState.words
+            .where((w) => w.id != -1) // Remove optimistic word
+            .toList();
+        updatedList.add(addedWord);
+        emit(previousState.copyWith(words: updatedList, stats: stats));
+      } else {
+        emit(WordAdded(word: addedWord));
+      }
     } catch (e) {
+      // Rollback on error
+      if (previousState != null) {
+        emit(previousState);
+      }
       emit(VocabularyError(message: e.toString()));
     }
   }
@@ -133,7 +180,9 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
   ) async {
     // Optimistic update: if we are in loaded state, update local list immediately
     final currentState = state;
+    VocabularyLoaded? previousState;
     if (currentState is VocabularyLoaded) {
+      previousState = currentState;
       final updated = event.word;
       final newList = currentState.words.map((w) => w.id == updated.id ? updated : w).toList();
       emit(currentState.copyWith(words: newList));
@@ -142,11 +191,18 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     }
     try {
       final updatedWord = await repository.updateWord(event.word);
-      emit(WordUpdated(word: updatedWord));
-      _lastStats = null;
-      add(RefreshVocabulary());
+      // Update state with backend response
+      if (previousState != null) {
+        final newList = previousState.words.map((w) => w.id == updatedWord.id ? updatedWord : w).toList();
+        emit(previousState.copyWith(words: newList));
+      } else {
+        emit(WordUpdated(word: updatedWord));
+      }
     } catch (e) {
-      // Rollback not implemented (local only), push error to UI
+      // Rollback on error
+      if (previousState != null) {
+        emit(previousState);
+      }
       emit(VocabularyError(message: e.toString()));
     }
   }
@@ -155,13 +211,33 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     DeleteWord event,
     Emitter<VocabularyState> emit,
   ) async {
-    emit(WordDeleting(wordId: event.wordId));
+    // Optimistic update: eğer VocabularyLoaded ise kelimeyi hemen listeden çıkar
+    final beforeDelete = state;
+    if (beforeDelete is VocabularyLoaded) {
+      final newList =
+          beforeDelete.words.where((w) => w.id != event.wordId).toList();
+      emit(beforeDelete.copyWith(words: newList));
+    } else {
+      emit(WordDeleting(wordId: event.wordId));
+    }
     try {
       await repository.deleteWord(event.wordId);
-      emit(WordDeleted(wordId: event.wordId));
+      // Update stats only (no full refresh needed)
       _lastStats = null;
-      add(RefreshVocabulary());
+      final stats = await repository.getUserStats();
+
+      // Mevcut state VocabularyLoaded ise, sadece stats'i güncelle
+      final current = state;
+      if (current is VocabularyLoaded) {
+        emit(current.copyWith(stats: stats));
+      } else {
+        emit(WordDeleted(wordId: event.wordId));
+      }
     } catch (e) {
+      // Rollback on error
+      if (beforeDelete is VocabularyLoaded) {
+        emit(beforeDelete);
+      }
       emit(VocabularyError(message: e.toString()));
     }
   }
@@ -170,50 +246,36 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     MarkWordReviewed event,
     Emitter<VocabularyState> emit,
   ) async {
+    // Optimistic update: update word locally immediately
+    final currentState = state;
+    VocabularyLoaded? previousState;
+    if (currentState is VocabularyLoaded) {
+      previousState = currentState;
+      // Find word and update optimistically
+      final word = currentState.words.firstWhere((w) => w.id == event.wordId, orElse: () => throw StateError('Word not found'));
+      // Simple optimistic update (will be replaced by backend response)
+      final updatedList = currentState.words.map((w) => w.id == event.wordId ? word : w).toList();
+      emit(currentState.copyWith(words: updatedList));
+    }
+    
     try {
       await repository.markWordReviewed(event.wordId, event.isCorrect);
+      // Fetch updated word and stats
+      final updatedWord = await repository.getWordById(event.wordId);
       _lastStats = null;
-      add(RefreshVocabulary());
-    } catch (e) {
-      emit(VocabularyError(message: e.toString()));
-    }
-  }
-
-  Future<void> _onAddWordsFromText(
-    AddWordsFromText event,
-    Emitter<VocabularyState> emit,
-  ) async {
-    try {
-      await repository.addWordsFromText(event.text, event.readingTextId);
-      _lastStats = null;
-      add(RefreshVocabulary());
-    } catch (e) {
-      emit(VocabularyError(message: e.toString()));
-    }
-  }
-
-  Future<void> _onSyncWords(
-    SyncWords event,
-    Emitter<VocabularyState> emit,
-  ) async {
-    try {
-      await repository.syncWords();
-      _lastStats = null;
-      add(RefreshVocabulary());
-    } catch (e) {
-      emit(VocabularyError(message: e.toString()));
-    }
-  }
-
-  Future<void> _onLoadWordsForReview(
-    LoadWordsForReview event,
-    Emitter<VocabularyState> emit,
-  ) async {
-    try {
-      final words = await repository.getWordsForReview(event.limit);
       final stats = await repository.getUserStats();
-      emit(VocabularyLoaded(words: words, stats: stats, hasMore: false));
+      
+      if (previousState != null && updatedWord != null) {
+        final updatedList = previousState.words.map((w) => w.id == event.wordId ? updatedWord : w).toList();
+        emit(previousState.copyWith(words: updatedList, stats: stats));
+      } else if (previousState != null) {
+        emit(previousState.copyWith(stats: stats));
+      }
     } catch (e) {
+      // Rollback on error
+      if (previousState != null) {
+        emit(previousState);
+      }
       emit(VocabularyError(message: e.toString()));
     }
   }
@@ -236,88 +298,6 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
       emit(currentState.copyWith(words: merged, hasMore: more.length == 50));
     } catch (_) {} finally {
       _isLoadingMore = false;
-    }
-  }
-
-  // Yeni öğrenme sistemi metodları
-  Future<void> _onRecordLearningActivity(
-    RecordLearningActivity event,
-    Emitter<VocabularyState> emit,
-  ) async {
-    try {
-      await repository.recordLearningActivity(event.activity);
-      // Activity kaydedildikten sonra stats'i güncelle
-      _lastStats = null;
-      add(RefreshVocabulary());
-    } catch (e) {
-      emit(VocabularyError(message: e.toString()));
-    }
-  }
-
-  Future<void> _onLoadWordsNeedingReview(
-    LoadWordsNeedingReview event,
-    Emitter<VocabularyState> emit,
-  ) async {
-    try {
-      final words = await repository.getWordsNeedingReview(limit: event.limit);
-      final stats = _lastStats ?? await repository.getUserStats();
-      emit(VocabularyLoaded(words: words, stats: stats, hasMore: false));
-    } catch (e) {
-      emit(VocabularyError(message: e.toString()));
-    }
-  }
-
-  Future<void> _onLoadOverdueWords(
-    LoadOverdueWords event,
-    Emitter<VocabularyState> emit,
-  ) async {
-    try {
-      final words = await repository.getOverdueWords(limit: event.limit);
-      final stats = _lastStats ?? await repository.getUserStats();
-      emit(VocabularyLoaded(words: words, stats: stats, hasMore: false));
-    } catch (e) {
-      emit(VocabularyError(message: e.toString()));
-    }
-  }
-
-  Future<void> _onLoadLearningAnalytics(
-    LoadLearningAnalytics event,
-    Emitter<VocabularyState> emit,
-  ) async {
-    try {
-      await repository.getLearningAnalytics();
-      // Analytics'i state'e eklemek için VocabularyLoaded state'ini genişletmek gerekebilir
-      // Şimdilik sadece başarılı olduğunu belirtelim
-      emit(VocabularyLoaded(words: const [], stats: _lastStats ?? await repository.getUserStats()));
-    } catch (e) {
-      emit(VocabularyError(message: e.toString()));
-    }
-  }
-
-  // Aralıklı tekrar sistemi metodları
-  Future<void> _onLoadDailyReviewWords(
-    LoadDailyReviewWords event,
-    Emitter<VocabularyState> emit,
-  ) async {
-    try {
-      final words = await repository.getDailyReviewWords();
-      final stats = _lastStats ?? await repository.getUserStats();
-      emit(VocabularyLoaded(words: words, stats: stats, hasMore: false));
-    } catch (e) {
-      emit(VocabularyError(message: e.toString()));
-    }
-  }
-
-  Future<void> _onLoadReviewStats(
-    LoadReviewStats event,
-    Emitter<VocabularyState> emit,
-  ) async {
-    try {
-      await repository.getReviewStats();
-      final stats = _lastStats ?? await repository.getUserStats();
-      emit(VocabularyLoaded(words: const [], stats: stats, hasMore: false));
-    } catch (e) {
-      emit(VocabularyError(message: e.toString()));
     }
   }
 
@@ -354,29 +334,4 @@ class VocabularyBloc extends Bloc<VocabularyEvent, VocabularyState> {
     }
   }
 
-  Future<void> _onLoadNextReviewTime(
-    LoadNextReviewTime event,
-    Emitter<VocabularyState> emit,
-  ) async {
-    try {
-      await repository.getNextReviewTime();
-      final stats = _lastStats ?? await repository.getUserStats();
-      emit(VocabularyLoaded(words: const [], stats: stats, hasMore: false));
-    } catch (e) {
-      emit(VocabularyError(message: e.toString()));
-    }
-  }
-
-  Future<void> _onLoadReviewStreak(
-    LoadReviewStreak event,
-    Emitter<VocabularyState> emit,
-  ) async {
-    try {
-      await repository.getReviewStreak();
-      final stats = _lastStats ?? await repository.getUserStats();
-      emit(VocabularyLoaded(words: const [], stats: stats, hasMore: false));
-    } catch (e) {
-      emit(VocabularyError(message: e.toString()));
-    }
-  }
 }

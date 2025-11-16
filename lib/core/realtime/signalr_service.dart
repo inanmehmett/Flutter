@@ -161,9 +161,14 @@ class SignalRService {
       if (args != null && args.isNotEmpty) {
         final data = args[0] as Map<String, dynamic>?;
         if (data != null) {
+          print('🎯 SignalR: Level Up event received: $data');
           _controller.add(RealtimeEvent(RealtimeEventType.levelUp, {
             'levelLabel': data['newLevel'] ?? '',
             'totalXP': data['newTotalXP'] ?? 0,
+            'rewards': data['rewards'], // Include rewards array which may contain badge info
+            'oldLevel': data['oldLevel'],
+            'xpReward': data['xpReward'],
+            'motivationMessage': data['motivationMessage'],
           }));
           
           HapticFeedback.mediumImpact();

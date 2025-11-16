@@ -38,6 +38,7 @@ import 'core/widgets/badge_celebration.dart';
 import 'core/widgets/celebration_badge.dart';
 import 'core/network/api_client.dart';
 import 'core/network/network_manager.dart';
+import 'features/game/services/game_service.dart';
 import 'features/game/pages/leaderboard_page.dart';
 import 'features/quiz/presentation/pages/vocabulary_quiz_page.dart';
 import 'features/quiz/presentation/cubit/vocabulary_quiz_cubit.dart';
@@ -203,6 +204,7 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   late int _currentIndex;
   late final SignalRService _signalRService;
+  final Set<String> _shownBadgeNames = {}; // Track badges that have been shown
 
   final _pages = const [
     HomePage(showBottomNav: false),
@@ -243,18 +245,169 @@ class _AppShellState extends State<AppShell> {
         cache.removeData('user/profile');
         cache.removeData('game/level');
         cache.removeData('game/streak');
+        cache.removeData('game/badges'); // Invalidate badge cache to force refresh
         // DO NOT trigger CheckAuthStatus here - it causes infinite loops
         // Profile will be refreshed when user navigates to profile page or manually refreshes
+      }
+      
+      // Check for newly earned badges (called when XP changes or level up)
+      Future<void> checkForNewBadges(BuildContext context) async {
+        if (!mounted) return;
+        try {
+          final gameService = GameService(getIt<ApiClient>(), getIt<CacheManager>());
+          final badges = await gameService.getBadges(forceRefresh: true);
+          
+          final now = DateTime.now();
+          
+          // Find newly earned badges (isEarned = true and earned recently)
+          for (final badgeData in badges) {
+            if (badgeData is! Map<String, dynamic>) continue;
+            final isEarned = (badgeData['isEarned'] ?? badgeData['IsEarned']) as bool? ?? false;
+            if (!isEarned) continue;
+            
+            final badgeName = (badgeData['name'] ?? badgeData['Name'] ?? '').toString();
+            if (badgeName.isEmpty) continue;
+            
+            // Check if this badge was already shown (to avoid duplicates)
+            if (_shownBadgeNames.contains(badgeName)) continue;
+            
+            // Check if badge was earned recently (within last 2 minutes)
+            final earnedAt = badgeData['earnedAt'] ?? badgeData['EarnedAt'];
+            bool isRecentlyEarned = false;
+            
+            if (earnedAt != null) {
+              try {
+                DateTime? earnedDate;
+                if (earnedAt is String) {
+                  // Try parsing ISO 8601 format
+                  earnedDate = DateTime.tryParse(earnedAt);
+                  if (earnedDate == null) {
+                    // Try parsing other formats
+                    final parts = earnedAt.split('T');
+                    if (parts.length == 2) {
+                      final datePart = parts[0].split('-');
+                      final timePart = parts[1].split(':');
+                      if (datePart.length == 3 && timePart.length >= 2) {
+                        earnedDate = DateTime(
+                          int.parse(datePart[0]),
+                          int.parse(datePart[1]),
+                          int.parse(datePart[2]),
+                          int.parse(timePart[0]),
+                          int.parse(timePart[1]),
+                        );
+                      }
+                    }
+                  }
+                } else if (earnedAt is Map) {
+                  // Handle nested date objects
+                  final year = earnedAt['year'] ?? earnedAt['Year'];
+                  final month = earnedAt['month'] ?? earnedAt['Month'];
+                  final day = earnedAt['day'] ?? earnedAt['Day'];
+                  if (year != null && month != null && day != null) {
+                    earnedDate = DateTime(
+                      (year as num).toInt(),
+                      (month as num).toInt(),
+                      (day as num).toInt(),
+                    );
+                  }
+                }
+                
+                if (earnedDate != null) {
+                  final difference = now.difference(earnedDate);
+                  // Show badge if earned within last 2 minutes
+                  isRecentlyEarned = difference.inMinutes < 2;
+                } else {
+                  // If we can't parse the date, assume it's recent if badge is earned
+                  // This handles cases where backend doesn't send earnedAt
+                  isRecentlyEarned = true;
+                }
+              } catch (e) {
+                print('⚠️ Error parsing earnedAt for badge $badgeName: $e');
+                // If parsing fails, assume it's recent
+                isRecentlyEarned = true;
+              }
+            } else {
+              // If no earnedAt timestamp, check if it's a level badge (always show level badges)
+              final category = (badgeData['category'] ?? badgeData['Category'] ?? '').toString().toLowerCase();
+              isRecentlyEarned = category == 'level';
+            }
+            
+            if (!isRecentlyEarned) continue;
+            
+            final badgeDescription = (badgeData['description'] ?? badgeData['Description'] ?? 'Tebrikler! Yeni bir başarı kazandınız!').toString();
+            final badgeImageUrl = (badgeData['imageUrl'] ?? badgeData['ImageUrl'])?.toString();
+            final badgeRarity = (badgeData['rarity'] ?? badgeData['Rarity'])?.toString();
+            final badgeRarityColor = (badgeData['rarityColor'] ?? badgeData['RarityColor'] ?? badgeData['rarityColorHex'])?.toString();
+            
+            print('🏆 Newly earned badge detected: $badgeName');
+            _shownBadgeNames.add(badgeName);
+            
+            // Show badge toast immediately
+            if (mounted) {
+              ToastOverlay.show(
+                context,
+                BadgeToast(
+                  badgeName,
+                  rarity: badgeRarity,
+                  rarityColorHex: badgeRarityColor,
+                  imageUrl: badgeImageUrl,
+                  onTap: () {},
+                ),
+                duration: const Duration(seconds: 4),
+                channel: 'badge',
+              );
+            }
+            
+            // Show badge celebration after a short delay
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) {
+                BadgeCelebration.show(
+                  context,
+                  name: badgeName,
+                  subtitle: badgeDescription,
+                  imageUrl: badgeImageUrl,
+                  rarity: badgeRarity,
+                  rarityColorHex: badgeRarityColor,
+                  earned: true,
+                );
+              }
+            });
+            
+            // Only show the first badge to avoid spam
+            break;
+          }
+        } catch (e) {
+          print('⚠️ Error checking badges: $e');
+        }
       }
       switch (evt.type) {
         case RealtimeEventType.xpChanged:
           ToastOverlay.show(ctx, XpToast((evt.payload['deltaXP'] ?? 0) as int), channel: 'xp');
           invalidateProfileCaches();
+          
+          // Check for badges when XP changes (XP threshold badges)
+          // Delay slightly to ensure backend has processed the badge award
+          Future.delayed(const Duration(milliseconds: 300), () {
+            checkForNewBadges(ctx);
+          });
           break;
         case RealtimeEventType.levelUp:
           // Full-screen level-up celebration (purple themed, different from badge)
           final levelLabel = (evt.payload['levelLabel'] ?? evt.payload['newLevel'] ?? 'New Level') as String;
           final levelXp = evt.payload['totalXP'] != null ? (evt.payload['totalXP'] as num?)?.toInt() : null;
+          
+          // Check rewards array for badge information
+          final rewards = evt.payload['rewards'];
+          bool hasBadgeReward = false;
+          if (rewards is List) {
+            for (final reward in rewards) {
+              if (reward is String && (reward.contains('rozet') || reward.contains('Rozet') || reward.contains('🏆'))) {
+                hasBadgeReward = true;
+                print('🏆 Level up rewards contain badge info: $reward');
+                break;
+              }
+            }
+          }
           
           LevelUpCelebration.show(
             ctx,
@@ -265,6 +418,14 @@ class _AppShellState extends State<AppShell> {
           // Also show a small toast for quick feedback
           ToastOverlay.show(ctx, LevelUpToast(levelLabel), channel: 'level');
           invalidateProfileCaches();
+          
+          // Check for newly earned badges immediately after level up
+          // Backend may award badges during level up but doesn't send BadgeEarned event
+          // If rewards array indicates badge, check immediately, otherwise delay slightly
+          final delay = hasBadgeReward ? 200 : 300;
+          Future.delayed(Duration(milliseconds: delay), () {
+            checkForNewBadges(ctx);
+          });
           break;
         case RealtimeEventType.badgeEarned:
           // Full-screen celebration + toast notification for better gamification
@@ -276,6 +437,11 @@ class _AppShellState extends State<AppShell> {
           
           print('🏆 Badge earned event received: $badgeName, description: $badgeDescription');
           print('🏆 Badge payload: ${evt.payload}');
+          
+          // Track this badge as shown to avoid duplicates
+          if (badgeName.isNotEmpty) {
+            _shownBadgeNames.add(badgeName);
+          }
           
           // Show toast notification immediately (quick feedback)
           try {

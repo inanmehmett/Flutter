@@ -19,6 +19,7 @@ class VocabularyLoaded extends VocabularyState {
   final VocabularyStats stats;
   final String? searchQuery;
   final VocabularyStatus? selectedStatus;
+  final String? selectedLevel; // CEFR level: A1-C2
   final bool hasMore;
 
   const VocabularyLoaded({
@@ -26,17 +27,19 @@ class VocabularyLoaded extends VocabularyState {
     required this.stats,
     this.searchQuery,
     this.selectedStatus,
+    this.selectedLevel,
     this.hasMore = false,
   });
 
   @override
-  List<Object?> get props => [words, stats, searchQuery, selectedStatus, hasMore];
+  List<Object?> get props => [words, stats, searchQuery, selectedStatus, selectedLevel, hasMore];
 
   VocabularyLoaded copyWith({
     List<VocabularyWord>? words,
     VocabularyStats? stats,
     String? searchQuery,
     VocabularyStatus? selectedStatus,
+    String? selectedLevel,
     bool? hasMore,
   }) {
     return VocabularyLoaded(
@@ -44,6 +47,7 @@ class VocabularyLoaded extends VocabularyState {
       stats: stats ?? this.stats,
       searchQuery: searchQuery ?? this.searchQuery,
       selectedStatus: selectedStatus ?? this.selectedStatus,
+      selectedLevel: selectedLevel ?? this.selectedLevel,
       hasMore: hasMore ?? this.hasMore,
     );
   }

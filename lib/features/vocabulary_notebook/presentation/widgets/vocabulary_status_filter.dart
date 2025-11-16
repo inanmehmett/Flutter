@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../domain/entities/vocabulary_word.dart';
+import '../../domain/entities/vocabulary_stats.dart';
 
 class VocabularyStatusFilter extends StatelessWidget {
   final VocabularyStatus? selectedStatus;
+  final VocabularyStats stats;
   final ValueChanged<VocabularyStatus?> onStatusChanged;
 
   const VocabularyStatusFilter({
     super.key,
     required this.selectedStatus,
+    required this.stats,
     required this.onStatusChanged,
   });
 
@@ -20,6 +23,7 @@ class VocabularyStatusFilter extends StatelessWidget {
           _buildFilterChip(
             context,
             label: 'Tümü',
+            count: stats.totalWords,
             icon: Icons.library_books,
             isSelected: selectedStatus == null,
             onTap: () => onStatusChanged(null),
@@ -31,6 +35,7 @@ class VocabularyStatusFilter extends StatelessWidget {
               child: _buildFilterChip(
                 context,
                 label: status.displayName,
+                count: _getCountForStatus(status),
                 icon: _getIconForStatus(status),
                 isSelected: selectedStatus == status,
                 onTap: () => onStatusChanged(status),
@@ -55,9 +60,23 @@ class VocabularyStatusFilter extends StatelessWidget {
     }
   }
 
+  int _getCountForStatus(VocabularyStatus status) {
+    switch (status) {
+      case VocabularyStatus.new_:
+        return stats.newWords;
+      case VocabularyStatus.learning:
+        return stats.learningWords;
+      case VocabularyStatus.known:
+        return stats.knownWords;
+      case VocabularyStatus.mastered:
+        return stats.masteredWords;
+    }
+  }
+
   Widget _buildFilterChip(
     BuildContext context, {
     required String label,
+    required int count,
     required IconData icon,
     required bool isSelected,
     required VoidCallback onTap,
@@ -107,6 +126,27 @@ class VocabularyStatusFilter extends StatelessWidget {
                 fontSize: 14,
                 letterSpacing: -0.1,
                 height: 1.0,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? Theme.of(context).colorScheme.onPrimary.withOpacity(0.2)
+                    : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                count.toString(),
+                style: TextStyle(
+                  color: isSelected
+                      ? Theme.of(context).colorScheme.onPrimary
+                      : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                  height: 1.0,
+                ),
               ),
             ),
           ],

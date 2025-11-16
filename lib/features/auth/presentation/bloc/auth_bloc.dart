@@ -315,28 +315,53 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   Future<void> _clearAllHiveBoxes() async {
     try {
-      // Clear user_words box
+      // Clear user_words box (clear but don't close - box needs to stay open for app)
       if (Hive.isBoxOpen('user_words')) {
-        final userWordsBox = Hive.box('user_words');
-        await userWordsBox.clear();
+        try {
+          final userWordsBox = Hive.box('user_words');
+          await userWordsBox.clear();
+          Logger.auth('user_words box cleared');
+        } catch (e) {
+          Logger.warning('Error clearing user_words box: $e');
+          // If box is corrupted, try to close and reopen
+          try {
+            await Hive.box('user_words').close();
+            Logger.auth('user_words box closed due to error');
+          } catch (_) {}
+        }
       }
       
       // Clear user_preferences box
       if (Hive.isBoxOpen('user_preferences')) {
-        final userPrefsBox = Hive.box('user_preferences');
-        await userPrefsBox.clear();
+        try {
+          final userPrefsBox = Hive.box('user_preferences');
+          await userPrefsBox.clear();
+          Logger.auth('user_preferences box cleared');
+        } catch (e) {
+          Logger.warning('Error clearing user_preferences box: $e');
+        }
       }
       
       // Clear favorites box
       if (Hive.isBoxOpen('favorites')) {
-        final favoritesBox = Hive.box('favorites');
-        await favoritesBox.clear();
+        try {
+          final favoritesBox = Hive.box('favorites');
+          await favoritesBox.clear();
+          Logger.auth('favorites box cleared');
+        } catch (e) {
+          Logger.warning('Error clearing favorites box: $e');
+        }
       }
       
       // Clear app_cache box (already cleared by CacheManager, but clear again to be sure)
       if (Hive.isBoxOpen('app_cache')) {
-        final appCacheBox = Hive.box('app_cache');
-        await appCacheBox.clear();
+        try {
+          final appCacheBox = Hive.box('app_cache');
+          await appCacheBox.clear();
+          Logger.auth('app_cache box cleared');
+        } catch (e) {
+          Logger.warning('Error clearing app_cache box: $e');
+        }
       }
       
       // Clear LocalVocabularyStore (in-memory store)
@@ -358,7 +383,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       }
     } catch (e) {
       Logger.warning('Error clearing Hive boxes: $e');
-      rethrow;
+      // Don't rethrow - continue with logout even if cleanup fails
     }
   }
 

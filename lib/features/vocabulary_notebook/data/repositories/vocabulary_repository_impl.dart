@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../../../../core/network/network_manager.dart';
 import '../../../../core/utils/json_extensions.dart';
+import '../../../../core/utils/logger.dart';
 import '../../domain/entities/vocabulary_word.dart';
 import '../../domain/entities/vocabulary_stats.dart';
 import '../../domain/entities/learning_activity.dart';
@@ -11,18 +12,55 @@ import '../../domain/services/review_session.dart';
 import '../../../vocab/domain/services/vocab_learning_service.dart';
 import '../../../vocab/domain/entities/user_word_entity.dart' as ue;
 import '../../../../core/di/injection.dart';
+import '../../../../core/storage/storage_manager.dart';
 import '../local/local_vocabulary_store.dart';
 
 class VocabularyRepositoryImpl implements VocabularyRepository {
+  static const String _deletedWordsKey = 'vocab_deleted_word_ids';
+  
   final VocabLearningService _svc = getIt<VocabLearningService>();
   final LocalVocabularyStore _store = LocalVocabularyStore();
   final NetworkManager _net = getIt<NetworkManager>();
+  final StorageManager _storage = getIt<StorageManager>();
   int? _activeSessionId;
+  // Track deleted word IDs to prevent them from being re-added from backend cache
+  Set<int> _deletedWordIds = <int>{};
+  bool _deletedWordIdsLoaded = false;
+  
+  /// Ensure deleted word IDs are loaded from persistent storage
+  Future<void> _ensureDeletedWordIdsLoaded() async {
+    if (_deletedWordIdsLoaded) return;
+    try {
+      final saved = await _storage.fetch<List<dynamic>>(_deletedWordsKey);
+      if (saved != null) {
+        _deletedWordIds = saved.cast<int>().toSet();
+      } else {
+        _deletedWordIds = <int>{};
+      }
+      _deletedWordIdsLoaded = true;
+    } catch (e) {
+      Logger.warning('Error loading deleted word IDs: $e');
+      _deletedWordIds = <int>{};
+      _deletedWordIdsLoaded = true;
+    }
+  }
+  
+  /// Save deleted word IDs to persistent storage
+  Future<void> _saveDeletedWordIds() async {
+    try {
+      await _storage.save(_deletedWordsKey, _deletedWordIds.toList());
+    } catch (e) {
+      Logger.warning('Error saving deleted word IDs: $e');
+    }
+  }
   
   /// Logout sonrası tüm cache'leri ve state'leri temizle
   void clearCache() {
     _activeSessionId = null;
     _store.clearAll();
+    _deletedWordIds.clear();
+    _deletedWordIdsLoaded = false;
+    _storage.delete(_deletedWordsKey);
   }
 
   Future<T> _retry<T>(Future<T> Function() run, {int attempts = 2}) async {
@@ -99,9 +137,21 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
   }
 
   VocabularyWord _fromServer(Map<String, dynamic> e) {
+    // ✅ CRITICAL FIX: Check if word is deleted FIRST, before any parsing
+    final id = e.getInt('id', defaultValue: 0);
+    if (id == 0) {
+      throw Exception('Invalid word ID: 0');
+    }
+    
+    // ✅ CRITICAL FIX: Don't process deleted words - prevent re-adding from backend cache
+    // Check deleted words BEFORE parsing to avoid unnecessary work
+    if (_deletedWordIds.contains(id)) {
+      throw Exception('Word $id was deleted');
+    }
+    
     // ✅ Use case-insensitive parsing to handle both camelCase and PascalCase
     final status = _statusFromString(e.getString('status', defaultValue: 'new_'));
-    final id = e.getInt('id', defaultValue: 0);
+    
     final word = e.getString('word', defaultValue: '');
     final meaning = e.getString('meaning', defaultValue: '');
     final notes = e.getIgnoreCase<String>('notes');
@@ -122,35 +172,25 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
     String? wordLevelStr;
     final wordLevelValue = e.getIgnoreCase('wordLevel');
     
-    // 🔍 DEBUG: Raw WordLevel value
-    print('🔍 [VOCAB] WordLevel raw value for "$word": $wordLevelValue (type: ${wordLevelValue?.runtimeType})');
-    
     if (wordLevelValue != null) {
       // Enum string olarak geliyor (örn: "A1", "B2", "Unknown")
       if (wordLevelValue is String) {
         final levelStr = wordLevelValue.trim();
         wordLevelStr = (levelStr == 'Unknown' || levelStr.isEmpty) ? null : levelStr;
-        print('🔍 [VOCAB] WordLevel parsed as String: "$levelStr" -> "$wordLevelStr"');
+        Logger.debug('WordLevel parsed as String: "$levelStr" -> "$wordLevelStr"');
       } else if (wordLevelValue is int) {
         // Enum integer olarak gelirse
         wordLevelStr = wordLevelValue == 0 ? null : _mapLevelTypeIdToString(wordLevelValue);
-        print('🔍 [VOCAB] WordLevel parsed as int: $wordLevelValue -> "$wordLevelStr"');
+        Logger.debug('WordLevel parsed as int: $wordLevelValue -> "$wordLevelStr"');
       } else {
         // Diğer durumlar için toString() dene
         final levelStr = wordLevelValue.toString().trim();
         if (levelStr.isNotEmpty && levelStr != 'Unknown' && levelStr != '0') {
           wordLevelStr = levelStr;
-          print('🔍 [VOCAB] WordLevel parsed via toString(): "$levelStr"');
+          Logger.debug('WordLevel parsed via toString(): "$levelStr"');
         }
       }
-    } else {
-      print('⚠️ [VOCAB] WordLevel is null for word "$word"');
     }
-    
-    // 🔍 DEBUG: Log parsed data to verify backend response
-    print('🔄 [VOCAB] Parsing word "$word" (ID: $id) - '
-          'ReviewCount: $reviewCount, CorrectCount: $correctCount, '
-          'Status: $status, Consecutive: $consecutive, WordLevel: $wordLevelStr');
     
     // Parse synonyms and antonyms from backend
     final synonymsList = e.getList<String>('synonyms');
@@ -201,6 +241,9 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
     int limit = 50,
     int offset = 0,
   }) async {
+    // Ensure deleted word IDs are loaded before processing
+    await _ensureDeletedWordIdsLoaded();
+    
     try {
       final resp = await _retry(() => _net.get('/api/ApiUserVocabulary', queryParameters: {
         if (searchQuery != null && searchQuery.trim().isNotEmpty) 'search': searchQuery.trim(),
@@ -216,23 +259,55 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
       }));
       final data = (resp.data['data'] ?? {});
       final items = (data['items'] as List? ?? const []).cast<dynamic>();
-      final serverList = items.map((e) => _fromServer(e as Map<String, dynamic>)).toList();
+      // Filter out deleted words from backend response (prevents re-adding from cache)
+      final serverList = <VocabularyWord>[];
+      for (final item in items) {
+        try {
+          final word = _fromServer(item as Map<String, dynamic>);
+          // _fromServer already filters deleted words, so we can add directly
+          serverList.add(word);
+        } catch (e) {
+          // Skip deleted words or parsing errors silently
+          // Deleted words are expected and don't need logging
+          if (!e.toString().contains('was deleted') && !e.toString().contains('Invalid word ID')) {
+            // Only log unexpected parsing errors
+            Logger.warning('Error parsing word: $e');
+          }
+        }
+      }
       // Union with local optimistic words not yet on the server
+      // Apply status filter to local words as well
       final localOnly = _store
           .allWords()
-          .where((w) => !serverList.any((s) => s.id == w.id))
+          .where((w) => 
+            !serverList.any((s) => s.id == w.id) && 
+            !_deletedWordIds.contains(w.id) &&
+            (status == null || w.status == status)
+          )
           .toList();
       return [...localOnly, ...serverList];
     } on DioException catch (e) {
-      // Backend hata verirse boş liste döndür (eski kullanıcı verilerini göstermemek için)
-      // Fallback legacy service'i kaldırdık - güvenlik sorunu yaratıyordu
-      print('⚠️ [VocabularyRepository] Backend error, returning empty list: ${e.message}');
+      // Handle 401 Unauthorized specifically
+      if (e.response?.statusCode == 401) {
+        Logger.warning('Unauthorized access - user may need to login');
+        // Return empty list for 401 - user is not authenticated
+        return <VocabularyWord>[];
+      }
+      
+      // Handle other errors
+      Logger.error('Backend error in getUserWords', e);
+      
+      // Return empty list for network errors (don't show stale data)
+      // Fallback legacy service removed for security reasons
       return <VocabularyWord>[];
     }
   }
 
   @override
   Future<VocabularyWord?> getWordById(int id) async {
+    // Ensure deleted word IDs are loaded before processing
+    await _ensureDeletedWordIdsLoaded();
+    
     try {
       final resp = await _retry(() => _net.get('/api/ApiUserVocabulary/$id'));
       // Backend returns: { success: true, message: "...", data: UserVocabularyDto }
@@ -326,6 +401,9 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
 
   @override
   Future<VocabularyWord> addWord(VocabularyWord word) async {
+    // Ensure deleted word IDs are loaded before processing
+    await _ensureDeletedWordIdsLoaded();
+    
     try {
       final resp = await _retry(() => _net.post('/api/ApiUserVocabulary', data: {
         // 'stableId' intentionally omitted to let backend generate a GUID
@@ -394,6 +472,9 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
 
   @override
   Future<void> deleteWord(int id) async {
+    // Ensure deleted word IDs are loaded before deleting
+    await _ensureDeletedWordIdsLoaded();
+    
     try {
       await _retry(() => _net.delete('/api/ApiUserVocabulary/$id'));
     } catch (_) {
@@ -404,6 +485,9 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
       }
     }
     _store.removeWord(id);
+    // Track deleted word ID to prevent it from being re-added from backend cache
+    _deletedWordIds.add(id);
+    await _saveDeletedWordIds();
   }
 
   @override
@@ -459,53 +543,20 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
   }
 
   @override
-  Future<List<VocabularyWord>> searchWords(String query) async {
-    final list = await _svc.listWords(query: query);
-    return list.map(_mapEntity).toList();
-  }
-
-  @override
-  Future<List<VocabularyWord>> getWordsForReview(int limit) async {
-    // Prefer server-side due selection
-    try {
-      final resp = await _retry(() => _net.get('/api/ApiUserVocabulary', queryParameters: {
-        'due': true,
-        'offset': 0,
-        'limit': limit,
-      }));
-      final data = (resp.data['data'] ?? {});
-      final items = (data['items'] as List? ?? const []).cast<dynamic>();
-      return items.map((e) => _fromServer(e as Map<String, dynamic>)).toList();
-    } catch (_) {
-      // Fallback local
-      final list = await _svc.listWords();
-      final all = list.map(_mapEntity).toList();
-      final due = all.where((w) => w.needsReview).toList();
-      return due.take(limit).toList();
-    }
-    // Note: Prioritization can be reintroduced using server-enriched analytics if needed
-  }
-
-  @override
   Future<void> markWordReviewed(int wordId, bool isCorrect) async {
     try {
-      // 🔍 DEBUG: Log review attempt
-      print('📝 [VOCAB] Marking word $wordId as ${isCorrect ? "CORRECT" : "WRONG"}');
+      Logger.debug('Marking word $wordId as ${isCorrect ? "CORRECT" : "WRONG"}');
       
       final resp = await _retry(() => _net.post('/api/ApiUserVocabulary/$wordId/review', data: { 'isCorrect': isCorrect }));
-      
-      // 🔍 DEBUG: Log backend response
-      print('✅ [VOCAB] Backend response: ${resp.data}');
       
       // Backend response contains updated word data; fetch and update local store
       final updated = await getWordById(wordId);
       if (updated != null) {
-        // 🔍 DEBUG: Log updated word stats
-        print('📊 [VOCAB] Updated stats - ReviewCount: ${updated.reviewCount}, '
+        Logger.debug('Updated stats - ReviewCount: ${updated.reviewCount}, '
               'CorrectCount: ${updated.correctCount}, Status: ${updated.status.name}');
         _store.upsertWord(updated);
       } else {
-        print('⚠️ [VOCAB] Failed to fetch updated word $wordId');
+        Logger.warning('Failed to fetch updated word $wordId');
       }
       
       // Eğer aktif session varsa item ekleyelim
@@ -518,16 +569,15 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
       }
       return; // Success: backend handled it
     } catch (e) {
-      // 🔍 DEBUG: Log error
-      print('❌ [VOCAB] Error marking word reviewed: $e');
+      Logger.error('Error marking word reviewed', e);
       
       // Fallback: optimistic local update
       final current = _store.getById(wordId);
       if (current == null) {
-        print('⚠️ [VOCAB] Word $wordId not found in local store');
+        Logger.warning('Word $wordId not found in local store');
         return;
       }
-      print('🔄 [VOCAB] Using fallback local update for word $wordId');
+      Logger.debug('Using fallback local update for word $wordId');
       final updated = SpacedRepetitionService.processReviewResult(
         word: current,
         isCorrect: isCorrect,
@@ -538,125 +588,10 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
   }
 
   @override
-  Future<List<VocabularyWord>> addWordsFromText(String text, int readingTextId) async {
-    return [];
-  }
-
-  @override
-  Future<void> syncWords() async {
-    return;
-  }
-
-  // Yeni öğrenme sistemi metodları
-  @override
-  Future<void> recordLearningActivity(LearningActivity activity) async {
-    // Şimdilik boş implementasyon - gelecekte local storage'a kaydedilecek
-    return;
-  }
-
-  @override
-  Future<List<LearningActivity>> getWordActivities(int wordId, {int limit = 10}) async {
-    // Şimdilik boş liste döndür - gelecekte local storage'dan alınacak
-    return [];
-  }
-
-  @override
-  Future<List<VocabularyWord>> getWordsNeedingReview({int limit = 20}) async {
-    final list = await _svc.listWords();
-    final words = list.map(_mapEntity).toList();
-    
-    // Review'e ihtiyacı olan kelimeleri filtrele
-    final reviewWords = words.where((word) => word.needsReview).toList();
-    
-    // Limit uygula
-    return reviewWords.take(limit).toList();
-  }
-
-  @override
-  Future<List<VocabularyWord>> getOverdueWords({int limit = 10}) async {
-    final list = await _svc.listWords();
-    final words = list.map(_mapEntity).toList();
-    
-    // Geciken kelimeleri filtrele
-    final overdueWords = words.where((word) => word.isOverdue).toList();
-    
-    // Limit uygula
-    return overdueWords.take(limit).toList();
-  }
-
-  @override
-  Future<Map<String, dynamic>> getLearningAnalytics() async {
-    final list = await _svc.listWords();
-    final words = list.map(_mapEntity).toList();
-    
-    final totalWords = words.length;
-    final newWords = words.where((w) => w.status == VocabularyStatus.new_).length;
-    final learningWords = words.where((w) => w.status == VocabularyStatus.learning).length;
-    final knownWords = words.where((w) => w.status == VocabularyStatus.known).length;
-    final masteredWords = words.where((w) => w.status == VocabularyStatus.mastered).length;
-    
-    final wordsNeedingReview = words.where((w) => w.needsReview).length;
-    final overdueWords = words.where((w) => w.isOverdue).length;
-    
-    // Ortalama doğruluk oranı
-    final totalAccuracy = words.fold<double>(0.0, (sum, word) => sum + word.accuracyRate);
-    final averageAccuracy = totalWords > 0 ? totalAccuracy / totalWords : 0.0;
-    
-    // Bugün eklenen kelimeler
-    final today = DateTime.now();
-    final wordsAddedToday = words.where((w) => 
-      w.addedAt.year == today.year && 
-      w.addedAt.month == today.month && 
-      w.addedAt.day == today.day
-    ).length;
-    
-    final wordsReviewedToday = words.where((w) => w.lastReviewedAt != null && w.lastReviewedAt!.year == today.year && w.lastReviewedAt!.month == today.month && w.lastReviewedAt!.day == today.day).length;
-    
-    // Streak hesaplama (basit implementasyon)
-    final streakDays = SpacedRepetitionService.calculateReviewStreak(words);
-    
-    return {
-      'totalWords': totalWords,
-      'newWords': newWords,
-      'learningWords': learningWords,
-      'knownWords': knownWords,
-      'masteredWords': masteredWords,
-      'wordsNeedingReview': wordsNeedingReview,
-      'overdueWords': overdueWords,
-      'averageAccuracy': averageAccuracy,
-      'wordsAddedToday': wordsAddedToday,
-      'wordsReviewedToday': wordsReviewedToday,
-      'streakDays': streakDays,
-      'learningProgress': totalWords > 0 ? (knownWords + masteredWords) / totalWords : 0.0,
-      'difficultyDistribution': _calculateDifficultyDistribution(words),
-    };
-  }
-
-  // Removed local added-at streak; use review-based streak from service
-
-  Map<String, int> _calculateDifficultyDistribution(List<VocabularyWord> words) {
-    final distribution = <String, int>{
-      'easy': 0,
-      'medium': 0,
-      'hard': 0,
-    };
-    
-    for (final word in words) {
-      if (word.difficultyLevel < 0.3) {
-        distribution['easy'] = distribution['easy']! + 1;
-      } else if (word.difficultyLevel < 0.7) {
-        distribution['medium'] = distribution['medium']! + 1;
-      } else {
-        distribution['hard'] = distribution['hard']! + 1;
-      }
-    }
-    
-    return distribution;
-  }
-
-  // Aralıklı tekrar sistemi metodları
-  @override
   Future<List<VocabularyWord>> getDailyReviewWords() async {
+    // Ensure deleted word IDs are loaded before processing
+    await _ensureDeletedWordIdsLoaded();
+    
     // Prefer server-side due list with a reasonable cap
     try {
       final resp = await _retry(() => _net.get('/api/ApiUserVocabulary', queryParameters: {
@@ -666,7 +601,10 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
       }));
       final data = (resp.data['data'] ?? {});
       final items = (data['items'] as List? ?? const []).cast<dynamic>();
-      final words = items.map((e) => _fromServer(e as Map<String, dynamic>)).toList();
+      final words = items
+          .map((e) => _fromServer(e as Map<String, dynamic>))
+          .where((w) => !_deletedWordIds.contains(w.id))
+          .toList();
       return SpacedRepetitionService.getDailyReviewWords(words);
     } catch (_) {
       final list = await _svc.listWords();

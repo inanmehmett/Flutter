@@ -221,6 +221,13 @@ class PodiumCard extends StatelessWidget {
   }
 
   String _buildFullImageUrl(String imageUrl) {
+    // localhost içeren URL'leri AppConfig.apiBaseUrl ile değiştir
+    if (imageUrl.contains('localhost') || imageUrl.contains('127.0.0.1')) {
+      final uri = Uri.parse(imageUrl);
+      final path = uri.path;
+      return '${AppConfig.apiBaseUrl}$path${uri.query.isNotEmpty ? '?${uri.query}' : ''}';
+    }
+    
     if (imageUrl.startsWith('http')) {
       return imageUrl;
     }
@@ -489,6 +496,13 @@ class LeaderboardCard extends StatelessWidget {
   }
 
   String _buildFullImageUrl(String imageUrl) {
+    // localhost içeren URL'leri AppConfig.apiBaseUrl ile değiştir
+    if (imageUrl.contains('localhost') || imageUrl.contains('127.0.0.1')) {
+      final uri = Uri.parse(imageUrl);
+      final path = uri.path;
+      return '${AppConfig.apiBaseUrl}$path${uri.query.isNotEmpty ? '?${uri.query}' : ''}';
+    }
+    
     if (imageUrl.startsWith('http')) {
       return imageUrl;
     }

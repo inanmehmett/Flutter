@@ -45,10 +45,11 @@ class _PracticeWidgetState extends State<PracticeWidget>
     super.initState();
     _startTime = DateTime.now();
     _initAnimations();
-    
-    // Auto-focus input field
+
+    // Auto-focus input field ve kelimeyi otomatik seslendir
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
+      _speakWord();
     });
   }
 
@@ -68,9 +69,10 @@ class _PracticeWidgetState extends State<PracticeWidget>
       _shakeController.reset();
       _hintController.reset();
       _successController.reset();
-      // Refocus input
+      // Refocus input ve yeni kelimeyi otomatik seslendir
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _focusNode.requestFocus();
+        _speakWord();
       });
     }
   }
@@ -130,7 +132,9 @@ class _PracticeWidgetState extends State<PracticeWidget>
     if (_showResult) return;
 
     final userAnswer = _controller.text.trim().toLowerCase();
-    final correctAnswer = widget.word.meaning.toLowerCase();
+    // Pratik modunda kullanıcıdan duyduğu İngilizce kelimeyi yazması beklenir.
+    // Bu yüzden cevabı kelimenin kendisiyle (word) karşılaştırıyoruz.
+    final correctAnswer = widget.word.word.toLowerCase();
     final isCorrect = userAnswer == correctAnswer || _isSimilar(userAnswer, correctAnswer);
     final responseTime = DateTime.now().difference(_startTime!).inMilliseconds;
 
@@ -206,22 +210,22 @@ class _PracticeWidgetState extends State<PracticeWidget>
   List<String> _generateHints() {
     final hints = <String>[];
     
-    // Hint 1: First letter
-    if (widget.word.meaning.isNotEmpty) {
-      hints.add('İlk harf: ${widget.word.meaning[0].toUpperCase()}...');
+    // Hint 1: İlk harf (İngilizce kelime)
+    if (widget.word.word.isNotEmpty) {
+      hints.add('İlk harf: ${widget.word.word[0].toUpperCase()}...');
     }
     
-    // Hint 2: Synonym or length
+    // Hint 2: Eş anlamlı veya uzunluk bilgisi
     if (widget.word.synonyms.isNotEmpty) {
       hints.add('Eş anlamlısı: ${widget.word.synonyms.first}');
     } else {
-      hints.add('Uzunluk: ${widget.word.meaning.length} harf');
+      hints.add('Uzunluk: ${widget.word.word.length} harf');
     }
     
-    // Hint 3: Partial reveal
-    if (widget.word.meaning.length > 3) {
-      final revealed = widget.word.meaning.substring(0, (widget.word.meaning.length / 2).round());
-      final hidden = '_' * (widget.word.meaning.length - revealed.length);
+    // Hint 3: Kelimenin bir kısmını göster
+    if (widget.word.word.length > 3) {
+      final revealed = widget.word.word.substring(0, (widget.word.word.length / 2).round());
+      final hidden = '_' * (widget.word.word.length - revealed.length);
       hints.add('$revealed$hidden');
     }
     
@@ -251,6 +255,8 @@ class _PracticeWidgetState extends State<PracticeWidget>
   Future<void> _speakWord() async {
     try {
       final ttsService = getIt<TtsService>();
+      // Pratik modunda kelimeyi biraz daha yavaş (yaklaşık %10) seslendir
+      await ttsService.setSpeechRate(0.45);
       final result = await ttsService.speak(widget.word.word);
       
       if (result.isFailure && mounted) {
@@ -360,19 +366,19 @@ class _PracticeWidgetState extends State<PracticeWidget>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Word
+                // Instruction text instead of showing the word itself
                 AnimatedBuilder(
                   animation: _successAnimation,
                   builder: (context, child) {
                     final clampedValue = _successAnimation.value.clamp(0.0, 1.0);
                     return Transform.scale(
-                      scale: 1.0 + (0.08 * clampedValue),
+                      scale: 1.0 + (0.04 * clampedValue),
                       child: Text(
-                        widget.word.word,
+                        'Kelimeyi dinleyin ve yazın',
                         style: TextStyle(
-                          fontSize: StudyConstants.wordFontSize,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: StudyConstants.wordLetterSpacing,
+                          fontSize: StudyConstants.exampleFontSize + 2,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
                           color: _showResult
                               ? (_isCorrect ? Colors.green.shade700 : Colors.red.shade700)
                               : Colors.green.shade700,
@@ -477,7 +483,7 @@ class _PracticeWidgetState extends State<PracticeWidget>
                         if (!_isCorrect) ...[
                           const SizedBox(height: 8),
                           Text(
-                            widget.word.meaning,
+                            widget.word.word,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 18,
@@ -585,7 +591,8 @@ class _PracticeWidgetState extends State<PracticeWidget>
           letterSpacing: 0.5,
         ),
         decoration: InputDecoration(
-          hintText: 'Türkçe karşılığını yazın...',
+          // Kullanıcıdan duyduğu İngilizce kelimeyi yazması istenir.
+          hintText: 'Duyduğunuz kelimeyi yazın...',
           hintStyle: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w500,
