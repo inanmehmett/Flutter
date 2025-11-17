@@ -42,6 +42,7 @@ class AuthService implements AuthServiceProtocol {
   Future<UserProfile> login(
       String userNameOrEmail, String password, bool rememberMe) async {
     Logger.auth('Login attempt for: $userNameOrEmail');
+    Logger.auth('Base URL: $_baseUrl');
 
     // Clear any existing tokens before login
     try {
@@ -59,6 +60,7 @@ class AuthService implements AuthServiceProtocol {
         'scope': 'offline_access roles profile email',
       };
 
+      Logger.auth('Attempting login to: $_baseUrl/connect/token');
       final response = await _networkManager.post(
         '/connect/token',
         data: formData,
@@ -85,7 +87,20 @@ class AuthService implements AuthServiceProtocol {
         throw AuthError.invalidCredentials;
       }
     } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
+      // Timeout durumlarını özel olarak kontrol et
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        Logger.error('Timeout error: ${e.message}');
+        Logger.error('Connection timeout - Sunucuya bağlanılamıyor. Lütfen sunucunun çalıştığından ve URL\'nin doğru olduğundan emin olun.');
+        Logger.error('Base URL: $_baseUrl');
+        throw AuthError.networkError;
+      } else if (e.type == DioExceptionType.connectionError) {
+        Logger.error('Connection error: ${e.message}');
+        Logger.error('Bağlantı hatası - İnternet bağlantınızı kontrol edin.');
+        Logger.error('Base URL: $_baseUrl');
+        throw AuthError.networkError;
+      } else if (e.response?.statusCode == 401) {
         Logger.error('401 Unauthorized - Invalid credentials');
         throw AuthError.invalidCredentials;
       } else if (e.response?.statusCode == 400) {
@@ -93,6 +108,8 @@ class AuthService implements AuthServiceProtocol {
         throw AuthError.serverError;
       } else {
         Logger.error('Network error: ${e.message}');
+        Logger.error('Error type: ${e.type}');
+        Logger.error('Base URL: $_baseUrl');
         throw AuthError.networkError;
       }
     } catch (e) {

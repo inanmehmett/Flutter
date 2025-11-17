@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:injectable/injectable.dart';
 import '../config/app_config.dart';
 import '../storage/secure_storage_service.dart';
+import '../utils/logger.dart';
 import 'interceptors/auth_interceptor.dart';
 import 'interceptors/logging_interceptor.dart';
 import 'interceptors/cache_interceptor.dart';
@@ -23,6 +24,11 @@ class NetworkManager {
     _dio.options.connectTimeout = AppConfig.connectionTimeout;
     _dio.options.receiveTimeout = AppConfig.receiveTimeout;
     _dio.options.sendTimeout = AppConfig.sendTimeout;
+    
+    // Logging: NetworkManager başlatıldığında bilgileri logla
+    Logger.network('NetworkManager initialized');
+    Logger.network('Base URL: $baseUrl');
+    Logger.network('Connection timeout: ${AppConfig.connectionTimeout.inSeconds}s');
     
     // İstemci tarafında CORS header'ları gereksizdir, kaldırıldı
     _dio.options.headers.addAll({
@@ -53,40 +59,79 @@ class NetworkManager {
   }
 
   Future<Response> post(String path, {dynamic data, Options? options}) async {
-    // Token endpoint'i x-www-form-urlencoded bekler
-    if (path == '/connect/token') {
+    final fullUrl = '${_dio.options.baseUrl}$path';
+    Logger.network('POST request to: $fullUrl');
+    
+    try {
+      // Token endpoint'i x-www-form-urlencoded bekler
+      if (path == '/connect/token') {
+        Logger.network('Using form-urlencoded content type for token endpoint');
+        return await _dio.post(
+          path,
+          data: data,
+          options: Options(
+            headers: {
+              ..._dio.options.headers,
+              'Content-Type': Headers.formUrlEncodedContentType,
+            },
+            contentType: Headers.formUrlEncodedContentType,
+            extra: {'dio': _dio},
+          ),
+        );
+      }
+      final isMultipart = data is FormData;
+      final effectiveOptions = (options ?? Options()).copyWith(
+        contentType: isMultipart ? Headers.multipartFormDataContentType : null,
+        extra: {
+          ...(options?.extra ?? {}),
+          'dio': _dio,
+        },
+        headers: {
+          // Varsayılan 'Content-Type' başlığını ezme; Dio FormData için boundary ekleyecek
+          ..._dio.options.headers,
+          ...(options?.headers ?? {}),
+        },
+      );
+
       return await _dio.post(
         path,
         data: data,
-        options: Options(
-          headers: {
-            ..._dio.options.headers,
-            'Content-Type': Headers.formUrlEncodedContentType,
-          },
-          contentType: Headers.formUrlEncodedContentType,
-          extra: {'dio': _dio},
-        ),
+        options: effectiveOptions,
       );
+    } on DioException catch (e) {
+      // Connection error durumunda daha detaylı bilgi logla
+      if (e.type == DioExceptionType.connectionError) {
+        Logger.error('Connection error occurred');
+        Logger.error('URL: $fullUrl');
+        Logger.error('Base URL: ${_dio.options.baseUrl}');
+        Logger.error('Error message: ${e.message}');
+        Logger.error('Error type: ${e.type}');
+        if (e.error != null) {
+          Logger.error('Error details: ${e.error}');
+        }
+        // Connection error'ı yeniden fırlat
+        rethrow;
+      } else if (e.type == DioExceptionType.connectionTimeout ||
+                 e.type == DioExceptionType.sendTimeout ||
+                 e.type == DioExceptionType.receiveTimeout) {
+        Logger.error('Timeout error occurred');
+        Logger.error('URL: $fullUrl');
+        Logger.error('Timeout type: ${e.type}');
+        Logger.error('Error message: ${e.message}');
+        rethrow;
+      }
+      // Diğer hataları da logla ama yeniden fırlat
+      Logger.error('DioException in POST request');
+      Logger.error('URL: $fullUrl');
+      Logger.error('Error type: ${e.type}');
+      Logger.error('Error message: ${e.message}');
+      rethrow;
+    } catch (e) {
+      Logger.error('Unexpected error in POST request');
+      Logger.error('URL: $fullUrl');
+      Logger.error('Error: $e');
+      rethrow;
     }
-    final isMultipart = data is FormData;
-    final effectiveOptions = (options ?? Options()).copyWith(
-      contentType: isMultipart ? Headers.multipartFormDataContentType : null,
-      extra: {
-        ...(options?.extra ?? {}),
-        'dio': _dio,
-      },
-      headers: {
-        // Varsayılan 'Content-Type' başlığını ezme; Dio FormData için boundary ekleyecek
-        ..._dio.options.headers,
-        ...(options?.headers ?? {}),
-      },
-    );
-
-    return await _dio.post(
-      path,
-      data: data,
-      options: effectiveOptions,
-    );
   }
 
   Future<Response> put(String path, {dynamic data, Options? options}) async {
