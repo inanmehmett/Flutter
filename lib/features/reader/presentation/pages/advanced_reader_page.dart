@@ -1015,7 +1015,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                                 height: 1.6,
                                 letterSpacing: 0.1,
                               );
-                              _onWordLongPressStart(details, pageContent, constraints, themeManager, textStyle);
+                              _onWordLongPressStart(details, pageContent, constraints, themeManager, textStyle, context);
                             },
                             onLongPressEnd: (details) => _onWordLongPressEnd(),
                             onPanStart: (details) {
@@ -1105,7 +1105,6 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                         ],
                       ),
                     ),
-                  ),
                 );
               },
             ),
@@ -2676,7 +2675,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
   }
 
   // Long press başlangıcı
-  void _onWordLongPressStart(LongPressStartDetails details, String pageContent, BoxConstraints constraints, ThemeManager themeManager, TextStyle actualTextStyle) {
+  void _onWordLongPressStart(LongPressStartDetails details, String pageContent, BoxConstraints constraints, ThemeManager themeManager, TextStyle actualTextStyle, BuildContext context) {
     HapticFeedback.mediumImpact();
     
     // Get current page index from the context
@@ -2740,7 +2739,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
       Logger.debug('🔍 [Word Detection] ✅ Word selected: "$selText"');
       
       // Show word popup overlay
-      _showWordOverlay(details.globalPosition, selText, themeManager);
+      _showWordOverlay(details.globalPosition, selText, themeManager, context);
       
       if (localHit != null) {
         final entry = localHit['entry'] as PhrasalVerbEntry;
@@ -2751,7 +2750,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
         _updateWordOverlay();
       } else {
         // Get translation from network
-        _translateWord(selText);
+        _translateWord(selText, context);
       }
     } else {
       Logger.warning('🔍 [Word Detection] ❌ No word detected');
@@ -2767,7 +2766,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
   }
 
   // Kelime çevirisi
-  Future<void> _translateWord(String word) async {
+  Future<void> _translateWord(String word, BuildContext context) async {
     if (word.isEmpty) return;
     
     setState(() {
@@ -2806,7 +2805,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
   }
 
   // Minimal Tooltip - Inspired by the image
-  void _showWordOverlay(Offset globalPosition, String word, ThemeManager themeManager) {
+  void _showWordOverlay(Offset globalPosition, String word, ThemeManager themeManager, BuildContext context) {
     _hideWordOverlay();
     
     setState(() {
@@ -2816,7 +2815,7 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     Logger.debug('📍 [Tooltip] Open at tap: '+(_lastTooltipPosition?.toString() ?? 'null')+', word="'+word+'"');
     
     _wordOverlay = OverlayEntry(
-      builder: (context) {
+      builder: (overlayContext) {
         return AnimatedOpacity(
           opacity: _isTooltipVisible ? 1.0 : 0.0,
           duration: const Duration(milliseconds: 150),

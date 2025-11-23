@@ -634,13 +634,9 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
     List<VocabularyWord> reviewWords;
     switch (modeFilter) {
       case 'due':
-        // Review mode: öncelikle sadece "due" kelimeler
+        // Review mode: sadece "due" kelimeler
+        // Due kelime yoksa boş liste döndür - kullanıcı kitap okumaya yönlendirilecek
         reviewWords = await getDailyReviewWords();
-        // Eğer due kelime yoksa, tüm kelimelerden bir oturum oluştur
-        if (reviewWords.isEmpty) {
-          final allWords = await getUserWords(limit: 100);
-          reviewWords = allWords;
-        }
         break;
       case 'all':
         // Quiz mode: tüm kelimelerden rastgele oturum
@@ -664,11 +660,7 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
         reviewWords.shuffle();
     }
 
-    // En az bir kelime olmadan oturum başlatma
-    if (reviewWords.isEmpty) {
-      throw Exception('Çalışacak kelime bulunamadı. Lütfen kelime defterinize yeni kelimeler ekleyin.');
-    }
-
+    // Boş liste durumunda da session döndür - UI'da uygun mesaj gösterilecek
     return SpacedRepetitionService.startReviewSession(reviewWords);
   }
 

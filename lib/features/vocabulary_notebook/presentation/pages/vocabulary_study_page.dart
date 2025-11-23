@@ -7,7 +7,10 @@ import '../bloc/vocabulary_event.dart';
 import '../bloc/vocabulary_state.dart';
 import '../../domain/services/review_session.dart';
 import '../../domain/entities/vocabulary_word.dart';
+import '../../domain/entities/vocabulary_stats.dart';
 import '../../domain/entities/study_mode.dart';
+import '../../domain/repositories/vocabulary_repository.dart';
+import '../../../../core/di/injection.dart';
 import '../widgets/quiz_widget.dart';
 import '../widgets/flashcard_widget.dart';
 import '../widgets/practice_widget.dart';
@@ -27,6 +30,8 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
   ReviewSession? _currentSession;
   int _currentWordIndex = 0;
   bool _sessionCompleted = false;
+  VocabularyStats? _stats;
+  bool _shouldStartSessionAfterStatsLoad = false;
   
   late AnimationController _progressController;
   late AnimationController _cardController;
@@ -85,6 +90,14 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
   }
 
   void _loadStudySession() {
+    // Set flag to start session after stats are loaded
+    _shouldStartSessionAfterStatsLoad = true;
+    
+    // Load vocabulary stats first - session will start in listener after stats load
+    context.read<VocabularyBloc>().add(LoadVocabulary());
+  }
+  
+  void _startReviewSession() {
     // Filter words based on study mode
     final filter = switch (_currentMode) {
       StudyMode.study => 'due',          // Due words priority (SRS)
@@ -190,6 +203,17 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                   _currentSession = state.session;
                 });
                 _cardController.forward();
+              } else if (state is VocabularyLoaded) {
+                // Stats bilgisini sakla
+                setState(() {
+                  _stats = state.stats;
+                });
+                
+                // Stats yüklendikten sonra session başlat (race condition önlemi)
+                if (_shouldStartSessionAfterStatsLoad) {
+                  _shouldStartSessionAfterStatsLoad = false;
+                  _startReviewSession();
+                }
               }
             },
             builder: (context, state) {
@@ -202,6 +226,9 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
               }
 
               if (_currentSession == null || _currentSession!.words.isEmpty) {
+                // Session yükleniyor veya boş - empty state göster
+                // Eğer stats varsa ve toplam kelime 0 ise, gerçekten kelime yok
+                // Eğer stats varsa ve toplam kelime > 0 ise ama session boşsa, hata var
                 return _buildModernEmptyState(context);
               }
 
@@ -373,6 +400,195 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
   }
 
   Widget _buildModernEmptyState(BuildContext context) {
+    // If stats are still loading, show a loading indicator
+    if (_stats == null) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+    
+    final hasWords = _stats!.totalWords > 0;
+    
+    // Duruma göre mesaj ve aksiyon belirle
+    final String title;
+    final String message;
+    final IconData icon;
+    final List<Widget> actions;
+    
+    if (!hasWords) {
+      // Hiç kelime yok - motivasyon ve action-oriented CTA
+      title = 'İngilizce Yolculuğun Başlasın! 🚀';
+      message = 'İlk kelimelerin seni bekliyor!\n\nKitap okuyarak otomatik olarak yeni kelimeler keşfedecek ve günlük hedeflerini tamamlayarak İngilizceni geliştireceksin.';
+      icon = Icons.auto_stories;
+      actions = [
+        FilledButton.icon(
+          onPressed: () {
+            Navigator.pop(context);
+            Navigator.pushNamed(context, '/books');
+          },
+          icon: const Icon(Icons.auto_stories),
+          label: const Text('Hemen Kitap Keşfet'),
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 18),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(StudyConstants.buttonBorderRadius),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Daha Sonra'),
+        ),
+      ];
+    } else {
+      // Kelime var ama bu mod için uygun kelime yok
+      final isDueMode = _currentMode == StudyMode.study;
+      
+      if (isDueMode) {
+        // Due mode: Çalışma zamanı gelen kelime yok - başarı kutlaması ve kitap okumaya yönlendirme
+        final learnedCount = _stats!.totalWords;
+        title = '🌟 Mükemmel! Bugünkü Hedefin Tamamlandı!';
+        message = 'Tebrikler! ${learnedCount} kelimeyi başarıyla öğrendin.\n\n💡 Yeni kelimeleri keşfetmek için kitap okumaya devam et. Her okuma yeni bir kelime hazinesi demek!';
+        icon = Icons.workspace_premium;
+        actions = [
+          // Primary CTA - Kitap okuma
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).colorScheme.primary,
+                  Theme.of(context).colorScheme.secondary,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(StudyConstants.buttonBorderRadius),
+              boxShadow: [
+                BoxShadow(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: FilledButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/books');
+              },
+              icon: const Icon(Icons.auto_stories),
+              label: const Text('Yeni Kelimeler Keşfet'),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 18),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(StudyConstants.buttonBorderRadius),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Secondary info - Motivasyon
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.lightbulb_outline,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'Her gün yeni kelimeler öğrenenlerin %80\'i kitap okuyarak ilerliyor',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                      fontStyle: FontStyle.italic,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Daha Sonra'),
+          ),
+        ];
+      } else {
+        // Diğer modlar için başarı odaklı mesajlar
+        switch (_currentMode) {
+          case StudyMode.practice:
+            title = '💪 Süpersin! Hiç Zor Kelime Yok';
+            message = 'Tüm kelimelerini mükemmel biliyorsun!\n\nYeni zorluklar için daha fazla kelime ekle veya kitap okumaya devam et.';
+            icon = Icons.emoji_events;
+            actions = [
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/books');
+                },
+                icon: const Icon(Icons.auto_stories),
+                label: const Text('Yeni Kelimeler Keşfet'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 18),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(StudyConstants.buttonBorderRadius),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Geri Dön'),
+              ),
+            ];
+          case StudyMode.flashcards:
+            title = '🎴 Flashcard Hazırlığı';
+            message = 'Flashcard çalışması için yeterli kelime yok.\n\nKitap okuyarak yeni kelimeler ekle ve flashcard\'larla pratik yap!';
+            icon = Icons.style;
+            actions = [
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/books');
+                },
+                icon: const Icon(Icons.auto_stories),
+                label: const Text('Kitap Okuyarak Ekle'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 18),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(StudyConstants.buttonBorderRadius),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Geri Dön'),
+              ),
+            ];
+          case StudyMode.study:
+            // Bu durum yukarıda handle edildi
+            title = '';
+            message = '';
+            icon = Icons.celebration_outlined;
+            actions = [];
+        }
+      }
+    }
+    
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -409,7 +625,7 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                       ],
                     ),
                     child: Icon(
-                      Icons.celebration_outlined,
+                      icon,
                       size: 90,
                       color: Theme.of(context).colorScheme.primary,
                     ),
@@ -419,15 +635,16 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
             ),
             const SizedBox(height: 40),
             Text(
-              'Harika İş!',
+              title,
               style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                 fontWeight: FontWeight.w900,
                 letterSpacing: -1.0,
               ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
-              'Bugün için çalışacak kelime kalmadı.\nYeni kelimeler ekleyin veya yarın tekrar gelin.',
+              message,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
                 height: 1.6,
@@ -435,17 +652,7 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 40),
-            FilledButton.icon(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.arrow_back_rounded),
-              label: const Text(StudyConstants.goBackLabel),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 18),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(StudyConstants.buttonBorderRadius),
-                ),
-              ),
-            ),
+            ...actions,
           ],
         ),
       ),
@@ -902,7 +1109,13 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                     child: Column(
                       children: [
                         Text(
-                          isPerfect ? 'Mükemmel! 🎉' : (isExcellent ? 'Harika! ⭐' : (isGood ? 'Aferin! 👏' : 'Tamamlandı! ✓')),
+                          isPerfect 
+                            ? '🏆 Mükemmel! 100% Doğru!' 
+                            : (isExcellent 
+                              ? '⭐ Muhteşem Performans!' 
+                              : (isGood 
+                                ? '👏 Harika İş Başardın!' 
+                                : '✨ İyi Çalışma!')),
                           style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                             fontWeight: FontWeight.w900,
                             letterSpacing: -1.0,
@@ -914,12 +1127,20 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                                         ? Colors.blue.shade700
                                         : Theme.of(context).colorScheme.primary,
                           ),
+                          textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'Çalışma oturumunu başarıyla tamamladınız',
+                          isPerfect
+                            ? '${stats.correctAnswers} kelimeyi hatasız tamamladın! Sen bir yıldızsın! ⭐'
+                            : isExcellent
+                              ? 'Bugün ${stats.correctAnswers} kelime öğrendin. İngilizce\'n gün geçtikçe güçleniyor! 💪'
+                              : isGood
+                                ? 'Harika ilerleme! ${stats.correctAnswers} doğru cevap. Devam et! 🚀'
+                                : '${stats.correctAnswers} kelime öğrendin. Her gün biraz daha iyisin! 📈',
                           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                             color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                            height: 1.5,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -937,32 +1158,64 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
 
             const SizedBox(height: 44),
 
-            // Action buttons
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _restartSession,
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('Tekrar Çalış'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(StudyConstants.buttonBorderRadius),
-                      ),
-                      side: BorderSide(
-                        color: Theme.of(context).colorScheme.primary,
-                        width: 2,
-                      ),
-                    ),
+            // Motivasyon ve sosyal kanıt
+            if (isExcellent)
+              Container(
+                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.only(bottom: 24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                      Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.3),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
                   ),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.trending_up,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Günlük çalışma yapanlar, yapmayanlardan 5x daha hızlı öğreniyor',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w500,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            
+            // Action buttons - CTA odaklı
+            Column(
+              children: [
+                // Primary CTA - Devam et
+                SizedBox(
+                  width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.home_rounded),
-                    label: const Text('Ana Sayfa'),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/books');
+                    },
+                    icon: const Icon(Icons.auto_stories),
+                    label: const Text('Yeni Kelimeler Keşfet'),
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 18),
                       shape: RoundedRectangleBorder(
@@ -970,6 +1223,39 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                       ),
                     ),
                   ),
+                ),
+                const SizedBox(height: 12),
+                // Secondary actions
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _restartSession,
+                        icon: const Icon(Icons.refresh_rounded, size: 20),
+                        label: const Text('Tekrar'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(StudyConstants.buttonBorderRadius),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.home_rounded, size: 20),
+                        label: const Text('Ana Sayfa'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(StudyConstants.buttonBorderRadius),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
