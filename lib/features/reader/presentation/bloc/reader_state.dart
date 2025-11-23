@@ -33,6 +33,7 @@ class ReaderLoaded extends ReaderState {
   final int? playingSentenceIndex;
   final int? playingRangeStart; // local to current page
   final int? playingRangeEnd;   // local to current page
+  final bool speechCompleted;   // true if speech playback completed to the end
 
   // Backward compatibility: legacy getter kept to avoid hot reload lookup failures
   // after removing highlight ranges from state. Always empty now.
@@ -50,6 +51,7 @@ class ReaderLoaded extends ReaderState {
     this.playingSentenceIndex,
     this.playingRangeStart,
     this.playingRangeEnd,
+    this.speechCompleted = false,
   });
 
   ReaderLoaded copyWith({
@@ -64,6 +66,7 @@ class ReaderLoaded extends ReaderState {
     int? playingSentenceIndex,
     int? playingRangeStart,
     int? playingRangeEnd,
+    bool? speechCompleted,
   }) {
     return ReaderLoaded(
       book: book ?? this.book,
@@ -77,6 +80,7 @@ class ReaderLoaded extends ReaderState {
       playingSentenceIndex: playingSentenceIndex ?? this.playingSentenceIndex,
       playingRangeStart: playingRangeStart ?? this.playingRangeStart,
       playingRangeEnd: playingRangeEnd ?? this.playingRangeEnd,
+      speechCompleted: speechCompleted ?? this.speechCompleted,
     );
   }
 
@@ -93,5 +97,6 @@ class ReaderLoaded extends ReaderState {
         playingSentenceIndex,
         playingRangeStart,
         playingRangeEnd,
+        speechCompleted,
       ];
 }

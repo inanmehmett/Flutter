@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:flutter/services.dart' show Clipboard, ClipboardData, HapticFeedback;
+import 'package:flutter/services.dart' show Clipboard, ClipboardData, HapticFeedback, SystemUiOverlayStyle;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/injection.dart';
 import '../../data/repositories/vocabulary_repository_impl.dart';
@@ -125,21 +125,29 @@ class _VocabularyWordDetailPageState extends State<VocabularyWordDetailPage> {
     return MediaQuery(
       data: mq.copyWith(textScaleFactor: clampedScale),
       child: Scaffold(
-        extendBodyBehindAppBar: true,
+        extendBodyBehindAppBar: false,
         appBar: AppBar(
-          backgroundColor: Colors.transparent,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           elevation: 0,
           centerTitle: false,
+          systemOverlayStyle: Theme.of(context).brightness == Brightness.dark
+              ? SystemUiOverlayStyle.light
+              : SystemUiOverlayStyle.dark,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+            icon: Icon(
+              Icons.arrow_back_ios_new_rounded,
+              size: 20,
+              color: Theme.of(context).textTheme.titleLarge?.color,
+            ),
             onPressed: () => Navigator.pop(context),
           ),
-          title: const Text(
+          title: Text(
             'Kelime Detayı',
             style: TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: 18,
               letterSpacing: -0.3,
+              color: Theme.of(context).textTheme.titleLarge?.color,
             ),
           ),
           actions: [

@@ -204,10 +204,13 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     Map<String, dynamic>? makeResult(int si, int ei, PhrasalVerbEntry entry) {
       final start = tokens[si]['start'] as int;
       final end = tokens[ei]['end'] as int;
-      final phrase = fullText.substring(start, end);
+      // Clamp indices to prevent RangeError
+      final safeStart = start.clamp(0, fullText.length);
+      final safeEnd = end.clamp(safeStart, fullText.length);
+      final phrase = fullText.substring(safeStart, safeEnd);
       return {
-        'start': start,
-        'end': end,
+        'start': safeStart,
+        'end': safeEnd,
         'phrase': phrase,
         'entry': entry,
       };
@@ -674,7 +677,22 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
         });
         return WillPopScope(
           onWillPop: () async {
-            return await _handleExitAttemptWithQuiz(state, themeManager);
+            if (!mounted) return true;
+            try { _readerBloc.add(StopSpeech()); } catch (e) { Logger.warning('StopSpeech before exit failed'); }
+            
+            // Always show quiz offer when user tries to exit
+            Logger.debug('Exit attempt: Always showing quiz offer');
+            
+            final decision = await _showExitQuizSheet(state, themeManager);
+            if (!mounted) return true;
+            
+            if (decision == false) {
+              // User chose to take the quiz
+              _navigateToQuiz(state);
+              return false; // Prevent pop, navigate to quiz instead
+            }
+            // decision == true => exit, decision == null => stay
+            return decision == true;
           },
           child: Scaffold(
           backgroundColor: _getThemeBackgroundColor(themeManager),
@@ -794,10 +812,9 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
 
   Future<bool> _handleExitAttemptWithQuiz(ReaderLoaded state, ThemeManager themeManager) async {
     try { _readerBloc.add(StopSpeech()); } catch (e) { Logger.warning('StopSpeech before exit failed'); }
-    final bool isAtLastPage = state.currentPage >= (state.totalPages - 1);
-    if (!isAtLastPage) {
-      return true;
-    }
+    
+    // Always show quiz offer when user tries to exit
+    Logger.debug('Exit attempt: Always showing quiz offer');
     
     final decision = await _showExitQuizSheet(state, themeManager);
     if (decision == false) {
@@ -976,9 +993,8 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
                 final pageContent = _getPageContent(index);
                 final textKey = _textKeys[index] ??= GlobalKey();
                 
-                return Hero(
-                  tag: 'page_$index',
-                  child: AnimatedContainer(
+                // Hero widget removed to prevent duplicate tag errors in PageView
+                return AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeInOut,
                     color: _getThemeSurfaceColor(themeManager),
@@ -2525,7 +2541,10 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
       }
     }
 
-    final sentence = fullText.substring(start, end).trim();
+    // Clamp indices to prevent RangeError
+    final safeStart = start.clamp(0, fullText.length);
+    final safeEnd = end.clamp(safeStart, fullText.length);
+    final sentence = fullText.substring(safeStart, safeEnd).trim();
     return sentence;
   }
 
@@ -2685,7 +2704,8 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
     Logger.debug('🔍 [Word Detection] Max Text Width: $maxTextWidth');
     Logger.debug('🔍 [Word Detection] Font Size: ${actualTextStyle.fontSize}');
     Logger.debug('🔍 [Word Detection] Page Content Length: ${pageContent.length}');
-    Logger.debug('🔍 [Word Detection] Page Content Preview: ${pageContent.substring(0, 100)}...');
+    final previewLength = pageContent.length < 100 ? pageContent.length : 100;
+    Logger.debug('🔍 [Word Detection] Page Content Preview: ${pageContent.substring(0, previewLength)}...');
     
     final wordInfo = _extractWordAtOffset(
       pageContent,
@@ -2703,10 +2723,14 @@ class _AdvancedReaderPageState extends State<AdvancedReaderPage> with WidgetsBin
       final localHit = _detectLocalPhrasalAt(pageContent, wordInfo['start'], wordInfo['end']);
       final selStart = localHit != null ? localHit['start'] as int : wordInfo['start'] as int;
       final selEnd = localHit != null ? localHit['end'] as int : wordInfo['end'] as int;
-      final selText = pageContent.substring(selStart, selEnd);
+      // Clamp indices to prevent RangeError
+      final safeSelStart = selStart.clamp(0, pageContent.length);
+      final safeSelEnd = selEnd.clamp(safeSelStart, pageContent.length);
+      final selText = pageContent.substring(safeSelStart, safeSelEnd);
+      if (!mounted) return;
       setState(() {
-        _wordStart = selStart;
-        _wordEnd = selEnd;
+        _wordStart = safeSelStart;
+        _wordEnd = safeSelEnd;
         _wordPageIndex = currentPageIndex;
         _selectedWord = selText;
         _isLoadingTranslation = true;

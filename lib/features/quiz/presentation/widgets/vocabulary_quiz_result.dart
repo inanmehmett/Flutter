@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../domain/entities/vocabulary_quiz_models.dart';
 import '../../../../core/widgets/toasts.dart';
+import '../../../../core/di/injection.dart';
+import '../../../../core/services/notification_service.dart';
 
 class VocabularyQuizResultWidget extends StatefulWidget {
   final VocabularyQuizResult result;
@@ -137,6 +139,18 @@ class _VocabularyQuizResultState extends State<VocabularyQuizResultWidget>
         }
       });
     }
+    
+    // Quiz sonuç bildirimi gönder (async olarak)
+    Future.microtask(() async {
+      try {
+        final notificationService = getIt<NotificationService>();
+        // quizScore genellikle 0-100 arası yüzde olarak gelir
+        final score = widget.result.quizScore.clamp(0, 100);
+        await notificationService.showQuizResultNotification(score, widget.result.isPassed);
+      } catch (e) {
+        // Bildirim gönderilemezse sessizce devam et
+      }
+    });
   }
 
   @override

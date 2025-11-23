@@ -1235,79 +1235,8 @@ class _ReadingQuizResultViewState extends State<ReadingQuizResultView> {
   }
 
   Widget _buildIOSActions(BuildContext context) {
-    return Column(
-      children: [
-        // Geri sayım göstergesi - iOS tarzı
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.blue.shade50,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            '$_countdown',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.blue.shade700,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
-        
-        // iOS tarzı butonlar
-        Row(
-          children: [
-            Expanded(
-              child: Container(
-                height: 50,
-                child: OutlinedButton(
-                  onPressed: widget.onRetakeQuiz,
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: Colors.grey.shade300),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Tekrar Çöz',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Container(
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: widget.onBackToBook,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    'Kapat',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
+    // Butonlar kaldırıldı - gereksiz
+    return const SizedBox.shrink();
   }
 }
 

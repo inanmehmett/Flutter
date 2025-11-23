@@ -34,6 +34,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   Book? _currentBook;
   bool _isSpeaking = false;
   bool _isPaused = false;
+  bool _speechCompleted = false;                  // Track if speech playback completed to end
   double _speechRate = 0.40;
   // Track user-initiated single sentence playback and resumption logic
   bool _invokedBySequential = false;              // true while sequential calls play
@@ -393,6 +394,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
         currentState = (state as ReaderLoaded).copyWith(
           currentPage: _pageManager.currentPageIndex,
           currentPageContent: _getCurrentPageContent(),
+          speechCompleted: currentState.speechCompleted, // Preserve speechCompleted flag
         );
         emit(currentState);
       }
@@ -403,9 +405,23 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     _isSpeaking = false;
     _isPaused = false;
     _readingHeartbeat?.cancel();
+    
+    // Mark speech as completed if we reached the end naturally (all sentences played)
+    // This happens when sequential playback completes all sentences to the end
+    if (pageIndex >= _pageManager.totalPages - 1) {
+      _speechCompleted = true;
+      Logger.debug('Speech completed: reached end of book at page $pageIndex');
+    }
+    
     if (state is ReaderLoaded) {
       final endState = state as ReaderLoaded;
-      emit(endState.copyWith(isSpeaking: false, isPaused: false, playingSentenceIndex: null));
+      emit(endState.copyWith(
+        isSpeaking: false,
+        isPaused: false,
+        playingSentenceIndex: null,
+        speechCompleted: _speechCompleted,
+      ));
+      Logger.debug('Emitted state with speechCompleted: $_speechCompleted');
     }
 
     // Fire reading_completed when reached the end naturally
@@ -591,6 +607,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
           }
 
           _currentBook = bookModel;
+          _speechCompleted = false; // Reset speech completion flag for new book
 
           // Configure page manager for this book
           _pageManager.configureBook(int.tryParse(bookModel.id) ?? 0);
@@ -620,6 +637,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
             isSpeaking: _isSpeaking,
             isPaused: _isPaused,
             speechRate: _speechRate,
+            speechCompleted: _speechCompleted,
           ));
 
           // Persist last read immediately to ensure Home picks it up
@@ -681,12 +699,14 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
       Logger.book('NextPage - Current: ${_pageManager.currentPageIndex} / ${_pageManager.totalPages}');
       // Stop any ongoing playback when navigating pages
       add(StopSpeech());
+      final speechCompletedFlag = currentState.speechCompleted; // Preserve speechCompleted flag
       _pageManager.nextPage().then((_) {
         if (state is ReaderLoaded) {
           final updatedState = state as ReaderLoaded;
           emit(updatedState.copyWith(
             currentPage: _pageManager.currentPageIndex,
             currentPageContent: _getCurrentPageContent(),
+            speechCompleted: speechCompletedFlag, // Preserve speechCompleted flag
           ));
         }
       });
@@ -699,12 +719,14 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
       Logger.book('PreviousPage - Current: ${_pageManager.currentPageIndex} / ${_pageManager.totalPages}');
       // Stop any ongoing playback when navigating pages
       add(StopSpeech());
+      final speechCompletedFlag = currentState.speechCompleted; // Preserve speechCompleted flag
       _pageManager.previousPage().then((_) {
         if (state is ReaderLoaded) {
           final updatedState = state as ReaderLoaded;
           emit(updatedState.copyWith(
             currentPage: _pageManager.currentPageIndex,
             currentPageContent: _getCurrentPageContent(),
+            speechCompleted: speechCompletedFlag, // Preserve speechCompleted flag
           ));
         }
       });
@@ -720,12 +742,14 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
       }
       // Stop any ongoing playback when jumping to a specific page
       add(StopSpeech());
+      final speechCompletedFlag = currentState.speechCompleted; // Preserve speechCompleted flag
       _pageManager.goToPage(event.page).then((_) {
         if (state is ReaderLoaded) {
           final updatedState = state as ReaderLoaded;
           emit(updatedState.copyWith(
             currentPage: _pageManager.currentPageIndex,
             currentPageContent: _getCurrentPageContent(),
+            speechCompleted: speechCompletedFlag, // Preserve speechCompleted flag
           ));
         }
       });
@@ -758,6 +782,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
       emit(currentState.copyWith(
         isSpeaking: _isSpeaking,
         isPaused: _isPaused,
+        speechCompleted: currentState.speechCompleted, // Preserve speechCompleted flag
       ));
     }
   }
@@ -774,6 +799,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     _currentSentenceBaseInPage = null;
     _readingHeartbeat?.cancel();
     // Reset resume/continuation flags for a clean stop
+    // Note: Don't reset _speechCompleted here - it should persist until book changes
     _invokedBySequential = false;
     _resumeSequentialAfterSingle = false;
     _resumeStartGlobalIndex = null;
@@ -787,6 +813,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
         playingSentenceIndex: null,
         playingRangeStart: null,
         playingRangeEnd: null,
+        speechCompleted: currentState.speechCompleted, // Preserve speechCompleted flag
       ));
     }
   }
@@ -800,7 +827,10 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     
     if (state is ReaderLoaded) {
       final currentState = state as ReaderLoaded;
-      emit(currentState.copyWith(speechRate: _speechRate));
+      emit(currentState.copyWith(
+        speechRate: _speechRate,
+        speechCompleted: currentState.speechCompleted, // Preserve speechCompleted flag
+      ));
     }
   }
 
@@ -812,7 +842,10 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
       final currentPageIndex = currentState.currentPage;
       
       // Emit immediate update with new font size
-      emit(currentState.copyWith(fontSize: _fontSize));
+      emit(currentState.copyWith(
+        fontSize: _fontSize,
+        speechCompleted: currentState.speechCompleted, // Preserve speechCompleted flag
+      ));
       
       // Reinitialize pagination with new font size
       if (_currentBook != null) {
@@ -835,6 +868,7 @@ class AdvancedReaderBloc extends Bloc<ReaderEvent, ReaderState> {
             totalPages: _pageManager.totalPages,
             currentPage: _pageManager.currentPageIndex,
             currentPageContent: _getCurrentPageContent(),
+            speechCompleted: updatedState.speechCompleted, // Preserve speechCompleted flag
           ));
         }
       }

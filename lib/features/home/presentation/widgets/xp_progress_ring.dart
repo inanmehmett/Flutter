@@ -34,6 +34,8 @@ class XPProgressRing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Calculate progress: currentXP / totalXP (same as profile page)
+    // totalXP is the target XP for next level (currentXP + xpRemaining)
     final progress = totalXP > 0 ? (currentXP / totalXP).clamp(0.0, 1.0) : 0.0;
     
     return SizedBox(

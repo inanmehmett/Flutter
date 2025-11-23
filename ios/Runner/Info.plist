@@ -53,35 +53,12 @@
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Fotoğrafları kaydedebilmek için fotoğraf kütüphanesine yazma izni gerekiyor.</string>
 	<!-- ATS exceptions for local development over HTTP -->
+	<!-- NSAllowsArbitraryLoads allows all HTTP connections, including dynamic IPs -->
+	<!-- IP address is dynamically configured via AppConfig.local_config.dart -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>localhost</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-				<key>NSIncludesSubdomains</key>
-				<true/>
-				<key>NSExceptionRequiresForwardSecrecy</key>
-				<false/>
-				<key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-			</dict>
-			<key>192.168.1.106</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-				<key>NSIncludesSubdomains</key>
-				<true/>
-				<key>NSExceptionRequiresForwardSecrecy</key>
-				<false/>
-				<key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-			</dict>
-		</dict>
 	</dict>
 	<!-- Google Sign-In URL scheme (reversed client ID) -->
 	<key>CFBundleURLTypes</key>

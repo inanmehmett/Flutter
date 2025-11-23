@@ -36,6 +36,7 @@ import 'core/cache/cache_manager.dart';
 import 'core/widgets/toasts.dart';
 import 'core/widgets/badge_celebration.dart';
 import 'core/widgets/celebration_badge.dart';
+import 'core/services/notification_service.dart';
 import 'core/network/api_client.dart';
 import 'core/network/network_manager.dart';
 import 'features/game/services/game_service.dart';
@@ -85,6 +86,15 @@ void main() async {
     Logger.debug('Initializing dependency injection...');
     await configureDependencies();
     Logger.debug('Dependency injection configured');
+
+    // Initialize notification service and schedule daily reminders
+    try {
+      final notificationService = getIt<NotificationService>();
+      await notificationService.rescheduleDailyReminders();
+      Logger.info('Daily notifications scheduled');
+    } catch (e) {
+      Logger.error('Failed to schedule daily notifications: $e');
+    }
 
     Logger.info('Running app...');
     runApp(const MyApp());
@@ -380,10 +390,26 @@ class _AppShellState extends State<AppShell> {
           print('⚠️ Error checking badges: $e');
         }
       }
+      // Bildirim servisini al
+      final notificationService = getIt<NotificationService>();
+      
       switch (evt.type) {
         case RealtimeEventType.xpChanged:
-          ToastOverlay.show(ctx, XpToast((evt.payload['deltaXP'] ?? 0) as int), channel: 'xp');
+          final deltaXP = (evt.payload['deltaXP'] ?? 0) as int;
+          ToastOverlay.show(ctx, XpToast(deltaXP), channel: 'xp');
+          
+          // Push notification gönder
+          notificationService.showXPNotification(deltaXP);
+          
           invalidateProfileCaches();
+          
+          // Refresh AuthBloc profile to update XP in UI
+          try {
+            final authBloc = ctx.read<AuthBloc>();
+            authBloc.add(RefreshProfile());
+          } catch (e) {
+            print('⚠️ Error refreshing profile: $e');
+          }
           
           // Check for badges when XP changes (XP threshold badges)
           // Delay slightly to ensure backend has processed the badge award
@@ -395,6 +421,9 @@ class _AppShellState extends State<AppShell> {
           // Full-screen level-up celebration (purple themed, different from badge)
           final levelLabel = (evt.payload['levelLabel'] ?? evt.payload['newLevel'] ?? 'New Level') as String;
           final levelXp = evt.payload['totalXP'] != null ? (evt.payload['totalXP'] as num?)?.toInt() : null;
+          
+          // Push notification gönder
+          notificationService.showLevelUpNotification(levelLabel);
           
           // Check rewards array for badge information
           final rewards = evt.payload['rewards'];
@@ -437,6 +466,9 @@ class _AppShellState extends State<AppShell> {
           
           print('🏆 Badge earned event received: $badgeName, description: $badgeDescription');
           print('🏆 Badge payload: ${evt.payload}');
+          
+          // Push notification gönder
+          notificationService.showBadgeNotification(badgeName);
           
           // Track this badge as shown to avoid duplicates
           if (badgeName.isNotEmpty) {
@@ -488,7 +520,14 @@ class _AppShellState extends State<AppShell> {
           invalidateProfileCaches();
           break;
         case RealtimeEventType.streakUpdated:
-          ToastOverlay.show(ctx, StreakToast((evt.payload['currentStreak'] ?? 0) as int), channel: 'streak');
+          final currentStreak = (evt.payload['currentStreak'] ?? 0) as int;
+          ToastOverlay.show(ctx, StreakToast(currentStreak), channel: 'streak');
+          
+          // Push notification gönder (streak hatırlatması)
+          if (currentStreak > 0) {
+            notificationService.showStreakReminder(currentStreak);
+          }
+          
           invalidateProfileCaches();
           break;
       }

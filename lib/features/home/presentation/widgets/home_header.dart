@@ -3,6 +3,9 @@ import '../../../auth/data/models/user_profile.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../../core/di/injection.dart';
+import '../../../../core/network/network_manager.dart';
+import '../../../../core/utils/xp_utils.dart';
 import 'level_chip.dart';
 import 'xp_progress_ring.dart';
 
@@ -23,7 +26,7 @@ import 'xp_progress_ring.dart';
 ///   streakDays: 7,
 /// )
 /// ```
-class HomeHeader extends StatelessWidget {
+class HomeHeader extends StatefulWidget {
   final UserProfile profile;
   final String greeting;
   final int? streakDays;
@@ -38,12 +41,59 @@ class HomeHeader extends StatelessWidget {
   });
 
   @override
+  State<HomeHeader> createState() => _HomeHeaderState();
+}
+
+class _HomeHeaderState extends State<HomeHeader> {
+  Map<String, dynamic>? _levelData;
+  bool _isLoadingLevel = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLevelData();
+  }
+
+  Future<void> _loadLevelData() async {
+    if (_isLoadingLevel) return;
+    setState(() => _isLoadingLevel = true);
+    
+    try {
+      final client = getIt<NetworkManager>();
+      final levelResp = await client.get('/api/ApiGamification/level');
+      final lroot = levelResp.data is Map<String, dynamic> ? levelResp.data as Map<String, dynamic> : {};
+      final ldat = lroot['data'] is Map<String, dynamic> ? lroot['data'] as Map<String, dynamic> : {};
+      
+      if (mounted) {
+        setState(() {
+          _levelData = ldat.isNotEmpty ? Map<String, dynamic>.from(ldat) : null;
+          _isLoadingLevel = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingLevel = false);
+      }
+    }
+  }
+
+  num _asNum(dynamic value, [num fallback = 0]) {
+    if (value == null) return fallback;
+    if (value is num) return value;
+    if (value is String) {
+      final p = num.tryParse(value);
+      if (p != null) return p;
+    }
+    return fallback;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isCompact = screenWidth < 400;
     
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: Container(
         padding: EdgeInsets.all(isCompact ? 12 : 16),
         decoration: BoxDecoration(
@@ -76,14 +126,14 @@ class HomeHeader extends StatelessWidget {
 
   Widget _buildProfileSection(bool isCompact) {
     final size = isCompact ? 66.0 : 74.0;
-    final level = profile.levelDisplay ?? profile.levelName ?? 'A1';
+    final level = widget.profile.levelDisplay ?? widget.profile.levelName ?? 'A1';
     
     return Stack(
       clipBehavior: Clip.none,
       children: [
         // Profile picture with Hero for smooth transition to ProfilePage
         Hero(
-          tag: 'avatar_${profile.id}',
+          tag: 'avatar_${widget.profile.id}',
           transitionOnUserGestures: true,
           child: Container(
             width: size,
@@ -119,7 +169,7 @@ class HomeHeader extends StatelessWidget {
   }
 
   Widget _buildProfileImage() {
-    final imageUrl = _resolveImageUrl(profile.profileImageUrl);
+    final imageUrl = _resolveImageUrl(widget.profile.profileImageUrl);
     
     if (imageUrl.isEmpty) {
       return Icon(
@@ -148,7 +198,7 @@ class HomeHeader extends StatelessWidget {
       children: [
         // Greeting
         Text(
-          greeting,
+          widget.greeting,
           style: TextStyle(
             fontSize: isCompact ? 16 : 18,
             fontWeight: FontWeight.bold,
@@ -161,7 +211,7 @@ class HomeHeader extends StatelessWidget {
         // Stats row
         Row(
           children: [
-            if (streakDays != null && streakDays! > 0) ...[
+            if (widget.streakDays != null && widget.streakDays! > 0) ...[
               Icon(
                 Icons.local_fire_department,
                 size: isCompact ? 14 : 16,
@@ -169,7 +219,7 @@ class HomeHeader extends StatelessWidget {
               ),
               const SizedBox(width: 4),
               Text(
-                '$streakDays',
+                '${widget.streakDays}',
                 style: TextStyle(
                   fontSize: isCompact ? 12 : 13,
                   fontWeight: FontWeight.w600,
@@ -185,7 +235,7 @@ class HomeHeader extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Text(
-              '${profile.experiencePoints ?? 0} XP',
+              '${widget.profile.experiencePoints ?? 0} XP',
               style: TextStyle(
                 fontSize: isCompact ? 12 : 13,
                 fontWeight: FontWeight.w600,
@@ -199,24 +249,45 @@ class HomeHeader extends StatelessWidget {
   }
 
   Widget _buildXPSection(bool isCompact) {
-    final currentXP = profile.experiencePoints ?? 0;
-    // Calculate next level XP (simplified - can be enhanced)
-    final nextLevelXP = _calculateNextLevelXP(currentXP);
+    final currentXP = widget.profile.experiencePoints ?? 0;
     
+    // Use API level data if available (same calculation as profile page)
+    if (_levelData != null) {
+      final dynamic currentXPRaw = _levelData!['currentXP'] ?? _levelData!['CurrentXP'] ?? _levelData!['totalXP'] ?? _levelData!['TotalXP'];
+      final currentXPd = _asNum(currentXPRaw, currentXP).toDouble();
+      final dynamic xpForNextRaw = _levelData!['xpForNextLevel'] ?? _levelData!['XPForNextLevel'];
+      
+      // Treat API value as remaining XP to next level; derive target XP
+      // If API value is missing, calculate remaining XP using fallback
+      final double xpRemaining;
+      if (xpForNextRaw != null) {
+        xpRemaining = _asNum(xpForNextRaw).toDouble();
+      } else {
+        // Calculate remaining XP using fallback (consistent with profile page)
+        final absoluteTarget = XPUtils.calculateNextLevelXP(currentXPd.toInt()).toDouble();
+        xpRemaining = (absoluteTarget - currentXPd).clamp(0, double.infinity);
+      }
+      
+      // Compute target XP (same as profile page)
+      final double xpTargetD = (currentXPd + xpRemaining).clamp(1, double.infinity);
+      
+      return XPProgressRing(
+        currentXP: currentXPd.toInt(),
+        totalXP: xpTargetD.toInt(),
+        size: isCompact ? 52 : 60,
+        strokeWidth: 4,
+      );
+    }
+    
+    // Fallback: use simple calculation if API data not available
+    // Calculate absolute target XP (same as profile page fallback)
+    final nextLevelXP = XPUtils.calculateNextLevelXP(currentXP);
     return XPProgressRing(
       currentXP: currentXP,
       totalXP: nextLevelXP,
       size: isCompact ? 52 : 60,
       strokeWidth: 4,
     );
-  }
-
-  /// Calculate next level XP based on current XP
-  /// Formula: Next level at every 1000 XP milestone
-  int _calculateNextLevelXP(int currentXP) {
-    if (currentXP < 1000) return 1000;
-    final nextMilestone = ((currentXP / 1000).ceil() + 1) * 1000;
-    return nextMilestone;
   }
 
   String _resolveImageUrl(String? imageUrl) {

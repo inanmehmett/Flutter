@@ -65,6 +65,8 @@ class GoogleLoginRequested extends AuthEvent {
 
 class LogoutRequested extends AuthEvent {}
 
+class RefreshProfile extends AuthEvent {}
+
 // States
 abstract class AuthState extends Equatable {
   const AuthState();
@@ -109,6 +111,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<GoogleLoginRequested>(_onGoogleLoginRequested);
     on<RegisterRequested>(_onRegisterRequested);
     on<LogoutRequested>(_onLogoutRequested);
+    on<RefreshProfile>(_onRefreshProfile);
   }
 
   // Getter to access the auth service
@@ -174,7 +177,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       Logger.auth('Login successful: ${user.userName}');
       emit(AuthAuthenticated(user));
     } catch (e) {
-      String errorMessage = 'Login failed';
+      String errorMessage = 'Giriş başarısız';
       if (e is AuthError) {
         errorMessage = e.localizedDescription;
       }
@@ -197,7 +200,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       Logger.auth('Google login successful: ${user.userName}');
       emit(AuthAuthenticated(user));
     } catch (e) {
-      String errorMessage = 'Google login failed';
+      String errorMessage = 'Google ile giriş başarısız';
       if (e is AuthError) {
         errorMessage = e.localizedDescription;
       }
@@ -224,13 +227,24 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       Logger.auth('Registration successful: ${user.userName}');
       emit(AuthAuthenticated(user));
     } catch (e) {
-      String errorMessage = 'Registration failed';
+      String errorMessage = 'Kayıt başarısız';
       if (e is AuthError) {
         errorMessage = e.localizedDescription;
       } else if (e is Exception) {
         final msg = e.toString();
         final idx = msg.indexOf(':');
-        errorMessage = idx != -1 ? msg.substring(idx + 1).trim() : msg;
+        // Backend'den gelen mesajı kullan, yoksa varsayılan mesajı göster
+        final extractedMsg = idx != -1 ? msg.substring(idx + 1).trim() : msg;
+        // Eğer backend mesajı İngilizce ise Türkçe'ye çevir
+        if (extractedMsg.toLowerCase().contains('username already exists') || 
+            extractedMsg.toLowerCase().contains('kullanıcı adı zaten')) {
+          errorMessage = 'Bu kullanıcı adı zaten kullanılıyor';
+        } else if (extractedMsg.toLowerCase().contains('email already exists') ||
+                   extractedMsg.toLowerCase().contains('e-posta zaten')) {
+          errorMessage = 'Bu e-posta adresi zaten kayıtlı';
+        } else if (extractedMsg.isNotEmpty && !extractedMsg.contains('Exception')) {
+          errorMessage = extractedMsg;
+        }
       }
       Logger.error('Registration error: $errorMessage', e);
       emit(AuthErrorState(errorMessage));
@@ -309,7 +323,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       Logger.auth('Logout completed successfully');
     } catch (e) {
       Logger.error('Logout error: $e', e);
-      emit(AuthErrorState('Logout failed'));
+      emit(AuthErrorState('Çıkış yapılamadı'));
     }
   }
 
@@ -403,5 +417,27 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   void onError(Object error, StackTrace stackTrace) {
     super.onError(error, stackTrace);
     Logger.error('AuthBloc error: $error', error, stackTrace);
+  }
+
+  /// Refresh user profile without changing auth state
+  /// Used when XP or other profile data changes via SignalR
+  Future<void> _onRefreshProfile(
+    RefreshProfile event,
+    Emitter<AuthState> emit,
+  ) async {
+    // Only refresh if currently authenticated
+    if (state is! AuthAuthenticated) {
+      Logger.auth('Not authenticated, skipping profile refresh');
+      return;
+    }
+
+    try {
+      final user = await _authService.fetchUserProfile(forceRefresh: true);
+      Logger.auth('Profile refreshed: ${user.userName}, XP: ${user.experiencePoints}');
+      emit(AuthAuthenticated(user));
+    } catch (e) {
+      Logger.warning('Profile refresh failed, keeping current state: $e');
+      // Keep current state on error
+    }
   }
 }

@@ -26,6 +26,8 @@ class _PracticeWidgetState extends State<PracticeWidget>
     with TickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _speakButtonKey = GlobalKey();
   
   int _currentAttempt = 0;
   String? _currentHint;
@@ -46,11 +48,70 @@ class _PracticeWidgetState extends State<PracticeWidget>
     _startTime = DateTime.now();
     _initAnimations();
 
+    // Klavye açıldığında scroll yap
+    _focusNode.addListener(_onFocusChange);
+
     // Auto-focus input field ve kelimeyi otomatik seslendir
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
       _speakWord();
     });
+  }
+
+  void _onFocusChange() {
+    if (_focusNode.hasFocus && mounted) {
+      // Klavye açıldığında ses butonunu görünür hale getir
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted && _focusNode.hasFocus) {
+          _scrollToSpeakButton();
+        }
+      });
+    }
+  }
+
+  void _scrollToSpeakButton() {
+    if (!mounted || !_scrollController.hasClients) return;
+    final buttonContext = _speakButtonKey.currentContext;
+    if (buttonContext == null) return;
+    
+    try {
+      final box = buttonContext.findRenderObject() as RenderBox?;
+      if (box == null) return;
+      
+      // Ses butonunun pozisyonunu al
+      final position = box.localToGlobal(Offset.zero);
+      
+      // Build context'ten MediaQuery al
+      final buildContext = context;
+      final mediaQuery = MediaQuery.of(buildContext);
+      final screenHeight = mediaQuery.size.height;
+      final keyboardHeight = mediaQuery.viewInsets.bottom;
+      final availableHeight = screenHeight - keyboardHeight;
+      
+      // Ses butonu görünür alanın dışındaysa scroll yap
+      if (position.dy > availableHeight - 150) {
+        final targetPosition = _scrollController.offset + (position.dy - availableHeight + 150);
+        _scrollController.animateTo(
+          targetPosition.clamp(0.0, _scrollController.position.maxScrollExtent),
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    } catch (e) {
+      // Scroll hatası olursa sessizce devam et
+    }
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    _controller.dispose();
+    _scrollController.dispose();
+    _shakeController.dispose();
+    _hintController.dispose();
+    _successController.dispose();
+    super.dispose();
   }
 
   @override
@@ -116,16 +177,6 @@ class _PracticeWidgetState extends State<PracticeWidget>
       parent: _successController,
       curve: Curves.elasticOut,
     ));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _focusNode.dispose();
-    _shakeController.dispose();
-    _hintController.dispose();
-    _successController.dispose();
-    super.dispose();
   }
 
   void _submitAnswer() async {
@@ -281,43 +332,43 @@ class _PracticeWidgetState extends State<PracticeWidget>
         final isCompactHeight = constraints.maxHeight < 600;
         
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(StudyConstants.contentPadding),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: constraints.maxHeight - 32,
-            ),
-            child: IntrinsicHeight(
-              child: Column(
-                children: [
-                  // Word card
-                  Flexible(
-                    flex: isCompactHeight ? 2 : 3,
-                    child: _buildWordCard(context),
-                  ),
+          controller: _scrollController,
+          padding: EdgeInsets.all(isCompactHeight ? StudyConstants.contentPadding * 0.75 : StudyConstants.contentPadding),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Word card
+              _buildWordCard(context),
 
-                  SizedBox(height: isCompactHeight ? 12 : 20),
+              SizedBox(height: isCompactHeight ? 12 : 20),
 
-                  // Hint card (if available)
-                  if (_currentHint != null) ...[
-                    _buildHintCard(context),
-                    const SizedBox(height: 16),
-                  ],
+              // Hint card (if available)
+              if (_currentHint != null) ...[
+                _buildHintCard(context),
+                SizedBox(height: isCompactHeight ? 12 : 16),
+              ],
 
-                  // Typing input
-                  _buildTypingInput(context),
+              // Ses butonu - input field'ın hemen üstünde
+              _buildSpeakButton(context),
 
-                  const SizedBox(height: 16),
+              SizedBox(height: isCompactHeight ? 12 : 16),
 
-                  // Attempts indicator
-                  _buildAttemptsIndicator(context),
+              // Typing input
+              _buildTypingInput(context),
 
-                  const SizedBox(height: 20),
+              SizedBox(height: isCompactHeight ? 12 : 16),
 
-                  // Submit button
-                  _buildSubmitButton(context),
-                ],
-              ),
-            ),
+              // Attempts indicator
+              _buildAttemptsIndicator(context),
+
+              SizedBox(height: isCompactHeight ? 16 : 20),
+
+              // Submit button
+              _buildSubmitButton(context),
+              
+              // Extra bottom padding for safe scrolling
+              SizedBox(height: isCompactHeight ? 8 : 16),
+            ],
           ),
         );
       },
@@ -325,179 +376,162 @@ class _PracticeWidgetState extends State<PracticeWidget>
   }
 
   Widget _buildWordCard(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _shakeAnimation,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(_shakeAnimation.value, 0),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(28),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: _showResult
-                    ? (_isCorrect
-                        ? [Colors.green.shade50, Colors.green.shade100]
-                        : [Colors.red.shade50, Colors.red.shade100])
-                    : [
-                        Colors.green.shade50,
-                        Colors.teal.shade50,
-                      ],
-              ),
-              borderRadius: BorderRadius.circular(StudyConstants.cardBorderRadius),
-              border: Border.all(
-                color: _showResult
-                    ? (_isCorrect ? Colors.green : Colors.red)
-                    : Colors.green.withOpacity(0.3),
-                width: _showResult ? 3 : 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: (_showResult
-                      ? (_isCorrect ? Colors.green : Colors.red)
-                      : Colors.green).withOpacity(0.2),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Instruction text instead of showing the word itself
-                AnimatedBuilder(
-                  animation: _successAnimation,
-                  builder: (context, child) {
-                    final clampedValue = _successAnimation.value.clamp(0.0, 1.0);
-                    return Transform.scale(
-                      scale: 1.0 + (0.04 * clampedValue),
-                      child: Text(
-                        'Kelimeyi dinleyin ve yazın',
-                        style: TextStyle(
-                          fontSize: StudyConstants.exampleFontSize + 2,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.2,
-                          color: _showResult
-                              ? (_isCorrect ? Colors.green.shade700 : Colors.red.shade700)
-                              : Colors.green.shade700,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    );
-                  },
-                ),
-
-                const SizedBox(height: 20),
-
-                // Speak button
-                GestureDetector(
-                  onTap: _speakWord,
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.green.withOpacity(0.2),
-                          Colors.green.withOpacity(0.1),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Colors.green.withOpacity(0.4),
-                        width: 1.5,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.volume_up_rounded,
-                      size: 28,
-                      color: Colors.green,
-                    ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompactHeight = constraints.maxHeight < 600;
+        return AnimatedBuilder(
+          animation: _shakeAnimation,
+          builder: (context, child) {
+            return Transform.translate(
+              offset: Offset(_shakeAnimation.value, 0),
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(isCompactHeight ? 20 : 28),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: _showResult
+                        ? (_isCorrect
+                            ? [Colors.green.shade50, Colors.green.shade100]
+                            : [Colors.red.shade50, Colors.red.shade100])
+                        : [
+                            Colors.green.shade50,
+                            Colors.teal.shade50,
+                          ],
                   ),
-                ),
-
-                // Example sentence
-                if (widget.word.exampleSentence != null) ...[
-                  const SizedBox(height: 20),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Text(
-                      '"${widget.word.exampleSentence}"',
-                      style: TextStyle(
-                        fontSize: StudyConstants.exampleFontSize,
-                        fontStyle: FontStyle.italic,
-                        color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.75),
-                        height: 1.4,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
+                  borderRadius: BorderRadius.circular(StudyConstants.cardBorderRadius),
+                  border: Border.all(
+                    color: _showResult
+                        ? (_isCorrect ? Colors.green : Colors.red)
+                        : Colors.green.withOpacity(0.3),
+                    width: _showResult ? 3 : 2,
                   ),
-                ],
-
-                // Result badge
-                if (_showResult) ...[
-                  const SizedBox(height: 20),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: _isCorrect
-                            ? [Colors.green, Colors.green.shade600]
-                            : [Colors.red, Colors.red.shade600],
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: (_isCorrect ? Colors.green : Colors.red).withOpacity(0.4),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+                  boxShadow: [
+                    BoxShadow(
+                      color: (_showResult
+                          ? (_isCorrect ? Colors.green : Colors.red)
+                          : Colors.green).withOpacity(0.2),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
                     ),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _isCorrect ? Icons.check_circle_rounded : Icons.cancel_rounded,
-                              color: Colors.white,
-                              size: 20,
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Instruction text instead of showing the word itself
+                    AnimatedBuilder(
+                      animation: _successAnimation,
+                      builder: (context, child) {
+                        final clampedValue = _successAnimation.value.clamp(0.0, 1.0);
+                        return Transform.scale(
+                          scale: 1.0 + (0.04 * clampedValue),
+                          child: Text(
+                            'Kelimeyi dinleyin ve yazın',
+                            style: TextStyle(
+                              fontSize: StudyConstants.exampleFontSize + 2,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.2,
+                              color: _showResult
+                                  ? (_isCorrect ? Colors.green.shade700 : Colors.red.shade700)
+                                  : Colors.green.shade700,
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _isCorrect ? StudyConstants.correctAnswerMessage : 'Doğru cevap:',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                              ),
+                            textAlign: TextAlign.center,
+                          ),
+                        );
+                      },
+                    ),
+
+                    SizedBox(height: isCompactHeight ? 16 : 20),
+
+                    // Example sentence
+                    if (widget.word.exampleSentence != null) ...[
+                      SizedBox(height: isCompactHeight ? 16 : 20),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isCompactHeight ? 14 : 18,
+                          vertical: isCompactHeight ? 12 : 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          '"${widget.word.exampleSentence}"',
+                          style: TextStyle(
+                            fontSize: StudyConstants.exampleFontSize,
+                            fontStyle: FontStyle.italic,
+                            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.75),
+                            height: 1.4,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+
+                    // Result badge
+                    if (_showResult) ...[
+                      const SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: _isCorrect
+                                ? [Colors.green, Colors.green.shade600]
+                                : [Colors.red, Colors.red.shade600],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: (_isCorrect ? Colors.green : Colors.red).withOpacity(0.4),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
-                        if (!_isCorrect) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            widget.word.word,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _isCorrect ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _isCorrect ? StudyConstants.correctAnswerMessage : 'Doğru cevap:',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
+                            if (!_isCorrect) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                widget.word.word,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -550,6 +584,66 @@ class _PracticeWidgetState extends State<PracticeWidget>
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                       ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSpeakButton(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompactHeight = constraints.maxHeight < 600;
+        return Container(
+          key: _speakButtonKey,
+          alignment: Alignment.center,
+          child: GestureDetector(
+            onTap: _speakWord,
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: isCompactHeight ? 20 : 24,
+                vertical: isCompactHeight ? 12 : 14,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.green.withOpacity(0.2),
+                    Colors.green.withOpacity(0.1),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.green.withOpacity(0.4),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.green.withOpacity(0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.volume_up_rounded,
+                    size: isCompactHeight ? 24 : 28,
+                    color: Colors.green,
+                  ),
+                  SizedBox(width: isCompactHeight ? 8 : 12),
+                  Text(
+                    'Tekrar Dinle',
+                    style: TextStyle(
+                      fontSize: isCompactHeight ? 14 : 16,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.green.shade700,
                     ),
                   ),
                 ],

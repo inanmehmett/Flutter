@@ -125,28 +125,27 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
       builder: (context, constraints) {
         final isCompactHeight = constraints.maxHeight < 500;
         
-        return Padding(
-          padding: const EdgeInsets.all(12), // Reduced from 16
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(isCompactHeight ? 8 : 12),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               // Flashcard
-              Flexible(
-                flex: isCompactHeight ? 3 : 4,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: constraints.maxHeight * 0.65, // Reduced from 0.7
-                  ),
-                  child: _buildFlashcard(context),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: constraints.maxHeight * 0.65,
                 ),
+                child: _buildFlashcard(context),
               ),
 
-              SizedBox(height: isCompactHeight ? 8 : 16), // Reduced spacing
+              SizedBox(height: isCompactHeight ? 6 : 12),
 
               // Action buttons - Only show when not answered
               if (!_showAnswer)
-                Flexible(
-                  child: _buildActionButtons(context),
-                ),
+                _buildActionButtons(context),
+              
+              // Extra bottom padding for safe scrolling
+              SizedBox(height: isCompactHeight ? 8 : 12),
             ],
           ),
         );
@@ -172,154 +171,169 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
   }
 
   Widget _buildFlashcard(BuildContext context) {
-    return GestureDetector(
-      onTap: _flipCard,
-      onHorizontalDragEnd: _handleSwipeGesture,
-      child: AnimatedBuilder(
-        animation: _flipAnimation,
-        builder: (context, child) {
-          final isShowingFront = _flipAnimation.value < 0.5;
-          // Clamp values to ensure they stay within valid range [0.0, 1.0]
-          final frontScale = (isShowingFront ? 1.0 : 0.0).clamp(0.0, 1.0);
-          final backScale = (isShowingFront ? 0.0 : 1.0).clamp(0.0, 1.0);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompactHeight = constraints.maxHeight < 500;
+        return GestureDetector(
+          onTap: _flipCard,
+          onHorizontalDragEnd: _handleSwipeGesture,
+          child: AnimatedBuilder(
+            animation: _flipAnimation,
+            builder: (context, child) {
+              final isShowingFront = _flipAnimation.value < 0.5;
+              // Clamp values to ensure they stay within valid range [0.0, 1.0]
+              final frontScale = (isShowingFront ? 1.0 : 0.0).clamp(0.0, 1.0);
+              final backScale = (isShowingFront ? 0.0 : 1.0).clamp(0.0, 1.0);
 
-          return Stack(
-            children: [
-              // Front side
-              Transform.scale(
-                scale: frontScale,
-                child: Opacity(
-                  opacity: frontScale,
-                  child: _buildCardSide(
-                    context,
-                    isFront: true,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // Word
-                        Text(
-                          widget.word.word,
-                          style: const TextStyle(
-                            fontSize: 42,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -1.0,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // Speak button
-                        GestureDetector(
-                          onTap: _speakWord,
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Icon(
-                              Icons.volume_up_rounded,
-                              size: 32,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // Tap to flip hint
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            'Anlamını görmek için dokun',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              // Back side
-              if (!isShowingFront) // Only render when needed for performance
-                Transform.scale(
-                  scale: backScale,
-                  child: Opacity(
-                    opacity: backScale,
-                    child: _buildCardSide(
-                      context,
-                      isFront: false,
-                      child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // Meaning
-                        Text(
-                          widget.word.meaning,
-                          style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.5,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-
-                        if (widget.word.exampleSentence != null) ...[
-                          const SizedBox(height: 24),
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.surface,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              '"${widget.word.exampleSentence}"',
+              return Stack(
+                children: [
+                  // Front side
+                  Transform.scale(
+                    scale: frontScale,
+                    child: Opacity(
+                      opacity: frontScale,
+                      child: _buildCardSide(
+                        context,
+                        isFront: true,
+                        isCompactHeight: isCompactHeight,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // Word
+                            Text(
+                              widget.word.word,
                               style: TextStyle(
-                                fontSize: 16,
-                                fontStyle: FontStyle.italic,
-                                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.8),
+                                fontSize: isCompactHeight ? 36 : 42,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -1.0,
                               ),
                               textAlign: TextAlign.center,
                             ),
-                          ),
-                        ],
 
-                        const SizedBox(height: 24),
+                            SizedBox(height: isCompactHeight ? 16 : 24),
 
-                        // Tap to flip back hint
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            'Kelimeyi görmek için dokun',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+                            // Speak button
+                            GestureDetector(
+                              onTap: _speakWord,
+                              child: Container(
+                                padding: EdgeInsets.all(isCompactHeight ? 12 : 16),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Icon(
+                                  Icons.volume_up_rounded,
+                                  size: isCompactHeight ? 28 : 32,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
                             ),
-                          ),
+
+                            SizedBox(height: isCompactHeight ? 16 : 24),
+
+                            // Tap to flip hint
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: isCompactHeight ? 12 : 16,
+                                vertical: isCompactHeight ? 6 : 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                'Anlamını görmek için dokun',
+                                style: TextStyle(
+                                  fontSize: isCompactHeight ? 11 : 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
+
+                  // Back side
+                  if (!isShowingFront) // Only render when needed for performance
+                    Transform.scale(
+                      scale: backScale,
+                      child: Opacity(
+                        opacity: backScale,
+                        child: _buildCardSide(
+                          context,
+                          isFront: false,
+                          isCompactHeight: isCompactHeight,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // Meaning
+                              Text(
+                                widget.word.meaning,
+                                style: TextStyle(
+                                  fontSize: isCompactHeight ? 28 : 32,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.5,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+
+                              if (widget.word.exampleSentence != null) ...[
+                                SizedBox(height: isCompactHeight ? 16 : 24),
+                                Container(
+                                  padding: EdgeInsets.all(isCompactHeight ? 12 : 16),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.surface,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    '"${widget.word.exampleSentence}"',
+                                    style: TextStyle(
+                                      fontSize: isCompactHeight ? 14 : 16,
+                                      fontStyle: FontStyle.italic,
+                                      color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.8),
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ],
+
+                              SizedBox(height: isCompactHeight ? 16 : 24),
+
+                              // Tap to flip back hint
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: isCompactHeight ? 12 : 16,
+                                  vertical: isCompactHeight ? 6 : 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  'Kelimeyi görmek için dokun',
+                                  style: TextStyle(
+                                    fontSize: isCompactHeight ? 11 : 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -327,11 +341,12 @@ class _FlashcardWidgetState extends State<FlashcardWidget>
     BuildContext context, {
     required bool isFront,
     required Widget child,
+    bool isCompactHeight = false,
   }) {
     return Container(
       width: double.infinity,
       height: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isCompactHeight ? 18 : 24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,

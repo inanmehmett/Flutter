@@ -185,8 +185,9 @@ class VocabularyStatsHeader extends StatelessWidget {
                   context,
                   label: 'Başla',
                   icon: Icons.play_arrow_rounded,
-                  onTap: onWorkToday,
+                  onTap: (stats.wordsNeedingReview > 0 || stats.totalWords > 0) ? onWorkToday : null,
                   isWhite: true,
+                  enabled: stats.wordsNeedingReview > 0 || stats.totalWords > 0,
                 ),
               ),
               if (onQuiz != null) ...[
@@ -196,8 +197,9 @@ class VocabularyStatsHeader extends StatelessWidget {
                     context,
                     label: 'Quiz',
                     icon: Icons.quiz_rounded,
-                    onTap: onQuiz!,
+                    onTap: stats.totalWords > 0 ? onQuiz! : null,
                     isWhite: true,
+                    enabled: stats.totalWords > 0,
                   ),
                 ),
               ],
@@ -360,9 +362,9 @@ class VocabularyStatsHeader extends StatelessWidget {
     );
   }
 
-  Widget _primaryCta(BuildContext context, {required String label, required IconData icon, required VoidCallback onTap, bool isWhite = false}) {
+  Widget _primaryCta(BuildContext context, {required String label, required IconData icon, VoidCallback? onTap, bool isWhite = false, bool enabled = true}) {
     return ElevatedButton.icon(
-      onPressed: onTap,
+      onPressed: enabled ? onTap : null,
       icon: Icon(icon, size: 20),
       label: Text(
         label,
@@ -374,17 +376,21 @@ class VocabularyStatsHeader extends StatelessWidget {
       ),
       style: ElevatedButton.styleFrom(
         elevation: 0,
-        backgroundColor: isWhite ? Colors.white : Theme.of(context).colorScheme.primary,
-        foregroundColor: isWhite ? Theme.of(context).colorScheme.primary : Colors.white,
+        backgroundColor: enabled 
+            ? (isWhite ? Colors.white : Theme.of(context).colorScheme.primary)
+            : (isWhite ? Colors.white.withOpacity(0.5) : Theme.of(context).colorScheme.primary.withOpacity(0.5)),
+        foregroundColor: enabled
+            ? (isWhite ? Theme.of(context).colorScheme.primary : Colors.white)
+            : (isWhite ? Theme.of(context).colorScheme.primary.withOpacity(0.5) : Colors.white.withOpacity(0.5)),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
   }
 
-  Widget _secondaryCta(BuildContext context, {required String label, required IconData icon, required VoidCallback onTap, bool isWhite = false}) {
+  Widget _secondaryCta(BuildContext context, {required String label, required IconData icon, VoidCallback? onTap, bool isWhite = false, bool enabled = true}) {
     return OutlinedButton.icon(
-      onPressed: onTap,
+      onPressed: enabled ? onTap : null,
       icon: Icon(icon, size: 20),
       label: Text(
         label,
@@ -395,9 +401,13 @@ class VocabularyStatsHeader extends StatelessWidget {
         ),
       ),
       style: OutlinedButton.styleFrom(
-        foregroundColor: isWhite ? Colors.white : Theme.of(context).colorScheme.primary,
+        foregroundColor: enabled
+            ? (isWhite ? Colors.white : Theme.of(context).colorScheme.primary)
+            : (isWhite ? Colors.white.withOpacity(0.5) : Theme.of(context).colorScheme.primary.withOpacity(0.5)),
         side: BorderSide(
-          color: isWhite ? Colors.white.withOpacity(0.4) : Theme.of(context).colorScheme.primary.withOpacity(0.6),
+          color: enabled
+              ? (isWhite ? Colors.white.withOpacity(0.4) : Theme.of(context).colorScheme.primary.withOpacity(0.6))
+              : (isWhite ? Colors.white.withOpacity(0.2) : Theme.of(context).colorScheme.primary.withOpacity(0.3)),
           width: 2,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

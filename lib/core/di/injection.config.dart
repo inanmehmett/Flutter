@@ -33,6 +33,7 @@ import '../cache/cache_manager.dart' as _i326;
 import '../network/api_client.dart' as _i557;
 import '../network/network_manager.dart' as _i474;
 import '../realtime/signalr_service.dart' as _i550;
+import '../services/notification_service.dart' as _i941;
 import '../storage/last_read_manager.dart' as _i298;
 import '../storage/secure_storage_service.dart' as _i666;
 import '../storage/storage_manager.dart' as _i392;
@@ -60,6 +61,7 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i979.Box<_i525.BookModel>>(() => hiveModule.bookBox);
     gh.singleton<_i979.Box<int>>(() => hiveModule.progressBox);
     gh.singleton<_i979.Box<DateTime>>(() => hiveModule.lastReadBox);
+    gh.singleton<_i941.NotificationService>(() => _i941.NotificationService());
     gh.singleton<_i979.Box<String>>(
       () => hiveModule.appCacheBox,
       instanceName: 'app_cache',

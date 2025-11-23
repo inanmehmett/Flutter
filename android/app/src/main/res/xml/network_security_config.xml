@@ -1,15 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
+    <!-- 
+        Development mode: Allow cleartext traffic for all domains
+        This allows connection to local development server with any IP address
+        IP address is dynamically configured via AppConfig.local_config.dart
+    -->
     <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system"/>
             <certificates src="user"/>
         </trust-anchors>
     </base-config>
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">10.0.2.2</domain>
-        <domain includeSubdomains="true">127.0.0.1</domain>
-        <domain includeSubdomains="true">localhost</domain>
-        <domain includeSubdomains="true">192.168.1.106</domain>
-    </domain-config>
 </network-security-config>

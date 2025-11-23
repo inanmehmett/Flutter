@@ -175,29 +175,9 @@ class BookPreviewPage extends StatelessWidget {
   }
 
   Widget _buildMetadataSection(String level, int readingTime) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        _LevelBadge(level: level),
-        SizedBox(height: 12),
-        Row(
-          children: [
-            Icon(Icons.timer, size: 18, color: Colors.grey[700]),
-            SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                'Estimated reading time: $readingTime minutes',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Colors.grey[700],
-                ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-                softWrap: false,
-              ),
-            ),
-          ],
-        ),
+        _LevelBadge(level: level, readingTime: readingTime),
       ],
     );
   }
@@ -313,24 +293,47 @@ class BookPreviewPage extends StatelessWidget {
 
 class _LevelBadge extends StatelessWidget {
   final String level;
-  const _LevelBadge({required this.level});
+  final int readingTime;
+  const _LevelBadge({required this.level, required this.readingTime});
   
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        'Level: $level',
-        style: TextStyle(
-          fontSize: 14,
-          color: Colors.orange[800],
-          fontWeight: FontWeight.bold,
+    return Row(
+      children: [
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.orange.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            'Level: $level',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.orange[800],
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
-      ),
+        SizedBox(width: 8),
+        Row(
+          children: [
+            Text(
+              '⏱️',
+              style: TextStyle(fontSize: 16),
+            ),
+            SizedBox(width: 4),
+            Text(
+              '$readingTime dk',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[700],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

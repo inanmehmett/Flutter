@@ -84,15 +84,15 @@ enum AuthError {
   String get localizedDescription {
     switch (this) {
       case AuthError.invalidCredentials:
-        return "Invalid username or password";
+        return "Kullanıcı adı veya şifre hatalı";
       case AuthError.networkError:
-        return "Network connection error";
+        return "Bağlantı hatası. Lütfen internet bağlantınızı kontrol edin";
       case AuthError.serverError:
-        return "Server error occurred";
+        return "Sunucu hatası oluştu. Lütfen daha sonra tekrar deneyin";
       case AuthError.decodingError:
-        return "Error processing server response";
+        return "Sunucu yanıtı işlenirken hata oluştu";
       case AuthError.unknown:
-        return "An unknown error occurred";
+        return "Bilinmeyen bir hata oluştu";
     }
   }
 }

@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/logger.dart';
+import '../../../../core/utils/xp_utils.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/data/models/user_profile.dart';
 import '../../../../core/di/injection.dart';
@@ -366,7 +367,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         _LevelProgressBar(
                           progress: xpProgress,
                           currentXP: displayedXP,
-                          xpForNextLevel: levelInfo?.xpForNextLevel ?? 1000,
+                          xpForNextLevel: levelInfo?.xpForNextLevel ?? XPUtils.calculateNextLevelXP(displayedXP),
                         ),
                         const SizedBox(height: 24),
                         const Text('Rozetler', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -463,12 +464,6 @@ class _ProfilePageState extends State<ProfilePage> {
                           onTap: () => Navigator.pushNamed(context, '/privacy'),
                           child: _settingsTile(context, Icons.privacy_tip_outlined, 'Gizlilik'),
                         ),
-                        GestureDetector(
-                          onTap: () => Navigator.pushNamed(context, '/learning-list'),
-                          child: _settingsTile(context, Icons.book_outlined, 'Öğrenme Listem'),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildStatRow(context, booksCount, profile),
                         const SizedBox(height: 24),
                         // Çıkış yap butonu - authenticated durumda gösterilir (zaten burada authenticated olmalıyız)
                         SafeArea(
