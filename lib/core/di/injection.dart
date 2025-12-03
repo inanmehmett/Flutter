@@ -26,12 +26,14 @@ import 'injection.config.dart';
 import '../storage/last_read_manager.dart';
 import '../storage/storage_manager.dart';
 import '../realtime/signalr_service.dart';
-import '../../features/vocab/data/models/user_word.dart';
-import '../../features/vocab/data/datasources/user_word_local_data_source.dart';
-import '../../features/vocab/domain/services/vocab_learning_service.dart';
+// Word Exercises (Genel kelime alıştırmaları)
+import '../../features/word_exercises/data/models/user_word.dart';
+import '../../features/word_exercises/data/datasources/user_word_local_data_source.dart';
+import '../../features/word_exercises/domain/services/vocab_learning_service.dart';
 import '../../features/vocabulary_notebook/data/repositories/vocabulary_repository_impl.dart';
 import '../../features/vocabulary_notebook/domain/services/tts_service.dart';
 import '../../features/vocabulary_notebook/domain/services/quiz_answer_generator.dart';
+import '../services/xp_state_service.dart';
 
 final getIt = GetIt.instance;
 
@@ -158,5 +160,10 @@ Future<void> configureDependencies() async {
     getIt.registerLazySingleton<QuizAnswerGenerator>(
       () => QuizAnswerGenerator(repository),
     );
+  }
+  
+  // Register XPStateService
+  if (!getIt.isRegistered<XPStateService>()) {
+    getIt.registerLazySingleton<XPStateService>(() => XPStateService(getIt<CacheManager>()));
   }
 }

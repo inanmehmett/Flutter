@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../auth/data/models/user_profile.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/di/injection.dart';
+import '../../../../core/services/xp_state_service.dart';
 import '../../../../core/network/network_manager.dart';
 import '../../../../core/utils/xp_utils.dart';
 import 'level_chip.dart';
@@ -47,11 +49,39 @@ class HomeHeader extends StatefulWidget {
 class _HomeHeaderState extends State<HomeHeader> {
   Map<String, dynamic>? _levelData;
   bool _isLoadingLevel = false;
+  int? _cachedTotalXP;
+  
+  late XPStateService _xpStateService;
+  StreamSubscription<int>? _totalXPSubscription;
 
   @override
   void initState() {
     super.initState();
+    _xpStateService = getIt<XPStateService>();
+    
+    // Load cached XP immediately for fast UI
+    _loadCachedXP();
+    
+    // Listen to XP updates from SignalR
+    _totalXPSubscription = _xpStateService.totalXPStream.listen((totalXP) {
+      if (mounted) {
+        setState(() {
+          _cachedTotalXP = totalXP;
+        });
+      }
+    });
+    
+    // Load level data in background (for progress calculation)
     _loadLevelData();
+  }
+  
+  Future<void> _loadCachedXP() async {
+    final cachedXP = await _xpStateService.getTotalXP();
+    if (mounted && cachedXP > 0) {
+      setState(() {
+        _cachedTotalXP = cachedXP;
+      });
+    }
   }
 
   Future<void> _loadLevelData() async {
@@ -64,6 +94,15 @@ class _HomeHeaderState extends State<HomeHeader> {
       final lroot = levelResp.data is Map<String, dynamic> ? levelResp.data as Map<String, dynamic> : {};
       final ldat = lroot['data'] is Map<String, dynamic> ? lroot['data'] as Map<String, dynamic> : {};
       
+      // Update local cache if we got total XP from API
+      if (ldat.isNotEmpty) {
+        final apiTotalXP = ldat['currentXP'] ?? ldat['CurrentXP'] ?? ldat['totalXP'] ?? ldat['TotalXP'];
+        if (apiTotalXP != null) {
+          final totalXP = (apiTotalXP as num).toInt();
+          await _xpStateService.updateTotalXP(totalXP);
+        }
+      }
+      
       if (mounted) {
         setState(() {
           _levelData = ldat.isNotEmpty ? Map<String, dynamic>.from(ldat) : null;
@@ -75,6 +114,12 @@ class _HomeHeaderState extends State<HomeHeader> {
         setState(() => _isLoadingLevel = false);
       }
     }
+  }
+  
+  @override
+  void dispose() {
+    _totalXPSubscription?.cancel();
+    super.dispose();
   }
 
   num _asNum(dynamic value, [num fallback = 0]) {
@@ -131,28 +176,24 @@ class _HomeHeaderState extends State<HomeHeader> {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // Profile picture with Hero for smooth transition to ProfilePage
-        Hero(
-          tag: 'avatar_${widget.profile.id}',
-          transitionOnUserGestures: true,
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [AppColors.primary.withOpacity(0.2), AppColors.primaryLight.withOpacity(0.3)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              border: Border.all(
-                color: AppColors.primary.withOpacity(0.2),
-                width: 2,
-              ),
+        // Profile picture (Hero removed due to IndexedStack - both pages exist simultaneously)
+        Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              colors: [AppColors.primary.withOpacity(0.2), AppColors.primaryLight.withOpacity(0.3)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            child: ClipOval(
-              child: _buildProfileImage(),
+            border: Border.all(
+              color: AppColors.primary.withOpacity(0.2),
+              width: 2,
             ),
+          ),
+          child: ClipOval(
+            child: _buildProfileImage(),
           ),
         ),
         // Level badge
@@ -235,7 +276,7 @@ class _HomeHeaderState extends State<HomeHeader> {
             ),
             const SizedBox(width: 4),
             Text(
-              '${widget.profile.experiencePoints ?? 0} XP',
+              '${_cachedTotalXP ?? widget.profile.experiencePoints ?? 0} XP',
               style: TextStyle(
                 fontSize: isCompact ? 12 : 13,
                 fontWeight: FontWeight.w600,
@@ -249,12 +290,14 @@ class _HomeHeaderState extends State<HomeHeader> {
   }
 
   Widget _buildXPSection(bool isCompact) {
-    final currentXP = widget.profile.experiencePoints ?? 0;
+    // Use cached XP if available (fast), otherwise fallback to profile XP
+    final currentXP = _cachedTotalXP ?? widget.profile.experiencePoints ?? 0;
     
     // Use API level data if available (same calculation as profile page)
     if (_levelData != null) {
       final dynamic currentXPRaw = _levelData!['currentXP'] ?? _levelData!['CurrentXP'] ?? _levelData!['totalXP'] ?? _levelData!['TotalXP'];
-      final currentXPd = _asNum(currentXPRaw, currentXP).toDouble();
+      // Prefer cached XP over API XP for immediate updates
+      final currentXPd = (_cachedTotalXP ?? _asNum(currentXPRaw, currentXP)).toDouble();
       final dynamic xpForNextRaw = _levelData!['xpForNextLevel'] ?? _levelData!['XPForNextLevel'];
       
       // Treat API value as remaining XP to next level; derive target XP

@@ -4,6 +4,8 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/di/injection.dart';
+import '../../../../core/services/xp_state_service.dart';
 
 /// Vocabulary notebook promotional card.
 /// 
@@ -129,8 +131,19 @@ class VocabularyNotebookCard extends StatelessWidget {
         hint: 'Kaydettiğin kelimeleri görüntülemek için dokunun',
         button: true,
         child: ElevatedButton(
-          onPressed: () {
-            Navigator.of(context).pushReplacementNamed('/vocabulary');
+          onPressed: () async {
+            // Navigate and refresh XP when returning
+            await Navigator.of(context).pushNamed('/vocabulary');
+            
+            // Refresh XP cache after returning from vocabulary study
+            try {
+              final xpService = getIt<XPStateService>();
+              final cachedDailyXP = await xpService.getDailyXP();
+              final cachedTotalXP = await xpService.getTotalXP();
+              print('🔄 [VocabularyCard] Refreshed XP after study: Daily=$cachedDailyXP, Total=$cachedTotalXP');
+            } catch (e) {
+              print('⚠️ [VocabularyCard] Failed to refresh XP: $e');
+            }
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.surface,

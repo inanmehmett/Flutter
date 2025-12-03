@@ -9,10 +9,11 @@ import '../../domain/repositories/vocabulary_repository.dart';
 import '../../domain/services/spaced_repetition_service.dart';
 import '../../domain/services/review_session.dart';
 // Legacy service imports kept for fallback; to be removed after full migration
-import '../../../vocab/domain/services/vocab_learning_service.dart';
-import '../../../vocab/domain/entities/user_word_entity.dart' as ue;
+import '../../../word_exercises/domain/services/vocab_learning_service.dart';
+import '../../../word_exercises/domain/entities/user_word_entity.dart' as ue;
 import '../../../../core/di/injection.dart';
 import '../../../../core/storage/storage_manager.dart';
+import '../../../../core/services/xp_state_service.dart';
 import '../local/local_vocabulary_store.dart';
 
 class VocabularyRepositoryImpl implements VocabularyRepository {
@@ -687,6 +688,20 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
         // Parse patches and update local store
         final data = (resp.data as Map<String, dynamic>?)?['data'] as Map<String, dynamic>?;
         final patches = (data?['patches'] as List<dynamic>?) ?? const [];
+        final xpEarned = (data?['xpEarned'] as num?)?.toInt() ?? 0;
+        
+        // Update XP state immediately (optimistic update)
+        if (xpEarned > 0) {
+          try {
+            final xpStateService = getIt<XPStateService>();
+            await xpStateService.incrementDailyXP(xpEarned);
+            await xpStateService.incrementTotalXP(xpEarned);
+            Logger.info('✅ Updated XP state: +$xpEarned XP');
+          } catch (e) {
+            Logger.error('Failed to update XP state', e);
+          }
+        }
+        
         final updatedWords = <VocabularyWord>[];
         for (final p in patches) {
           final m = (p as Map).cast<String, dynamic>();

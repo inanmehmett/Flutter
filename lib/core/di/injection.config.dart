@@ -34,6 +34,7 @@ import '../network/api_client.dart' as _i557;
 import '../network/network_manager.dart' as _i474;
 import '../realtime/signalr_service.dart' as _i550;
 import '../services/notification_service.dart' as _i941;
+import '../services/xp_state_service.dart' as _i379;
 import '../storage/last_read_manager.dart' as _i298;
 import '../storage/secure_storage_service.dart' as _i666;
 import '../storage/storage_manager.dart' as _i392;
@@ -86,6 +87,8 @@ extension GetItInjectableX on _i174.GetIt {
         ));
     gh.lazySingleton<_i859.EventService>(
         () => _i859.EventService(gh<_i557.ApiClient>()));
+    gh.singleton<_i379.XPStateService>(
+        () => _i379.XPStateService(gh<_i326.CacheManager>()));
     gh.singleton<_i474.NetworkManager>(() => _i474.NetworkManager(
           gh<_i361.Dio>(),
           gh<_i666.SecureStorageService>(),

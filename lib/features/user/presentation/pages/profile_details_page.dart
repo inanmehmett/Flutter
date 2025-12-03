@@ -33,9 +33,10 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
     super.initState();
     final state = context.read<AuthBloc>().state;
     final profile = state is AuthAuthenticated ? state.user : null;
+    
     _userNameCtrl = TextEditingController(text: profile?.userName ?? '');
     _emailCtrl = TextEditingController(text: profile?.email ?? '');
-    _displayNameCtrl = TextEditingController(text: profile?.displayName ?? profile?.userName ?? '');
+    _displayNameCtrl = TextEditingController(text: profile?.displayName ?? '');
     _bioCtrl = TextEditingController(text: profile?.bio ?? '');
     _currentPwdCtrl = TextEditingController();
     _newPwdCtrl = TextEditingController();
@@ -61,15 +62,39 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
       final profile = state is AuthAuthenticated ? state.user : null;
       
       if (profile == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kullanıcı bilgisi bulunamadı')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kullanıcı bilgisi bulunamadı')));
+          setState(() => _saving = false);
+        }
         return;
       }
       
-      // Build payload and avoid sending unchanged username (prevents unnecessary 409 checks)
+      // Validate displayName before sending
+      final displayName = _displayNameCtrl.text.trim();
+      
+      if (displayName.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ad Soyad alanı boş olamaz')));
+          setState(() => _saving = false);
+        }
+        return;
+      }
+      
+      if (displayName.length > 100) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ad Soyad en fazla 100 karakter olabilir')));
+          setState(() => _saving = false);
+        }
+        return;
+      }
+      
+      // Build payload - userName is required by backend
+      final newUserName = _userNameCtrl.text.trim();
       final Map<String, dynamic> payload = {
         'userId': profile.id,
+        'userName': newUserName.isNotEmpty ? newUserName : profile.userName, // Required field
         'email': _emailCtrl.text.trim(),
-        'displayName': _displayNameCtrl.text.trim(),
+        'displayName': displayName,
         'profilePictureUrl': profile.profileImageUrl,
         'bio': _bioCtrl.text.trim(),
         'targetLanguage': 'en',
@@ -78,15 +103,11 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
         'emailNotifications': true,
         'isProfilePublic': true,
       };
-      final newUserName = _userNameCtrl.text.trim();
-      if (newUserName.isNotEmpty && newUserName != profile.userName) {
-        payload['userName'] = newUserName;
-      }
 
       final resp = await client.put('/api/ApiUserProfile', data: payload);
       if (!mounted) return;
       if (resp.statusCode == 200) {
-        // Invalidate cached profile to avoid stale data, then refresh
+        // Invalidate cached profile to avoid stale data
         try {
           final cache = getIt<CacheManager>();
           await cache.removeData('user/profile');
@@ -94,10 +115,17 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
         try {
           getIt<NetworkManager>().clearHttpCache();
         } catch (_) {}
-        // Refresh auth state to pull updated profile
-        context.read<AuthBloc>().add(CheckAuthStatus());
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profil güncellendi')));
-        Navigator.pop(context);
+        
+        // Refresh auth state to pull updated profile and wait for it
+        context.read<AuthBloc>().add(RefreshProfile());
+        
+        // Wait a bit for the profile to refresh
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profil güncellendi')));
+          Navigator.pop(context);
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Güncelleme başarısız')));
       }
@@ -146,6 +174,14 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  String _formatJoinDate(DateTime dt) {
+    final d = dt.toLocal();
+    final yyyy = d.year.toString().padLeft(4, '0');
+    final mm = d.month.toString().padLeft(2, '0');
+    final dd = d.day.toString().padLeft(2, '0');
+    return '$dd.$mm.$yyyy';
   }
 
   Widget _buildModernHeader() {
@@ -232,7 +268,17 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
                       TextFormField(
                         controller: _displayNameCtrl,
                         decoration: const InputDecoration(labelText: 'Ad Soyad'),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'İsim gerekli' : null,
+                        textCapitalization: TextCapitalization.words,
+                        maxLength: 100,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Ad Soyad gerekli';
+                          }
+                          if (v.trim().length > 100) {
+                            return 'En fazla 100 karakter';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -253,7 +299,38 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
                         decoration: const InputDecoration(labelText: 'Biyografi (opsiyonel)'),
                         maxLines: 3,
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
+                      // Katılma tarihi (read-only)
+                      BlocBuilder<AuthBloc, AuthState>(
+                        builder: (context, state) {
+                          final profile = state is AuthAuthenticated ? state.user : null;
+                          if (profile == null) return const SizedBox.shrink();
+                          
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.calendar_today, size: 18, color: Colors.grey[600]),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Katılma Tarihi: ${_formatJoinDate(profile.createdAt)}',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[700],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                        const SizedBox(height: 20),
                       ElevatedButton.icon(
                         onPressed: _saveProfile,
                         icon: const Icon(Icons.save),

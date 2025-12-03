@@ -256,7 +256,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               clipBehavior: Clip.none,
                               children: [
                                 Hero(
-                                  tag: 'avatar_${profile.id}',
+                                  tag: 'avatar_profile_${profile.id}',
                                   transitionOnUserGestures: true,
                                   child: CircleAvatar(
                                     radius: 56,
@@ -303,7 +303,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         const SizedBox(height: 16),
                         Center(
                           child: Text(
-                            profile.displayName,
+                            profile.displayNameOrUserName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
@@ -312,7 +312,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         const SizedBox(height: 6),
                         Builder(
                           builder: (context) {
-                            final String display = profile.displayName.trim();
+                            final String display = profile.displayNameOrUserName.trim();
                             final String username = profile.userName.trim();
                             final String email = profile.email.trim();
                             final bool isSameName = display.isNotEmpty && username.isNotEmpty && display.toLowerCase() == username.toLowerCase();
@@ -338,20 +338,6 @@ class _ProfilePageState extends State<ProfilePage> {
                             }
                             return const SizedBox.shrink();
                           },
-                        ),
-                        const SizedBox(height: 8),
-                        Center(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.calendar_today, size: 16),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Katıldı: ${_formatJoined(profile.createdAt)}',
-                                style: TextStyle(color: Colors.grey[700]),
-                              ),
-                            ],
-                          ),
                         ),
                         const SizedBox(height: 20),
                         _StatsStrip(
@@ -561,7 +547,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             color: Colors.black.withValues(alpha: 0.9),
                             child: Center(
                               child: Hero(
-                                tag: 'avatar_${_lastProfile?.id}',
+                                tag: 'avatar_profile_${_lastProfile?.id}',
                                 transitionOnUserGestures: true,
                                 child: Image.network(url),
                               ),
@@ -802,14 +788,6 @@ class _ProfilePageState extends State<ProfilePage> {
   double _fallbackProgress(int xp) {
     const threshold = 1000.0;
     return ((xp % threshold) / threshold).clamp(0.0, 1.0);
-  }
-
-  String _formatJoined(DateTime dt) {
-    final d = dt.toLocal();
-    final yyyy = d.year.toString().padLeft(4, '0');
-    final mm = d.month.toString().padLeft(2, '0');
-    final dd = d.day.toString().padLeft(2, '0');
-    return '$dd-$mm-$yyyy';
   }
 
   String _formatStreakDisplay(int? streakDays, int? longestStreak) {

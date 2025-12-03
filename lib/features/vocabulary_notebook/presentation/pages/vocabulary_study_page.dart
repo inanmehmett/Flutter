@@ -178,64 +178,81 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
     final clampedScale = math.min(mq.textScaleFactor, 1.2);
+    final keyboardHeight = mq.viewInsets.bottom;
+    final isKeyboardOpen = keyboardHeight > 0;
     
     return MediaQuery(
       data: mq.copyWith(textScaleFactor: clampedScale),
       child: Scaffold(
         extendBodyBehindAppBar: true,
         appBar: _buildModernAppBar(context),
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Theme.of(context).colorScheme.primary.withOpacity(0.03),
-                Theme.of(context).colorScheme.background,
-                Theme.of(context).colorScheme.background,
-              ],
-            ),
-          ),
-          child: BlocConsumer<VocabularyBloc, VocabularyState>(
-            listener: (context, state) {
-              if (state is ReviewSessionLoaded) {
-                setState(() {
-                  _currentSession = state.session;
-                });
-                _cardController.forward();
-              } else if (state is VocabularyLoaded) {
-                // Stats bilgisini sakla
-                setState(() {
-                  _stats = state.stats;
-                });
-                
-                // Stats yüklendikten sonra session başlat (race condition önlemi)
-                if (_shouldStartSessionAfterStatsLoad) {
-                  _shouldStartSessionAfterStatsLoad = false;
-                  _startReviewSession();
-                }
-              }
-            },
-            builder: (context, state) {
-              if (state is VocabularyLoading) {
-                return _buildModernLoading(context);
-              }
+        body: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Stack(
+            children: [
+              AnimatedScale(
+                scale: isKeyboardOpen ? 0.9 : 1.0,
+                alignment: Alignment.topCenter,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Theme.of(context).colorScheme.primary.withOpacity(0.03),
+                        Theme.of(context).colorScheme.background,
+                        Theme.of(context).colorScheme.background,
+                      ],
+                    ),
+                  ),
+                  child: BlocConsumer<VocabularyBloc, VocabularyState>(
+                    listener: (context, state) {
+                      if (state is ReviewSessionLoaded) {
+                        setState(() {
+                          _currentSession = state.session;
+                        });
+                        _cardController.forward();
+                      } else if (state is VocabularyLoaded) {
+                        // Stats bilgisini sakla
+                        setState(() {
+                          _stats = state.stats;
+                        });
+                        
+                        // Stats yüklendikten sonra session başlat (race condition önlemi)
+                        if (_shouldStartSessionAfterStatsLoad) {
+                          _shouldStartSessionAfterStatsLoad = false;
+                          _startReviewSession();
+                        }
+                      }
+                    },
+                    builder: (context, state) {
+                      if (state is VocabularyLoading) {
+                        return _buildModernLoading(context);
+                      }
 
-              if (state is VocabularyError) {
-                return _buildModernError(context, state.message);
-              }
+                      if (state is VocabularyError) {
+                        return _buildModernError(context, state.message);
+                      }
 
-              if (_currentSession == null || _currentSession!.words.isEmpty) {
-                // Session yükleniyor veya boş - empty state göster
-                // Eğer stats varsa ve toplam kelime 0 ise, gerçekten kelime yok
-                // Eğer stats varsa ve toplam kelime > 0 ise ama session boşsa, hata var
-                return _buildModernEmptyState(context);
-              }
+                      if (_currentSession == null || _currentSession!.words.isEmpty) {
+                        // Session yükleniyor veya boş - empty state göster
+                        // Eğer stats varsa ve toplam kelime 0 ise, gerçekten kelime yok
+                        // Eğer stats varsa ve toplam kelime > 0 ise ama session boşsa, hata var
+                        return _buildModernEmptyState(context);
+                      }
 
-              return _sessionCompleted
-                  ? _buildModernSessionComplete(context)
-                  : _buildModernStudyContent(context);
-            },
+                      return _sessionCompleted
+                          ? _buildModernSessionComplete(context)
+                          : _buildModernStudyContent(context);
+                    },
+                  ),
+                ),
+              ),
+              _buildFloatingControls(context, isKeyboardOpen),
+            ],
           ),
         ),
       ),
@@ -243,49 +260,108 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
   }
 
   PreferredSizeWidget _buildModernAppBar(BuildContext context) {
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboardOpen = keyboardHeight > 0;
+
     return AppBar(
+      toolbarHeight: isKeyboardOpen ? 0 : kToolbarHeight,
       backgroundColor: Colors.transparent,
       elevation: 0,
-      leading: IconButton(
-        icon: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface.withOpacity(0.9),
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
+      leading: isKeyboardOpen
+          ? null
+          : IconButton(
+              icon: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface.withOpacity(0.9),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.close_rounded, size: 20),
               ),
-            ],
-          ),
-          child: const Icon(Icons.close_rounded, size: 20),
-        ),
-        onPressed: () => Navigator.pop(context),
-      ),
-      actions: [
-        if (!_sessionCompleted && _currentSession != null)
-          IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface.withOpacity(0.9),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: const Icon(Icons.refresh_rounded, size: 20),
+              onPressed: () => Navigator.pop(context),
             ),
-            onPressed: _restartSession,
+      actions: isKeyboardOpen
+          ? const []
+          : [
+              if (!_sessionCompleted && _currentSession != null)
+                IconButton(
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface.withOpacity(0.9),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.refresh_rounded, size: 20),
+                  ),
+                  onPressed: _restartSession,
+                ),
+              const SizedBox(width: 8),
+            ],
+    );
+  }
+
+  Widget _buildFloatingControls(BuildContext context, bool isKeyboardOpen) {
+    final canRestart = !_sessionCompleted && _currentSession != null;
+    if (!isKeyboardOpen) return const SizedBox.shrink();
+
+    return IgnorePointer(
+      ignoring: !isKeyboardOpen,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        opacity: isKeyboardOpen ? 1 : 0,
+        child: SafeArea(
+          child: Align(
+            alignment: Alignment.topRight,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12, right: 16),
+              child: Material(
+                color: Theme.of(context).colorScheme.surface.withOpacity(0.9),
+                elevation: 6,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'Çıkış',
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    if (canRestart)
+                      Container(
+                        height: 28,
+                        width: 1,
+                        color: Theme.of(context).dividerColor.withOpacity(0.2),
+                      ),
+                    if (canRestart)
+                      IconButton(
+                        tooltip: 'Yeniden Başla',
+                        icon: const Icon(Icons.refresh_rounded, size: 20),
+                        onPressed: _restartSession,
+                      ),
+                  ],
+                ),
+              ),
+            ),
           ),
-        const SizedBox(width: 8),
-      ],
+        ),
+      ),
     );
   }
 
@@ -662,41 +738,64 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
   Widget _buildModernStudyContent(BuildContext context) {
     final currentWord = _currentSession!.words[_currentWordIndex];
     final progress = (_currentWordIndex + 1) / _currentSession!.words.length;
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboardOpen = keyboardHeight > 0;
 
     return SafeArea(
-      child: Column(
-        children: [
-          // Modern Header with glassmorphism
-          SlideTransition(
-            position: _headerSlideAnimation,
-            child: _buildGlassmorphicHeader(context, progress),
-          ),
-
-          // Study Mode Selector
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _buildModernModeSelector(context),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Study content with smooth animation
-          Expanded(
-            child: AnimatedBuilder(
-              animation: _cardAnimation,
-              builder: (context, child) {
-                final clampedValue = _cardAnimation.value.clamp(0.0, 1.0);
-                return Transform.scale(
-                  scale: clampedValue,
-                  child: Opacity(
-                    opacity: clampedValue,
-                    child: _buildStudyWidget(context, currentWord),
-                  ),
-                );
-              },
+      top: !isKeyboardOpen,
+      bottom: true,
+      child: AnimatedSlide(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        offset: Offset(0, isKeyboardOpen ? -0.1 : 0),
+        child: Column(
+          children: [
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              child: isKeyboardOpen
+                  ? const SizedBox.shrink(key: ValueKey('header-empty'))
+                  : SlideTransition(
+                      key: const ValueKey('header-full'),
+                      position: _headerSlideAnimation,
+                      child: _buildGlassmorphicHeader(context, progress),
+                    ),
             ),
-          ),
-        ],
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              child: isKeyboardOpen
+                  ? const SizedBox.shrink(key: ValueKey('mode-empty'))
+                  : Padding(
+                      key: const ValueKey('mode-full'),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildModernModeSelector(context),
+                    ),
+            ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              height: isKeyboardOpen ? 4 : 16,
+            ),
+            Expanded(
+              child: AnimatedBuilder(
+                animation: _cardAnimation,
+                builder: (context, child) {
+                  final clampedValue = _cardAnimation.value.clamp(0.0, 1.0);
+                  return Transform.scale(
+                    scale: clampedValue,
+                    child: Opacity(
+                      opacity: clampedValue,
+                      child: _buildStudyWidget(context, currentWord),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -705,10 +804,16 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
     final currentIndex = _currentWordIndex + 1;
     final totalWords = _currentSession!.totalWords;
     final estimatedMinutes = (totalWords * 15 / 60).round().clamp(1, 60);
+    
+    // Klavye açıksa header'ı küçült
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboardOpen = keyboardHeight > 0;
 
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      margin: EdgeInsets.all(isKeyboardOpen ? 2 : 16),
+      padding: EdgeInsets.all(isKeyboardOpen ? 4 : 20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -718,12 +823,12 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
             Theme.of(context).colorScheme.primary.withBlue(220).withGreen(180),
           ],
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(isKeyboardOpen ? 12 : 24),
         boxShadow: [
           BoxShadow(
             color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+            blurRadius: isKeyboardOpen ? 6 : 24,
+            offset: Offset(0, isKeyboardOpen ? 2 : 10),
             spreadRadius: 0,
           ),
         ],
@@ -734,45 +839,45 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: EdgeInsets.all(isKeyboardOpen ? 4 : 12),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.25),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(isKeyboardOpen ? 6 : 14),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.school_rounded,
                   color: Colors.white,
-                  size: 26,
+                  size: isKeyboardOpen ? 14 : 26,
                 ),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: isKeyboardOpen ? 4 : 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Çalışma Oturumu',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 20,
+                        fontSize: isKeyboardOpen ? 12 : 20,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.5,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: isKeyboardOpen ? 1 : 4),
                     Row(
                       children: [
                         Icon(
                           Icons.timer_outlined,
-                          size: 16,
+                          size: isKeyboardOpen ? 10 : 16,
                           color: Colors.white.withOpacity(0.85),
                         ),
-                        const SizedBox(width: 6),
+                        SizedBox(width: isKeyboardOpen ? 2 : 6),
                         Text(
                           '$totalWords kelime · ~$estimatedMinutes dk',
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.85),
-                            fontSize: 13,
+                            fontSize: isKeyboardOpen ? 9 : 13,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -783,8 +888,8 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
               ),
               // Circular progress indicator (yüzde etrafında hizalanmış halka)
               SizedBox(
-                width: 60,
-                height: 60,
+                width: isKeyboardOpen ? 30 : 60,
+                height: isKeyboardOpen ? 30 : 60,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
@@ -818,9 +923,9 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                     Center(
                       child: Text(
                         '${(progress * 100).toInt()}%',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
-                          fontSize: 15,
+                          fontSize: isKeyboardOpen ? 8 : 15,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -831,17 +936,17 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
             ],
           ),
           
-          const SizedBox(height: 18),
+          SizedBox(height: isKeyboardOpen ? 2 : 18),
           
           // Linear progress bar with gradient
           Stack(
             children: [
               // Background
               Container(
-                height: 12,
+                height: isKeyboardOpen ? 3 : 12,
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.25),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(isKeyboardOpen ? 2 : 8),
                 ),
               ),
               // Animated progress
@@ -853,13 +958,13 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                   return FractionallySizedBox(
                     widthFactor: value,
                     child: Container(
-                      height: 12,
+                      height: isKeyboardOpen ? 3 : 12,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [Colors.white, Colors.white70],
                         ),
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [
+                        borderRadius: BorderRadius.circular(isKeyboardOpen ? 2 : 8),
+                        boxShadow: isKeyboardOpen ? [] : [
                           BoxShadow(
                             color: Colors.white.withOpacity(0.5),
                             blurRadius: 8,
@@ -874,7 +979,7 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
             ],
           ),
           
-          const SizedBox(height: 10),
+          SizedBox(height: isKeyboardOpen ? 3 : 10),
           
           // Word counter
           Row(
@@ -884,21 +989,24 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                 'Kelime ${currentIndex}',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.85),
-                  fontSize: 12,
+                  fontSize: isKeyboardOpen ? 8 : 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isKeyboardOpen ? 6 : 10,
+                  vertical: isKeyboardOpen ? 2 : 5,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.25),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(isKeyboardOpen ? 6 : 12),
                 ),
                 child: Text(
                   '$currentIndex / $totalWords',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
-                    fontSize: 13,
+                    fontSize: isKeyboardOpen ? 9 : 13,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -911,12 +1019,18 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
   }
 
   Widget _buildModernModeSelector(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(5),
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboardOpen = keyboardHeight > 0;
+    
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      padding: EdgeInsets.all(isKeyboardOpen ? 2 : 5),
+      margin: EdgeInsets.symmetric(horizontal: isKeyboardOpen ? 4 : 16),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
+        borderRadius: BorderRadius.circular(isKeyboardOpen ? 10 : 18),
+        boxShadow: isKeyboardOpen ? [] : [
           BoxShadow(
             color: Colors.black.withOpacity(0.06),
             blurRadius: 12,
@@ -936,6 +1050,8 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
 
   Widget _buildModeChip(BuildContext context, StudyMode mode, IconData icon, String label) {
     final isSelected = _currentMode == mode;
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboardOpen = keyboardHeight > 0;
     
     return Expanded(
       child: GestureDetector(
@@ -943,7 +1059,7 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: EdgeInsets.symmetric(vertical: isKeyboardOpen ? 6 : 14),
           decoration: BoxDecoration(
             gradient: isSelected
                 ? LinearGradient(
@@ -953,8 +1069,8 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                     ],
                   )
                 : null,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: isSelected
+            borderRadius: BorderRadius.circular(isKeyboardOpen ? 8 : 14),
+            boxShadow: isSelected && !isKeyboardOpen
                 ? [
                     BoxShadow(
                       color: Theme.of(context).colorScheme.primary.withOpacity(0.4),
@@ -969,16 +1085,16 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
             children: [
               Icon(
                 icon,
-                size: 24,
+                size: isKeyboardOpen ? 16 : 24,
                 color: isSelected
                     ? Colors.white
                     : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: isKeyboardOpen ? 2 : 6),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: isKeyboardOpen ? 9 : 11,
                   fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                   letterSpacing: 0.3,
                   color: isSelected
@@ -1024,42 +1140,46 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
     final isGood = accuracy >= 0.7;
     final isPerfect = accuracy == 1.0;
 
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxHeight < 720;
+        final isNarrow = constraints.maxWidth < 380;
+        final iconSize = isCompact ? 110.0 : 150.0;
+        final glowSize = iconSize + (isCompact ? 18.0 : 30.0);
+        final spacingLarge = isCompact ? 20.0 : 32.0;
+        final spacingMedium = isCompact ? 12.0 : 20.0;
+        final padding = EdgeInsets.symmetric(horizontal: 20, vertical: spacingMedium);
+
+        final column = Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Animated success icon with particle effect
             TweenAnimationBuilder<double>(
-              duration: const Duration(milliseconds: 1000),
+              duration: const Duration(milliseconds: 700),
               tween: Tween(begin: 0, end: 1),
-              curve: Curves.elasticOut,
+              curve: Curves.easeOutBack,
               builder: (context, value, child) {
                 return Transform.scale(
                   scale: value,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      // Glow effect
                       Container(
-                        width: 180,
-                        height: 180,
+                        width: glowSize,
+                        height: glowSize,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: RadialGradient(
                             colors: [
                               (isExcellent ? Colors.amber : (isGood ? Colors.green : Colors.blue))
-                                  .withOpacity(0.3),
+                                  .withOpacity(0.25),
                               Colors.transparent,
                             ],
                           ),
                         ),
                       ),
-                      // Main icon
                       Container(
-                        width: 150,
-                        height: 150,
+                        width: iconSize,
+                        height: iconSize,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: LinearGradient(
@@ -1076,15 +1196,17 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                           boxShadow: [
                             BoxShadow(
                               color: (isPerfect ? Colors.amber : (isExcellent ? Colors.green : (isGood ? Colors.blue : Colors.purple)))
-                                  .withOpacity(0.5),
-                              blurRadius: 30,
-                              offset: const Offset(0, 12),
+                                  .withOpacity(0.4),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
                             ),
                           ],
                         ),
                         child: Icon(
-                          isPerfect ? Icons.stars_rounded : (isExcellent ? Icons.emoji_events_rounded : Icons.check_circle_rounded),
-                          size: 75,
+                          isPerfect
+                              ? Icons.stars_rounded
+                              : (isExcellent ? Icons.emoji_events_rounded : Icons.check_circle_rounded),
+                          size: iconSize * 0.45,
                           color: Colors.white,
                         ),
                       ),
@@ -1093,32 +1215,30 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                 );
               },
             ),
-
-            const SizedBox(height: 36),
-
-            // Animated title
+            SizedBox(height: spacingLarge),
             TweenAnimationBuilder<double>(
-              duration: const Duration(milliseconds: 700),
+              duration: const Duration(milliseconds: 600),
               tween: Tween(begin: 0, end: 1),
               curve: Curves.easeOutCubic,
               builder: (context, value, child) {
                 return Opacity(
                   opacity: value,
                   child: Transform.translate(
-                    offset: Offset(0, 20 * (1 - value)),
+                    offset: Offset(0, 16 * (1 - value)),
                     child: Column(
                       children: [
                         Text(
-                          isPerfect 
-                            ? '🏆 Mükemmel! 100% Doğru!' 
-                            : (isExcellent 
-                              ? '⭐ Muhteşem Performans!' 
-                              : (isGood 
-                                ? '👏 Harika İş Başardın!' 
-                                : '✨ İyi Çalışma!')),
-                          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                          isPerfect
+                              ? '🏆 Mükemmel! 100% Doğru!'
+                              : (isExcellent
+                                  ? '⭐ Muhteşem Performans!'
+                                  : (isGood ? '👏 Harika İş Başardın!' : '✨ İyi Çalışma!')),
+                          style: (isCompact
+                                  ? Theme.of(context).textTheme.headlineMedium
+                                  : Theme.of(context).textTheme.headlineLarge)
+                              ?.copyWith(
                             fontWeight: FontWeight.w900,
-                            letterSpacing: -1.0,
+                            letterSpacing: -0.5,
                             color: isPerfect
                                 ? Colors.amber.shade700
                                 : isExcellent
@@ -1129,19 +1249,19 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 10),
+                        SizedBox(height: spacingMedium / 2),
                         Text(
                           isPerfect
-                            ? '${stats.correctAnswers} kelimeyi hatasız tamamladın! Sen bir yıldızsın! ⭐'
-                            : isExcellent
-                              ? 'Bugün ${stats.correctAnswers} kelime öğrendin. İngilizce\'n gün geçtikçe güçleniyor! 💪'
-                              : isGood
-                                ? 'Harika ilerleme! ${stats.correctAnswers} doğru cevap. Devam et! 🚀'
-                                : '${stats.correctAnswers} kelime öğrendin. Her gün biraz daha iyisin! 📈',
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
-                            height: 1.5,
-                          ),
+                              ? '${stats.correctAnswers} kelimeyi hatasız tamamladın! Sen bir yıldızsın! ⭐'
+                              : isExcellent
+                                  ? 'Bugün ${stats.correctAnswers} kelime öğrendin. İngilizce\'n güçleniyor! 💪'
+                                  : isGood
+                                      ? 'Harika ilerleme! ${stats.correctAnswers} doğru cevap. Devam et! 🚀'
+                                      : '${stats.correctAnswers} kelime öğrendin. Her gün daha iyisin! 📈',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.75),
+                                height: 1.4,
+                              ),
                           textAlign: TextAlign.center,
                         ),
                       ],
@@ -1150,63 +1270,54 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                 );
               },
             ),
-
-            const SizedBox(height: 44),
-
-            // Modern stats grid
-            _buildModernStatsGrid(context, stats, accuracy, duration),
-
-            const SizedBox(height: 44),
-
-            // Motivasyon ve sosyal kanıt
+            SizedBox(height: spacingLarge),
+            _buildModernStatsGrid(context, stats, accuracy, duration, compact: isCompact),
+            SizedBox(height: spacingMedium),
             if (isExcellent)
               Container(
-                padding: const EdgeInsets.all(16),
-                margin: const EdgeInsets.only(bottom: 24),
+                padding: EdgeInsets.all(isCompact ? 12 : 16),
+                margin: EdgeInsets.only(bottom: spacingMedium),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
-                      Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.3),
+                      Theme.of(context).colorScheme.primaryContainer.withOpacity(0.25),
+                      Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.25),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
                   ),
                 ),
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: EdgeInsets.all(isCompact ? 6 : 8),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
                         Icons.trending_up,
                         color: Theme.of(context).colorScheme.primary,
-                        size: 24,
+                        size: isCompact ? 18 : 22,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: spacingMedium),
                     Expanded(
                       child: Text(
-                        'Günlük çalışma yapanlar, yapmayanlardan 5x daha hızlı öğreniyor',
+                        'Günlük çalışma yapanlar, yapmayanlardan 5x daha hızlı öğreniyor.',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w500,
-                          height: 1.4,
-                        ),
+                              fontWeight: FontWeight.w500,
+                              height: 1.4,
+                            ),
                       ),
                     ),
                   ],
                 ),
               ),
-            
-            // Action buttons - CTA odaklı
             Column(
               children: [
-                // Primary CTA - Devam et
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
@@ -1214,59 +1325,112 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                       Navigator.pop(context);
                       Navigator.pushNamed(context, '/books');
                     },
-                    icon: const Icon(Icons.auto_stories),
+                    icon: const Icon(Icons.auto_stories, size: 20),
                     label: const Text('Yeni Kelimeler Keşfet'),
                     style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      padding: EdgeInsets.symmetric(vertical: isCompact ? 14 : 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(StudyConstants.buttonBorderRadius),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                // Secondary actions
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _restartSession,
-                        icon: const Icon(Icons.refresh_rounded, size: 20),
-                        label: const Text('Tekrar'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(StudyConstants.buttonBorderRadius),
+                SizedBox(height: spacingMedium),
+                if (isNarrow)
+                  Column(
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _restartSession,
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: const Text('Tekrar'),
+                          style: OutlinedButton.styleFrom(
+                            padding: EdgeInsets.symmetric(vertical: isCompact ? 10 : 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(StudyConstants.buttonBorderRadius),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.home_rounded, size: 20),
-                        label: const Text('Ana Sayfa'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(StudyConstants.buttonBorderRadius),
+                      SizedBox(height: spacingMedium),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.home_rounded, size: 18),
+                          label: const Text('Ana Sayfa'),
+                          style: OutlinedButton.styleFrom(
+                            padding: EdgeInsets.symmetric(vertical: isCompact ? 10 : 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(StudyConstants.buttonBorderRadius),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _restartSession,
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: const Text('Tekrar'),
+                          style: OutlinedButton.styleFrom(
+                            padding: EdgeInsets.symmetric(vertical: isCompact ? 10 : 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(StudyConstants.buttonBorderRadius),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.home_rounded, size: 18),
+                          label: const Text('Ana Sayfa'),
+                          style: OutlinedButton.styleFrom(
+                            padding: EdgeInsets.symmetric(vertical: isCompact ? 10 : 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(StudyConstants.buttonBorderRadius),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ],
-        ),
-      ),
+        );
+        final constrainedColumn = Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: column,
+          ),
+        );
+
+        return SingleChildScrollView(
+          padding: padding,
+          physics: const BouncingScrollPhysics(),
+          child: constrainedColumn,
+        );
+      },
     );
   }
 
-  Widget _buildModernStatsGrid(BuildContext context, ReviewSession stats, double accuracy, Duration duration) {
+  Widget _buildModernStatsGrid(
+    BuildContext context,
+    ReviewSession stats,
+    double accuracy,
+    Duration duration, {
+    bool compact = false,
+  }) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Row(
           children: [
@@ -1278,9 +1442,10 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                 value: '${(accuracy * 100).toInt()}%',
                 color: accuracy >= 0.8 ? Colors.green : (accuracy >= 0.6 ? Colors.orange : Colors.red),
                 delay: 0,
+                compact: compact,
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: compact ? 8 : 12),
             Expanded(
               child: _buildGlassStatCard(
                 context,
@@ -1289,11 +1454,12 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                 value: '${duration.inMinutes}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}',
                 color: Colors.blue,
                 delay: 100,
+                compact: compact,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: compact ? 8 : 12),
         Row(
           children: [
             Expanded(
@@ -1304,9 +1470,10 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                 value: '${stats.correctAnswers}',
                 color: Colors.green,
                 delay: 200,
+                compact: compact,
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: compact ? 8 : 12),
             Expanded(
               child: _buildGlassStatCard(
                 context,
@@ -1315,6 +1482,7 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
                 value: '${stats.completedWords - stats.correctAnswers}',
                 color: Colors.red,
                 delay: 300,
+                compact: compact,
               ),
             ),
           ],
@@ -1329,6 +1497,7 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
     required String value,
     required Color color,
     required int delay,
+    bool compact = false,
   }) {
     return TweenAnimationBuilder<double>(
       duration: Duration(milliseconds: 600 + delay),
@@ -1340,13 +1509,13 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
           child: Transform.translate(
             offset: Offset(0, 30 * (1 - animValue)),
             child: Container(
-              padding: const EdgeInsets.all(18),
+              padding: EdgeInsets.all(compact ? 12 : 18),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(compact ? 14 : 18),
                 border: Border.all(
                   color: color.withOpacity(0.3),
-                  width: 2,
+                  width: compact ? 1.5 : 2,
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -1358,17 +1527,20 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
               ),
               child: Column(
                 children: [
-                  Icon(icon, color: color, size: 36),
-                  const SizedBox(height: 10),
+                  Icon(icon, color: color, size: compact ? 28 : 36),
+                  SizedBox(height: compact ? 6 : 10),
                   Text(
                     value,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    style: (compact
+                            ? Theme.of(context).textTheme.headlineSmall
+                            : Theme.of(context).textTheme.headlineMedium)
+                        ?.copyWith(
                       fontWeight: FontWeight.w900,
                       color: color,
                       letterSpacing: -0.5,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  SizedBox(height: compact ? 4 : 6),
                   Text(
                     label,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(

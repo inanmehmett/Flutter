@@ -8,8 +8,7 @@ class UserProfile {
   final String id;
   final String userName;
   final String email;
-  final String? firstName;
-  final String? lastName;
+  final String? displayName;
   final String? profileImageUrl;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -28,8 +27,7 @@ class UserProfile {
     required this.id,
     required this.userName,
     required this.email,
-    this.firstName,
-    this.lastName,
+    this.displayName,
     this.profileImageUrl,
     required this.createdAt,
     required this.updatedAt,
@@ -73,8 +71,7 @@ class UserProfile {
       id: json['id'] as String,
       userName: json['userName'] as String,
       email: json['email'] as String,
-      firstName: json['firstName'] as String?,
-      lastName: json['lastName'] as String?,
+      displayName: json['displayName'] as String?,
       profileImageUrl: processProfileImageUrl(json['profileImageUrl'] as String?),
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
@@ -97,8 +94,7 @@ class UserProfile {
     String? id,
     String? userName,
     String? email,
-    String? firstName,
-    String? lastName,
+    String? displayName,
     String? profileImageUrl,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -117,8 +113,7 @@ class UserProfile {
       id: id ?? this.id,
       userName: userName ?? this.userName,
       email: email ?? this.email,
-      firstName: firstName ?? this.firstName,
-      lastName: lastName ?? this.lastName,
+      displayName: displayName ?? this.displayName,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -135,18 +130,7 @@ class UserProfile {
     );
   }
 
-  String get fullName {
-    if (firstName != null && lastName != null) {
-      return '$firstName $lastName';
-    } else if (firstName != null) {
-      return firstName!;
-    } else if (lastName != null) {
-      return lastName!;
-    }
-    return userName;
-  }
-
-  String get displayName {
-    return fullName.isNotEmpty ? fullName : userName;
+  String get displayNameOrUserName {
+    return displayName?.isNotEmpty == true ? displayName! : userName;
   }
 }

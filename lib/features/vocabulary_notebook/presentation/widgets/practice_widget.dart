@@ -26,7 +26,6 @@ class _PracticeWidgetState extends State<PracticeWidget>
     with TickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  final ScrollController _scrollController = ScrollController();
   final GlobalKey _speakButtonKey = GlobalKey();
   
   int _currentAttempt = 0;
@@ -48,9 +47,6 @@ class _PracticeWidgetState extends State<PracticeWidget>
     _startTime = DateTime.now();
     _initAnimations();
 
-    // Klavye açıldığında scroll yap
-    _focusNode.addListener(_onFocusChange);
-
     // Auto-focus input field ve kelimeyi otomatik seslendir
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
@@ -58,56 +54,10 @@ class _PracticeWidgetState extends State<PracticeWidget>
     });
   }
 
-  void _onFocusChange() {
-    if (_focusNode.hasFocus && mounted) {
-      // Klavye açıldığında ses butonunu görünür hale getir
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted && _focusNode.hasFocus) {
-          _scrollToSpeakButton();
-        }
-      });
-    }
-  }
-
-  void _scrollToSpeakButton() {
-    if (!mounted || !_scrollController.hasClients) return;
-    final buttonContext = _speakButtonKey.currentContext;
-    if (buttonContext == null) return;
-    
-    try {
-      final box = buttonContext.findRenderObject() as RenderBox?;
-      if (box == null) return;
-      
-      // Ses butonunun pozisyonunu al
-      final position = box.localToGlobal(Offset.zero);
-      
-      // Build context'ten MediaQuery al
-      final buildContext = context;
-      final mediaQuery = MediaQuery.of(buildContext);
-      final screenHeight = mediaQuery.size.height;
-      final keyboardHeight = mediaQuery.viewInsets.bottom;
-      final availableHeight = screenHeight - keyboardHeight;
-      
-      // Ses butonu görünür alanın dışındaysa scroll yap
-      if (position.dy > availableHeight - 150) {
-        final targetPosition = _scrollController.offset + (position.dy - availableHeight + 150);
-        _scrollController.animateTo(
-          targetPosition.clamp(0.0, _scrollController.position.maxScrollExtent),
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    } catch (e) {
-      // Scroll hatası olursa sessizce devam et
-    }
-  }
-
   @override
   void dispose() {
-    _focusNode.removeListener(_onFocusChange);
     _focusNode.dispose();
     _controller.dispose();
-    _scrollController.dispose();
     _shakeController.dispose();
     _hintController.dispose();
     _successController.dispose();
@@ -329,215 +279,69 @@ class _PracticeWidgetState extends State<PracticeWidget>
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isCompactHeight = constraints.maxHeight < 600;
+        // Ekran yüksekliği daraldığında (özellikle klavye açıldığında)
+        // daha kompakt bir yerleşim kullan
+        final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+        final isKeyboardOpen = keyboardHeight > 0;
+        final isCompactHeight = constraints.maxHeight < 600 || isKeyboardOpen;
+        final safeBottom = MediaQuery.of(context).padding.bottom;
+        final horizontalPadding = isCompactHeight
+            ? StudyConstants.contentPadding * 0.2
+            : StudyConstants.contentPadding;
+        final verticalPadding = isCompactHeight
+            ? StudyConstants.contentPadding * 0.1
+            : StudyConstants.contentPadding;
         
-        return SingleChildScrollView(
-          controller: _scrollController,
-          padding: EdgeInsets.all(isCompactHeight ? StudyConstants.contentPadding * 0.75 : StudyConstants.contentPadding),
+        final content = SizedBox(
+          width: double.infinity,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisAlignment:
+                isCompactHeight ? MainAxisAlignment.start : MainAxisAlignment.center,
             children: [
-              // Word card
-              _buildWordCard(context),
-
-              SizedBox(height: isCompactHeight ? 12 : 20),
-
-              // Hint card (if available)
-              if (_currentHint != null) ...[
+              if (_currentHint != null && !isCompactHeight) ...[
                 _buildHintCard(context),
-                SizedBox(height: isCompactHeight ? 12 : 16),
+                const SizedBox(height: 16),
               ],
-
-              // Ses butonu - input field'ın hemen üstünde
               _buildSpeakButton(context),
-
-              SizedBox(height: isCompactHeight ? 12 : 16),
-
-              // Typing input
+              SizedBox(height: isCompactHeight ? 1 : 16),
               _buildTypingInput(context),
-
-              SizedBox(height: isCompactHeight ? 12 : 16),
-
-              // Attempts indicator
+              SizedBox(height: isCompactHeight ? 1 : 16),
               _buildAttemptsIndicator(context),
-
-              SizedBox(height: isCompactHeight ? 16 : 20),
-
-              // Submit button
+              SizedBox(height: isCompactHeight ? 2 : 20),
               _buildSubmitButton(context),
-              
-              // Extra bottom padding for safe scrolling
-              SizedBox(height: isCompactHeight ? 8 : 16),
             ],
           ),
         );
-      },
-    );
-  }
 
-  Widget _buildWordCard(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isCompactHeight = constraints.maxHeight < 600;
-        return AnimatedBuilder(
-          animation: _shakeAnimation,
-          builder: (context, child) {
-            return Transform.translate(
-              offset: Offset(_shakeAnimation.value, 0),
-              child: Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(isCompactHeight ? 20 : 28),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: _showResult
-                        ? (_isCorrect
-                            ? [Colors.green.shade50, Colors.green.shade100]
-                            : [Colors.red.shade50, Colors.red.shade100])
-                        : [
-                            Colors.green.shade50,
-                            Colors.teal.shade50,
-                          ],
-                  ),
-                  borderRadius: BorderRadius.circular(StudyConstants.cardBorderRadius),
-                  border: Border.all(
-                    color: _showResult
-                        ? (_isCorrect ? Colors.green : Colors.red)
-                        : Colors.green.withOpacity(0.3),
-                    width: _showResult ? 3 : 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: (_showResult
-                          ? (_isCorrect ? Colors.green : Colors.red)
-                          : Colors.green).withOpacity(0.2),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Instruction text instead of showing the word itself
-                    AnimatedBuilder(
-                      animation: _successAnimation,
-                      builder: (context, child) {
-                        final clampedValue = _successAnimation.value.clamp(0.0, 1.0);
-                        return Transform.scale(
-                          scale: 1.0 + (0.04 * clampedValue),
-                          child: Text(
-                            'Kelimeyi dinleyin ve yazın',
-                            style: TextStyle(
-                              fontSize: StudyConstants.exampleFontSize + 2,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.2,
-                              color: _showResult
-                                  ? (_isCorrect ? Colors.green.shade700 : Colors.red.shade700)
-                                  : Colors.green.shade700,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        );
-                      },
-                    ),
+        if (isCompactHeight) {
+          return SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              verticalPadding,
+              horizontalPadding,
+              verticalPadding + keyboardHeight + safeBottom + 24,
+            ),
+            child: content,
+          );
+        }
 
-                    SizedBox(height: isCompactHeight ? 16 : 20),
-
-                    // Example sentence
-                    if (widget.word.exampleSentence != null) ...[
-                      SizedBox(height: isCompactHeight ? 16 : 20),
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isCompactHeight ? 14 : 18,
-                          vertical: isCompactHeight ? 12 : 14,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Text(
-                          '"${widget.word.exampleSentence}"',
-                          style: TextStyle(
-                            fontSize: StudyConstants.exampleFontSize,
-                            fontStyle: FontStyle.italic,
-                            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.75),
-                            height: 1.4,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ],
-
-                    // Result badge
-                    if (_showResult) ...[
-                      const SizedBox(height: 20),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: _isCorrect
-                                ? [Colors.green, Colors.green.shade600]
-                                : [Colors.red, Colors.red.shade600],
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: (_isCorrect ? Colors.green : Colors.red).withOpacity(0.4),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  _isCorrect ? Icons.check_circle_rounded : Icons.cancel_rounded,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _isCorrect ? StudyConstants.correctAnswerMessage : 'Doğru cevap:',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (!_isCorrect) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                widget.word.word,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            );
-          },
+        return Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: verticalPadding,
+          ),
+          child: content,
         );
       },
     );
   }
 
   Widget _buildHintCard(BuildContext context) {
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboardOpen = keyboardHeight > 0;
+    
     return AnimatedBuilder(
       animation: _hintAnimation,
       builder: (context, child) {
@@ -547,7 +351,10 @@ class _PracticeWidgetState extends State<PracticeWidget>
           child: Opacity(
             opacity: clampedValue,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: EdgeInsets.symmetric(
+                horizontal: isKeyboardOpen ? 8 : 16,
+                vertical: isKeyboardOpen ? 4 : 12,
+              ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -555,12 +362,12 @@ class _PracticeWidgetState extends State<PracticeWidget>
                     Colors.amber.shade50,
                   ],
                 ),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(isKeyboardOpen ? 10 : 14),
                 border: Border.all(
                   color: Colors.amber.shade400,
-                  width: 2,
+                  width: isKeyboardOpen ? 1.5 : 2,
                 ),
-                boxShadow: [
+                boxShadow: isKeyboardOpen ? [] : [
                   BoxShadow(
                     color: Colors.amber.withOpacity(0.3),
                     blurRadius: 12,
@@ -573,15 +380,15 @@ class _PracticeWidgetState extends State<PracticeWidget>
                   Icon(
                     Icons.lightbulb_rounded,
                     color: Colors.amber.shade700,
-                    size: 24,
+                    size: isKeyboardOpen ? 18 : 24,
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: isKeyboardOpen ? 8 : 12),
                   Expanded(
                     child: Text(
                       _currentHint!,
                       style: TextStyle(
                         color: Colors.amber.shade900,
-                        fontSize: 15,
+                        fontSize: isKeyboardOpen ? 13 : 15,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -598,7 +405,9 @@ class _PracticeWidgetState extends State<PracticeWidget>
   Widget _buildSpeakButton(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isCompactHeight = constraints.maxHeight < 600;
+        final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+        final isKeyboardOpen = keyboardHeight > 0;
+        final isCompactHeight = constraints.maxHeight < 600 || isKeyboardOpen;
         return Container(
           key: _speakButtonKey,
           alignment: Alignment.center,
@@ -606,8 +415,8 @@ class _PracticeWidgetState extends State<PracticeWidget>
             onTap: _speakWord,
             child: Container(
               padding: EdgeInsets.symmetric(
-                horizontal: isCompactHeight ? 20 : 24,
-                vertical: isCompactHeight ? 12 : 14,
+                horizontal: isCompactHeight ? 10 : 24,
+                vertical: isCompactHeight ? 5 : 14,
               ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -616,12 +425,12 @@ class _PracticeWidgetState extends State<PracticeWidget>
                     Colors.green.withOpacity(0.1),
                   ],
                 ),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(isCompactHeight ? 12 : 16),
                 border: Border.all(
                   color: Colors.green.withOpacity(0.4),
-                  width: 1.5,
+                  width: isCompactHeight ? 1 : 1.5,
                 ),
-                boxShadow: [
+                boxShadow: isCompactHeight ? [] : [
                   BoxShadow(
                     color: Colors.green.withOpacity(0.2),
                     blurRadius: 8,
@@ -634,14 +443,14 @@ class _PracticeWidgetState extends State<PracticeWidget>
                 children: [
                   Icon(
                     Icons.volume_up_rounded,
-                    size: isCompactHeight ? 24 : 28,
+                    size: isCompactHeight ? 20 : 28,
                     color: Colors.green,
                   ),
-                  SizedBox(width: isCompactHeight ? 8 : 12),
+                  SizedBox(width: isCompactHeight ? 6 : 12),
                   Text(
                     'Tekrar Dinle',
                     style: TextStyle(
-                      fontSize: isCompactHeight ? 14 : 16,
+                      fontSize: isCompactHeight ? 12 : 16,
                       fontWeight: FontWeight.w700,
                       color: Colors.green.shade700,
                     ),
@@ -656,17 +465,20 @@ class _PracticeWidgetState extends State<PracticeWidget>
   }
 
   Widget _buildTypingInput(BuildContext context) {
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboardOpen = keyboardHeight > 0;
+    
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(isKeyboardOpen ? 12 : 16),
         border: Border.all(
           color: _showResult
               ? (_isCorrect ? Colors.green : Colors.red)
               : Theme.of(context).colorScheme.outline.withOpacity(0.3),
-          width: 2,
+          width: isKeyboardOpen ? 1.5 : 2,
         ),
-        boxShadow: [
+        boxShadow: isKeyboardOpen ? [] : [
           BoxShadow(
             color: Colors.black.withOpacity(0.06),
             blurRadius: 12,
@@ -679,8 +491,8 @@ class _PracticeWidgetState extends State<PracticeWidget>
         focusNode: _focusNode,
         enabled: !_showResult,
         textAlign: TextAlign.center,
-        style: const TextStyle(
-          fontSize: 24,
+        style: TextStyle(
+          fontSize: isKeyboardOpen ? 20 : 24,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.5,
         ),
@@ -688,12 +500,15 @@ class _PracticeWidgetState extends State<PracticeWidget>
           // Kullanıcıdan duyduğu İngilizce kelimeyi yazması istenir.
           hintText: 'Duyduğunuz kelimeyi yazın...',
           hintStyle: TextStyle(
-            fontSize: 16,
+            fontSize: isKeyboardOpen ? 14 : 16,
             fontWeight: FontWeight.w500,
             color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.4),
           ),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: isKeyboardOpen ? 10 : 20,
+            vertical: isKeyboardOpen ? 8 : 18,
+          ),
         ),
         onSubmitted: (_) => _submitAnswer(),
       ),
@@ -701,28 +516,31 @@ class _PracticeWidgetState extends State<PracticeWidget>
   }
 
   Widget _buildAttemptsIndicator(BuildContext context) {
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboardOpen = keyboardHeight > 0;
+    
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
           'Deneme Hakkı: ',
           style: TextStyle(
-            fontSize: 13,
+            fontSize: isKeyboardOpen ? 11 : 13,
             fontWeight: FontWeight.w600,
             color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: isKeyboardOpen ? 4 : 8),
         ...List.generate(widget.maxAttempts, (index) {
           final isUsed = index < _currentAttempt;
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 3),
+            padding: EdgeInsets.symmetric(horizontal: isKeyboardOpen ? 2 : 3),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               child: Icon(
                 isUsed ? Icons.favorite : Icons.favorite_border,
                 color: isUsed ? Colors.grey.shade400 : Colors.red,
-                size: 24,
+                size: isKeyboardOpen ? 18 : 24,
               ),
             ),
           );
@@ -733,6 +551,8 @@ class _PracticeWidgetState extends State<PracticeWidget>
 
   Widget _buildSubmitButton(BuildContext context) {
     final canSubmit = _controller.text.trim().isNotEmpty && !_showResult;
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboardOpen = keyboardHeight > 0;
     
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -744,11 +564,11 @@ class _PracticeWidgetState extends State<PracticeWidget>
           backgroundColor: Colors.green,
           disabledBackgroundColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
           disabledForegroundColor: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.4),
-          padding: const EdgeInsets.symmetric(vertical: 18),
+          padding: EdgeInsets.symmetric(vertical: isKeyboardOpen ? 8 : 18),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(StudyConstants.buttonBorderRadius),
           ),
-          elevation: canSubmit ? 4 : 0,
+          elevation: canSubmit && !isKeyboardOpen ? 4 : 0,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -756,15 +576,15 @@ class _PracticeWidgetState extends State<PracticeWidget>
             if (_showResult)
               Icon(
                 _isCorrect ? Icons.check_circle_rounded : Icons.cancel_rounded,
-                size: 22,
+                size: isKeyboardOpen ? 18 : 22,
               ),
-            if (_showResult) const SizedBox(width: 8),
+            if (_showResult) SizedBox(width: isKeyboardOpen ? 6 : 8),
             Text(
               _showResult
                   ? (_isCorrect ? StudyConstants.correctAnswerMessage : StudyConstants.wrongAnswerMessage)
                   : 'Kontrol Et',
-              style: const TextStyle(
-                fontSize: 17,
+              style: TextStyle(
+                fontSize: isKeyboardOpen ? 15 : 17,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.3,
               ),

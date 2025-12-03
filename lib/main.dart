@@ -37,6 +37,7 @@ import 'core/widgets/toasts.dart';
 import 'core/widgets/badge_celebration.dart';
 import 'core/widgets/celebration_badge.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/xp_state_service.dart';
 import 'core/network/api_client.dart';
 import 'core/network/network_manager.dart';
 import 'features/game/services/game_service.dart';
@@ -47,9 +48,10 @@ import 'features/quiz/data/services/vocabulary_quiz_service.dart';
 import 'features/vocabulary_notebook/presentation/pages/vocabulary_notebook_page.dart';
 import 'features/vocabulary_notebook/presentation/bloc/vocabulary_bloc.dart';
 import 'features/vocabulary_notebook/data/repositories/vocabulary_repository_impl.dart';
-import 'features/vocab/presentation/pages/learning_list_page.dart';
-import 'features/vocab/presentation/pages/flashcards_page.dart';
-import 'features/vocab/presentation/pages/quiz_page.dart';
+// Word Exercises (Genel kelime alıştırmaları)
+import 'features/word_exercises/presentation/pages/learning_list_page.dart';
+import 'features/word_exercises/presentation/pages/flashcards_page.dart';
+import 'features/word_exercises/presentation/pages/quiz_page.dart';
 
 void main() async {
   Logger.info('App starting...');
@@ -194,9 +196,10 @@ class MyApp extends StatelessWidget {
             }
           },
           '/vocabulary': (context) => const AppShell(initialIndex: 2),
-          '/learning-list': (context) => const LearningListPage(),
-          '/study/flashcards': (context) => const FlashcardsPage(),
-          '/study/quiz': (context) => const VocabQuizPage(),
+          // Word Exercises (Genel kelime alıştırmaları - seviye bazlı)
+          '/word-exercises': (context) => const LearningListPage(),
+          '/word-exercises/flashcards': (context) => const FlashcardsPage(),
+          '/word-exercises/quiz': (context) => const VocabQuizPage(),
         },
       ),
     );
@@ -239,7 +242,7 @@ class _AppShellState extends State<AppShell> {
       // Continue without SignalR - app will work offline
     }
     
-    _signalRService.events.listen((evt) {
+    _signalRService.events.listen((evt) async {
       if (!mounted) return;
       final ctx = context;
       
@@ -396,10 +399,26 @@ class _AppShellState extends State<AppShell> {
       switch (evt.type) {
         case RealtimeEventType.xpChanged:
           final deltaXP = (evt.payload['deltaXP'] ?? 0) as int;
+          final totalXP = (evt.payload['totalXP'] ?? 0) as int;
+          
           ToastOverlay.show(ctx, XpToast(deltaXP), channel: 'xp');
           
           // Push notification gönder
           notificationService.showXPNotification(deltaXP);
+          
+          // Update local XP state immediately for fast UI updates
+          try {
+            final xpStateService = getIt<XPStateService>();
+            if (totalXP > 0) {
+              await xpStateService.updateTotalXP(totalXP);
+            } else {
+              await xpStateService.incrementTotalXP(deltaXP);
+            }
+            // Also increment daily XP
+            await xpStateService.incrementDailyXP(deltaXP);
+          } catch (e) {
+            print('⚠️ Error updating XP state: $e');
+          }
           
           invalidateProfileCaches();
           
@@ -446,6 +465,17 @@ class _AppShellState extends State<AppShell> {
           
           // Also show a small toast for quick feedback
           ToastOverlay.show(ctx, LevelUpToast(levelLabel), channel: 'level');
+          
+          // Update local XP state if totalXP is provided
+          if (levelXp != null) {
+            try {
+              final xpStateService = getIt<XPStateService>();
+              await xpStateService.updateTotalXP(levelXp);
+            } catch (e) {
+              print('⚠️ Error updating XP state on level up: $e');
+            }
+          }
+          
           invalidateProfileCaches();
           
           // Check for newly earned badges immediately after level up

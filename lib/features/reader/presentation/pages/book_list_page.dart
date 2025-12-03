@@ -7,12 +7,13 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../../core/error/app_error.dart';
 import '../viewmodels/book_list_view_model.dart';
 import '../../domain/entities/book.dart';
 import '../widgets/category_picker.dart';
 import '../widgets/unified_book_card.dart';
 import '../widgets/loading_view.dart';
-import '../widgets/error_view.dart';
+import '../../../../core/widgets/error_view.dart';
 import '../widgets/empty_state_view.dart';
 import '../../data/models/book_model.dart';
 
@@ -89,7 +90,12 @@ class _BookListPageState extends State<BookListPage> {
         child: Column(
           children: [
             _buildModernAppBar(),
-            Expanded(child: ErrorView(errorMessage: errorMessage)),
+            Expanded(
+              child: ErrorView(
+                error: NetworkError(errorMessage),
+                onRetry: () => Provider.of<BookListViewModel>(context, listen: false).fetchBooks(),
+              ),
+            ),
           ],
         ),
       ),

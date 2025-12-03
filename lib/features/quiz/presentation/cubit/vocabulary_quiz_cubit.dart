@@ -3,8 +3,8 @@ import 'package:equatable/equatable.dart';
 import '../../domain/entities/vocabulary_quiz_models.dart';
 import '../../data/services/vocabulary_quiz_service.dart';
 import '../../../../core/di/injection.dart';
-import '../../../vocab/domain/services/vocab_learning_service.dart';
-import '../../../vocab/domain/entities/user_word_entity.dart' as ue;
+import '../../../word_exercises/domain/services/vocab_learning_service.dart';
+import '../../../word_exercises/domain/entities/user_word_entity.dart' as ue;
 
 // States
 abstract class VocabularyQuizState extends Equatable {

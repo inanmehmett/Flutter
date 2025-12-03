@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,6 +7,7 @@ import '../../../reader/domain/entities/book.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/data/models/user_profile.dart';
 import '../../../../core/di/injection.dart';
+import '../../../../core/services/xp_state_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -28,11 +30,15 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
+  int? _cachedDailyXP;
   int? _cachedStreakDays;
   bool _isLoadingStreak = false;
-  int? _cachedDailyXP;
   bool _isLoadingDailyXP = false;
+  
+  late XPStateService _xpStateService;
+  StreamSubscription<int>? _dailyXPSubscription;
+  StreamSubscription<int>? _streakSubscription;
   
   // Design system spacing
   static const double _smallSpacing = AppSpacing.spacing3;
@@ -46,9 +52,39 @@ class _HomePageState extends State<HomePage> {
   static const Color _textSecondary = AppColors.textSecondary;
   static const Color _backgroundWhite = AppColors.surface;
   static const Color _borderColor = AppColors.border;
+  
   @override
   void initState() {
     super.initState();
+    _xpStateService = getIt<XPStateService>();
+    
+    // Add lifecycle observer to reload cache when app resumes
+    WidgetsBinding.instance.addObserver(this);
+    
+    // Load cached XP data immediately (fast UI)
+    _loadCachedXPData();
+    
+    // Listen to XP updates from SignalR
+    _dailyXPSubscription = _xpStateService.dailyXPStream.listen((dailyXP) {
+      print('🏠 [HomePage] Received daily XP update: $dailyXP');
+      if (mounted) {
+        print('🏠 [HomePage] Updating UI with new daily XP: $dailyXP');
+        setState(() {
+          _cachedDailyXP = dailyXP;
+        });
+      } else {
+        print('⚠️ [HomePage] Widget not mounted, skipping UI update');
+      }
+    });
+    
+    _streakSubscription = _xpStateService.streakStream.listen((streak) {
+      if (mounted) {
+        setState(() {
+          _cachedStreakDays = streak;
+        });
+      }
+    });
+    
     // Load books when page initializes
     Future.microtask(() =>
         Provider.of<BookListViewModel>(context, listen: false).fetchBooks());
@@ -57,8 +93,21 @@ class _HomePageState extends State<HomePage> {
     Future.microtask(() =>
         context.read<AuthBloc>().add(CheckAuthStatus()));
 
-    // Prefetch all data to prevent multiple API calls
+    // Prefetch all data to prevent multiple API calls (background refresh)
     _prefetchAllData();
+  }
+  
+  Future<void> _loadCachedXPData() async {
+    // Load from cache immediately for fast UI
+    final cachedDailyXP = await _xpStateService.getDailyXP();
+    final cachedStreak = await _xpStateService.getStreak();
+    
+    if (mounted) {
+      setState(() {
+        _cachedDailyXP = cachedDailyXP > 0 ? cachedDailyXP : null;
+        _cachedStreakDays = cachedStreak > 0 ? cachedStreak : null;
+      });
+    }
   }
 
   Future<void> _prefetchAllData() async {
@@ -82,18 +131,35 @@ class _HomePageState extends State<HomePage> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    // Reload XP cache when app returns to foreground or page becomes visible
+    if (state == AppLifecycleState.resumed) {
+      print('🔄 [HomePage] App resumed, reloading XP cache...');
+      _loadCachedXPData();
+    }
+  }
+
+  @override
   void dispose() {
-    // Clean up any resources
+    WidgetsBinding.instance.removeObserver(this);
+    _dailyXPSubscription?.cancel();
+    _streakSubscription?.cancel();
     super.dispose();
   }
 
   Future<int?> _fetchStreakDays() async {
-    if (_cachedStreakDays != null || _isLoadingStreak) return _cachedStreakDays;
+    if (_isLoadingStreak) return _cachedStreakDays;
     
     try {
       _isLoadingStreak = true;
       final service = getIt<GameService>();
       final summary = await service.getProfileSummary();
+      
+      // Update local cache
+      await _xpStateService.updateStreak(summary.currentStreak);
+      
       if (mounted) {
         setState(() {
           _cachedStreakDays = summary.currentStreak;
@@ -109,12 +175,16 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<int?> _fetchDailyXP() async {
-    if (_cachedDailyXP != null || _isLoadingDailyXP) return _cachedDailyXP;
+    if (_isLoadingDailyXP) return _cachedDailyXP;
     
     try {
       _isLoadingDailyXP = true;
       final service = getIt<GameService>();
       final dailyXP = await service.getDailyXP();
+      
+      // Update local cache
+      await _xpStateService.updateDailyXP(dailyXP);
+      
       if (mounted) {
         setState(() {
           _cachedDailyXP = dailyXP;
@@ -344,7 +414,7 @@ class _HomePageState extends State<HomePage> {
                   // 1. Home Header (Profile + Level + XP + Streak)
                   HomeHeader(
                     profile: userProfile!,
-                    greeting: GreetingHelper.getGreetingWithEmoji(userProfile!.userName),
+                    greeting: GreetingHelper.getGreetingWithEmoji(userProfile!.displayNameOrUserName),
                     streakDays: _cachedStreakDays ?? userProfile!.currentStreak,
                     onTap: () {
                       if (authState is AuthAuthenticated) {
@@ -361,7 +431,7 @@ class _HomePageState extends State<HomePage> {
                   // 3.1 Günlük İlerleme (En önemli - motivasyon)
                   DailyProgressCard(
                     profile: userProfile!,
-                    streakDays: _cachedStreakDays,
+                    streakDays: _cachedStreakDays ?? userProfile!.currentStreak,
                     dailyXP: _cachedDailyXP ?? 0,
                     dailyGoal: 50,
                   ),

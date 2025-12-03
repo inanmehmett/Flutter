@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/di/injection.dart';
-import '../../../vocab/domain/entities/user_word_entity.dart';
-import '../../../vocab/domain/services/vocab_learning_service.dart';
+import '../../../word_exercises/domain/entities/user_word_entity.dart';
+import '../../../word_exercises/domain/services/vocab_learning_service.dart';
 
 class FlashcardsPage extends StatefulWidget {
   const FlashcardsPage({super.key});

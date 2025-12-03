@@ -75,29 +75,42 @@ class GameService {
     
     if (!forceRefresh) {
       final cached = await _cacheManager.getData<int>(cacheKey);
-      if (cached != null) return cached;
+      if (cached != null) {
+        print('📊 [GameService] Returning cached daily XP: $cached');
+        return cached;
+      }
     }
     
     try {
+      print('📊 [GameService] Fetching daily XP from API...');
       final Response response = await _apiClient.get('/api/gamification/daily-xp');
       final data = response.data;
+      
+      print('📊 [GameService] API Response: $data');
       
       if (data is Map<String, dynamic> && data['data'] is Map<String, dynamic>) {
         final dailyData = data['data'] as Map<String, dynamic>;
         final dailyXP = (dailyData['dailyXP'] as num?)?.toInt() ?? 0;
+        final totalXP = (dailyData['totalXP'] as num?)?.toInt();
+        
+        print('📊 [GameService] Parsed daily XP: $dailyXP, total XP: $totalXP');
         
         // Cache for 2 minutes (short cache for real-time feel)
         try {
           await _cacheManager.setData(cacheKey, dailyXP, timeout: const Duration(minutes: 2));
+          print('📊 [GameService] Cached daily XP: $dailyXP');
         } catch (_) {}
         
         return dailyXP;
       }
       
+      print('⚠️ [GameService] Unexpected response format, returning 0');
       return 0;
     } catch (e) {
+      print('❌ [GameService] Error fetching daily XP: $e');
       // Return cached value or 0 on error
       final cached = await _cacheManager.getData<int>(cacheKey);
+      print('📊 [GameService] Returning fallback cached daily XP: ${cached ?? 0}');
       return cached ?? 0;
     }
   }

@@ -19,9 +19,16 @@ class SpacedRepetitionService {
 
   /// Review session'ı başlat
   static ReviewSession startReviewSession(List<VocabularyWord> words) {
+    // ✅ FIX: Aynı kelime tekrarını önle
+    // Eğer listede aynı kelime birden fazla varsa, sadece birini al
+    final uniqueWords = <int, VocabularyWord>{};
+    for (final word in words) {
+      uniqueWords[word.id] = word;
+    }
+    
     return ReviewSession(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      words: words,
+      words: uniqueWords.values.toList(),
       startedAt: DateTime.now(),
     );
   }

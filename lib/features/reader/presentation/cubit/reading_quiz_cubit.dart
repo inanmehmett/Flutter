@@ -5,6 +5,7 @@ import '../../data/services/reading_quiz_service.dart';
 import '../../../../core/analytics/event_service.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/utils/logger.dart';
+import '../../../../core/services/xp_state_service.dart';
 
 part 'reading_quiz_state.dart';
 
@@ -105,6 +106,20 @@ class ReadingQuizCubit extends Cubit<ReadingQuizState> {
         
         if (response.success && response.data != null) {
           Logger.info('ReadingQuizCubit.submitQuiz success resultId=${response.data!.resultId}');
+          
+          // ✅ Update XP state immediately (optimistic update)
+          final xpEarned = response.data!.xpEarned;
+          if (xpEarned > 0) {
+            try {
+              final xpStateService = getIt<XPStateService>();
+              await xpStateService.incrementDailyXP(xpEarned);
+              await xpStateService.incrementTotalXP(xpEarned);
+              Logger.info('✅ Updated XP state after quiz: +$xpEarned XP');
+            } catch (e) {
+              Logger.error('Failed to update XP state after quiz', e);
+            }
+          }
+          
           emit(ReadingQuizFinished(response.data!));
 
           // Emit quiz_passed event if passed; include readingTextId when available

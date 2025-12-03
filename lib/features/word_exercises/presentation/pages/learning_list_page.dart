@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../../../../core/di/injection.dart';
-import '../../../vocab/domain/services/vocab_learning_service.dart';
-import '../../../vocab/domain/entities/user_word_entity.dart';
+import '../../../word_exercises/domain/services/vocab_learning_service.dart';
+import '../../../word_exercises/domain/entities/user_word_entity.dart';
 
 class LearningListPage extends StatefulWidget {
   const LearningListPage({super.key});

@@ -27,7 +27,7 @@ class StudyConstants {
   // ============================================================================
   
   /// Delay before moving to next word after answer submission
-  static const Duration resultDisplayDelay = Duration(milliseconds: 1500);
+  static const Duration resultDisplayDelay = Duration(milliseconds: 750);  // Yarıya indirildi (1500ms → 750ms)
   
   // ============================================================================
   // SPACING & SIZING
