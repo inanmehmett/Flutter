@@ -878,7 +878,27 @@ class _ProfilePageState extends State<ProfilePage> {
 
   String? _normalizeImageUrl(String? path) {
     if (path == null || path.isEmpty) return null;
-    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    
+    // Eğer zaten tam URL ise ve mevcut base URL ile uyumlu değilse, normalize et
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      final uri = Uri.tryParse(path);
+      if (uri != null) {
+        final host = uri.host;
+        // localhost, 127.0.0.1 veya eski IP adresi içeriyorsa, mevcut base URL ile değiştir
+        if (host == 'localhost' || 
+            host == '127.0.0.1' || 
+            host.startsWith('192.168.') ||
+            host.startsWith('10.0.2.2')) {
+          final urlPath = uri.path;
+          final query = uri.query.isNotEmpty ? '?${uri.query}' : '';
+          return '${AppConfig.apiBaseUrl}$urlPath$query';
+        }
+      }
+      // Geçerli bir external URL ise olduğu gibi döndür
+      return path;
+    }
+    
+    // Relative path ise base URL ile birleştir
     if (path.startsWith('/')) return '${AppConfig.apiBaseUrl}$path';
     return '${AppConfig.apiBaseUrl}/$path';
   }

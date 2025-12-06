@@ -22,6 +22,7 @@ import '../../features/game/services/game_service.dart';
 import '../../features/quiz/data/services/vocabulary_quiz_service.dart';
 import '../network/api_client.dart';
 import '../analytics/event_service.dart';
+import '../services/crash_tracking_service.dart';
 import 'injection.config.dart';
 import '../storage/last_read_manager.dart';
 import '../storage/storage_manager.dart';

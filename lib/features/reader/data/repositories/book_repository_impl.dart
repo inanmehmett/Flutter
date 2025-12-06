@@ -4,6 +4,7 @@ import 'package:dartz/dartz.dart';
 import 'package:injectable/injectable.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../../core/utils/logger.dart';
 import '../../domain/repositories/book_repository.dart';
 import '../models/book_model.dart';
 import '../../../../core/network/network_manager.dart';
@@ -43,32 +44,52 @@ class BookRepositoryImpl implements BookRepository {
         '📚 [BookRepositoryImpl] RemoteDataSource: ${remoteDataSource.runtimeType}');
   }
 
+  // Cache-first approach: Use cached data if available and fresh
+  DateTime? _lastBooksFetchTime;
+
   @override
   Future<Either<Failure, List<BookModel>>> getBooks() async {
-    print('📚 [BookRepositoryImpl] Getting books...');
+    Logger.book('Getting books...');
+    
+    // Network-first strategy: Try API first, fallback to cache if network fails
+    // This ensures fresh data on app startup while supporting offline mode
     try {
+      Logger.book('Attempting to fetch books from API...');
       final books = await remoteDataSource.fetchBooks();
       await localDataSource.cacheBooks(books);
-      print(
-          '📚 [BookRepositoryImpl] ✅ Successfully fetched and cached ${books.length} books');
+      _lastBooksFetchTime = DateTime.now();
+      Logger.book('Successfully fetched and cached ${books.length} books from API');
       return Right(books);
     } catch (e) {
-      print('📚 [BookRepositoryImpl] ❌ Error getting books: $e');
-      return Left(ServerFailure());
+      Logger.warning('API fetch failed, trying cache as fallback: $e');
+      
+      // If API fails, try to return cached data as fallback (offline mode)
+      try {
+        final cachedBooks = await localDataSource.getBooks();
+        if (cachedBooks.isNotEmpty) {
+          Logger.cache('Using ${cachedBooks.length} cached books as fallback (offline mode)');
+          return Right(cachedBooks);
+        } else {
+          Logger.warning('No cached books available');
+          return Left(ServerFailure());
+        }
+      } catch (cacheError) {
+        Logger.error('Cache read also failed: $cacheError', cacheError);
+        return Left(ServerFailure());
+      }
     }
   }
 
   @override
   Future<Either<Failure, List<BookModel>>> fetchBooks() async {
-    print('📚 [BookRepositoryImpl] Fetching books from remote...');
+    Logger.book('Fetching books from remote...');
     try {
       final books = await remoteDataSource.fetchBooks();
       await localDataSource.cacheBooks(books);
-      print(
-          '📚 [BookRepositoryImpl] ✅ Successfully fetched and cached ${books.length} books');
+      Logger.book('Successfully fetched and cached ${books.length} books');
       return Right(books);
     } catch (e) {
-      print('📚 [BookRepositoryImpl] ❌ Error fetching books: $e');
+      Logger.error('Error fetching books: $e', e);
       return Left(ServerFailure());
     }
   }

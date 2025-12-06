@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'core/utils/logger.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'dart:ui' as ui;
 import 'core/theme/theme_manager.dart';
 import 'core/theme/app_design_system.dart';
 import 'core/theme/app_colors.dart';
@@ -38,6 +39,7 @@ import 'core/widgets/badge_celebration.dart';
 import 'core/widgets/celebration_badge.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/xp_state_service.dart';
+import 'core/services/crash_tracking_service.dart';
 import 'core/network/api_client.dart';
 import 'core/network/network_manager.dart';
 import 'features/game/services/game_service.dart';
@@ -88,6 +90,31 @@ void main() async {
     Logger.debug('Initializing dependency injection...');
     await configureDependencies();
     Logger.debug('Dependency injection configured');
+
+    // Setup custom crash tracking error handlers (after DI is configured)
+    Logger.debug('Setting up crash tracking...');
+    try {
+      final crashTrackingService = getIt<CrashTrackingService>();
+      
+      // Setup Flutter error handler
+      FlutterError.onError = (errorDetails) {
+        // Log to console in debug mode
+        FlutterError.presentError(errorDetails);
+        // Send to our backend
+        crashTrackingService.recordFlutterError(errorDetails, fatal: true);
+      };
+      
+      // Handle platform errors (non-Flutter errors)
+      ui.PlatformDispatcher.instance.onError = (error, stack) {
+        crashTrackingService.recordError(error, stack, fatal: true);
+        return true;
+      };
+      
+      Logger.info('Crash tracking configured');
+    } catch (e) {
+      Logger.error('Crash tracking setup failed (continuing without crash tracking): $e');
+      // Continue without crash tracking - app should still work
+    }
 
     // Initialize notification service and schedule daily reminders
     try {
@@ -422,9 +449,11 @@ class _AppShellState extends State<AppShell> {
           
           invalidateProfileCaches();
           
-          // Refresh AuthBloc profile to update XP in UI
+          // Refresh AuthBloc profile to update XP in UI (debounced in AuthBloc)
+          // Only refresh if UI is visible and user is on profile-related pages
           try {
             final authBloc = ctx.read<AuthBloc>();
+            // Debounce is handled in AuthBloc._onRefreshProfile
             authBloc.add(RefreshProfile());
           } catch (e) {
             print('⚠️ Error refreshing profile: $e');

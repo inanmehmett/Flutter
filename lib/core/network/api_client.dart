@@ -3,6 +3,7 @@ import 'package:injectable/injectable.dart';
 import 'interceptors/auth_interceptor.dart';
 import 'interceptors/logging_interceptor.dart';
 import 'interceptors/cache_interceptor.dart';
+import 'interceptors/rate_limit_interceptor.dart';
 import '../storage/secure_storage_service.dart';
 import '../config/app_config.dart';
 
@@ -22,6 +23,9 @@ class ApiClient {
     print('🟡[App START] ApiClient.baseURL = ${dio.options.baseUrl}');
 
     dio.interceptors.addAll([
+      RateLimitInterceptor(
+        maxRequestsPerMinute: AppConfig.maxRequestsPerMinute,
+      ),
       AuthInterceptor(secureStorage),
       LoggingInterceptor(),
       CacheInterceptor(),

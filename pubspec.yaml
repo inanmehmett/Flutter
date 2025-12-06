@@ -35,6 +35,8 @@ dependencies:
   uuid: ^4.2.1
   flutter_local_notifications: ^17.2.2
   timezone: ^0.9.4
+  device_info_plus: ^10.1.0
+  package_info_plus: ^8.0.0
 
 dev_dependencies:
   flutter_test:
@@ -47,6 +49,12 @@ dev_dependencies:
   mocktail: ^1.0.3
   bloc_test: ^9.1.5
   flutter_launcher_icons: ^0.13.1
+
+dependency_overrides:
+  # Fix compatibility between signalr_core and firebase_core
+  # signalr_core requires web ^0.4.0 or ^0.5.0, but firebase_core requires web ^1.0.0
+  # This override allows both to work together (web 1.0.0 is backward compatible)
+  web: ^1.0.0
 
 flutter:
   uses-material-design: true

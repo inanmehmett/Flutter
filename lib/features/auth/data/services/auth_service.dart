@@ -230,33 +230,75 @@ class AuthService implements AuthServiceProtocol {
   Future<UserProfile> fetchUserProfile({bool forceRefresh = false}) async {
     print('🔐 [AuthService] ===== FETCH USER PROFILE START =====');
 
+    // Always check token first - don't use cache if token is missing
+    final token = await _getAccessToken();
+    if (token == null) {
+      print('🔐 [AuthService] ❌ No access token found, cannot fetch profile');
+      // Clear any stale cache
+      await _cacheManager.removeData('user/profile');
+      throw AuthError.invalidCredentials;
+    }
+
     try {
       // Cache-first unless forceRefresh requested
       if (!forceRefresh) {
         final cached = await _cacheManager.getData<Map<String, dynamic>>('user/profile');
         if (cached != null) {
-          print('🔐 [AuthService] Returning profile from cache');
+          // Double-check token is still valid before using cache
+          // This prevents hot reload from restoring logged-out user
+          final tokenCheck = await _getAccessToken();
+          if (tokenCheck == null || tokenCheck.isEmpty) {
+            print('🔐 [AuthService] Token missing, clearing stale cache');
+            await _cacheManager.removeData('user/profile');
+            throw AuthError.invalidCredentials;
+          }
+          
+          print('🔐 [AuthService] Returning profile from cache (token verified)');
           final data = cached;
           String? processProfileImageUrl(String? profileImageUrl) {
-            if (profileImageUrl == null || profileImageUrl.isEmpty) return null;
-            
-            // localhost içeren URL'leri AppConfig.apiBaseUrl ile değiştir
-            if (profileImageUrl.contains('localhost') || profileImageUrl.contains('127.0.0.1')) {
-              final uri = Uri.parse(profileImageUrl);
-              final path = uri.path;
-              return '${AppConfig.apiBaseUrl}$path${uri.query.isNotEmpty ? '?${uri.query}' : ''}';
+            if (profileImageUrl == null || profileImageUrl.isEmpty) {
+              print('🔐 [AuthService] Profile image URL is null or empty');
+              return null;
             }
             
+            print('🔐 [AuthService] Processing profile image URL: $profileImageUrl');
+            
+            // Eğer zaten tam URL ise ve mevcut base URL ile uyumlu değilse, normalize et
             if (profileImageUrl.startsWith('http://') || profileImageUrl.startsWith('https://')) {
+              final uri = Uri.tryParse(profileImageUrl);
+              if (uri != null) {
+                final host = uri.host;
+                // localhost, 127.0.0.1 veya eski IP adresi içeriyorsa, mevcut base URL ile değiştir
+                if (host == 'localhost' || 
+                    host == '127.0.0.1' || 
+                    host.startsWith('192.168.') ||
+                    host.startsWith('10.0.2.2')) {
+                  final path = uri.path;
+                  final query = uri.query.isNotEmpty ? '?${uri.query}' : '';
+                  final result = '${AppConfig.apiBaseUrl}$path$query';
+                  print('🔐 [AuthService] Processed (old IP/localhost): $result');
+                  return result;
+                }
+              }
+              print('🔐 [AuthService] Profile image URL is already full URL: $profileImageUrl');
               return profileImageUrl;
             }
+            
             if (profileImageUrl.startsWith('file://')) {
-              return profileImageUrl.replaceFirst('file://', AppConfig.apiBaseUrl);
+              final result = profileImageUrl.replaceFirst('file://', AppConfig.apiBaseUrl);
+              print('🔐 [AuthService] Processed (file://): $result');
+              return result;
             }
+            
+            // Relative path ise base URL ile birleştir
             if (profileImageUrl.startsWith('/')) {
-              return '${AppConfig.apiBaseUrl}$profileImageUrl';
+              final result = '${AppConfig.apiBaseUrl}$profileImageUrl';
+              print('🔐 [AuthService] Processed (relative path): $result');
+              return result;
             }
-            return '${AppConfig.apiBaseUrl}/$profileImageUrl';
+            final result = '${AppConfig.apiBaseUrl}/$profileImageUrl';
+            print('🔐 [AuthService] Processed (no leading slash): $result');
+            return result;
           }
 
           return UserProfile(
@@ -281,12 +323,8 @@ class AuthService implements AuthServiceProtocol {
         }
       }
 
+      // Token already checked at the beginning
       print('🔐 [AuthService] Getting access token...');
-      final token = await _getAccessToken();
-      if (token == null) {
-        print('🔐 [AuthService] ❌ No access token found');
-        throw AuthError.invalidCredentials;
-      }
       print(
           '🔐 [AuthService] ✅ Access token found: ${token.substring(0, 10)}...');
 
@@ -308,25 +346,49 @@ class AuthService implements AuthServiceProtocol {
         } catch (_) {}
 
         String? processProfileImageUrl(String? profileImageUrl) {
-          if (profileImageUrl == null || profileImageUrl.isEmpty) return null;
-          
-          // localhost içeren URL'leri AppConfig.apiBaseUrl ile değiştir
-          if (profileImageUrl.contains('localhost') || profileImageUrl.contains('127.0.0.1')) {
-            final uri = Uri.parse(profileImageUrl);
-            final path = uri.path;
-            return '${AppConfig.apiBaseUrl}$path${uri.query.isNotEmpty ? '?${uri.query}' : ''}';
+          if (profileImageUrl == null || profileImageUrl.isEmpty) {
+            print('🔐 [AuthService] Profile image URL is null or empty (from API)');
+            return null;
           }
           
+          print('🔐 [AuthService] Processing profile image URL (from API): $profileImageUrl');
+          
+          // Eğer zaten tam URL ise ve mevcut base URL ile uyumlu değilse, normalize et
           if (profileImageUrl.startsWith('http://') || profileImageUrl.startsWith('https://')) {
+            final uri = Uri.tryParse(profileImageUrl);
+            if (uri != null) {
+              final host = uri.host;
+              // localhost, 127.0.0.1 veya eski IP adresi içeriyorsa, mevcut base URL ile değiştir
+              if (host == 'localhost' || 
+                  host == '127.0.0.1' || 
+                  host.startsWith('192.168.') ||
+                  host.startsWith('10.0.2.2')) {
+                final path = uri.path;
+                final query = uri.query.isNotEmpty ? '?${uri.query}' : '';
+                final result = '${AppConfig.apiBaseUrl}$path$query';
+                print('🔐 [AuthService] Processed (old IP/localhost, from API): $result');
+                return result;
+              }
+            }
+            print('🔐 [AuthService] Profile image URL is already full URL: $profileImageUrl');
             return profileImageUrl;
           }
+          
           if (profileImageUrl.startsWith('file://')) {
-            return profileImageUrl.replaceFirst('file://', AppConfig.apiBaseUrl);
+            final result = profileImageUrl.replaceFirst('file://', AppConfig.apiBaseUrl);
+            print('🔐 [AuthService] Processed (file://, from API): $result');
+            return result;
           }
+          
+          // Relative path ise base URL ile birleştir
           if (profileImageUrl.startsWith('/')) {
-            return '${AppConfig.apiBaseUrl}$profileImageUrl';
+            final result = '${AppConfig.apiBaseUrl}$profileImageUrl';
+            print('🔐 [AuthService] Processed (relative path, from API): $result');
+            return result;
           }
-          return '${AppConfig.apiBaseUrl}/$profileImageUrl';
+          final result = '${AppConfig.apiBaseUrl}/$profileImageUrl';
+          print('🔐 [AuthService] Processed (no leading slash, from API): $result');
+          return result;
         }
 
         final userProfile = UserProfile(

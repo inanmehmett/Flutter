@@ -154,6 +154,7 @@ class _VocabularyStudyPageState extends State<VocabularyStudyPage>
     if (_currentSession == null) return;
 
     _currentSession!.complete();
+    
     context.read<VocabularyBloc>().add(
       CompleteReviewSession(session: _currentSession!),
     );

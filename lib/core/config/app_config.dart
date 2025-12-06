@@ -36,6 +36,15 @@ class AppConfig {
   static const int maxCacheSize = 100 * 1024 * 1024; // 100MB
   static const Duration cacheTimeout = Duration(hours: 1);
   static const int maxRequestsPerMinute = 60;
+  
+  // Cache durations
+  static const Duration booksCacheDuration = Duration(minutes: 5);
+  
+  // Debounce durations
+  static const Duration refreshProfileDebounce = Duration(seconds: 10);
+  static const Duration authCheckDebounce = Duration(seconds: 5);
+  static const Duration crashReportDebounce = Duration(seconds: 5);
+  
   static const String appName = 'Daily English';
   static const String appVersion = '1.0.0';
   static const String buildNumber = '1';

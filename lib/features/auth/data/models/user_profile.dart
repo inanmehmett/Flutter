@@ -1,5 +1,6 @@
 import 'package:json_annotation/json_annotation.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../../core/utils/url_normalizer.dart';
 
 part 'user_profile.g.dart';
 
@@ -44,27 +45,9 @@ class UserProfile {
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
-    // Profile image URL'yi tam URL'ye çevir
+    // Profile image URL'yi normalize et (merkezi utility kullan)
     String? processProfileImageUrl(String? profileImageUrl) {
-      if (profileImageUrl == null || profileImageUrl.isEmpty) return null;
-      
-      // localhost içeren URL'leri AppConfig.apiBaseUrl ile değiştir
-      if (profileImageUrl.contains('localhost') || profileImageUrl.contains('127.0.0.1')) {
-        final uri = Uri.parse(profileImageUrl);
-        final path = uri.path;
-        return '${AppConfig.apiBaseUrl}$path${uri.query.isNotEmpty ? '?${uri.query}' : ''}';
-      }
-      
-      if (profileImageUrl.startsWith('http://') || profileImageUrl.startsWith('https://')) {
-        return profileImageUrl;
-      }
-      if (profileImageUrl.startsWith('file://')) {
-        return profileImageUrl.replaceFirst('file://', AppConfig.apiBaseUrl);
-      }
-      if (profileImageUrl.startsWith('/')) {
-        return '${AppConfig.apiBaseUrl}$profileImageUrl';
-      }
-      return '${AppConfig.apiBaseUrl}/$profileImageUrl';
+      return UrlNormalizer.normalizeImageUrl(profileImageUrl);
     }
 
     return UserProfile(

@@ -9,8 +9,10 @@ import '../../../../core/cache/cache_manager.dart';
 import '../../../vocabulary_notebook/data/local/local_vocabulary_store.dart';
 import '../../../vocabulary_notebook/data/repositories/vocabulary_repository_impl.dart';
 import '../../../../core/utils/logger.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/realtime/signalr_service.dart';
 import '../../../../core/storage/secure_storage_service.dart';
+import '../../../../core/services/crash_tracking_service.dart';
 
 // Events
 abstract class AuthEvent extends Equatable {
@@ -134,27 +136,62 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       return;
     }
 
+    // Debounce: Skip if checked recently
+    final now = DateTime.now();
+    if (_lastAuthCheckTime != null && 
+        now.difference(_lastAuthCheckTime!) < AppConfig.authCheckDebounce) {
+      Logger.auth('Auth check skipped (debounced) - last check was ${now.difference(_lastAuthCheckTime!).inMilliseconds}ms ago');
+      return;
+    }
+
+    _lastAuthCheckTime = now;
     emit(AuthChecking());
 
     try {
+      // First check if token exists - if not, don't try to fetch profile
+      final secureStorage = getIt<SecureStorageService>();
+      final accessToken = await secureStorage.getAccessToken();
+      
+      if (accessToken == null || accessToken.isEmpty) {
+        Logger.auth('No access token found, emitting unauthenticated state');
+        // Clear any stale cache
+        try {
+          final cacheManager = getIt<CacheManager>();
+          await cacheManager.removeData('user/profile');
+          Logger.auth('Cleared stale user profile cache');
+        } catch (e) {
+          Logger.warning('Error clearing stale cache: $e');
+        }
+        emit(AuthUnauthenticated());
+        return;
+      }
+
+      // Token exists, try to fetch profile
       final user = await _authService.fetchUserProfile(forceRefresh: false);
+      _setCrashTrackingUser(user);
       emit(AuthAuthenticated(user));
     } catch (e) {
       Logger.warning('Auth check failed: $e');
 
-      // Offline mode - try to get cached profile
+      // Don't use cached profile if token is missing or invalid
+      // This prevents hot reload from restoring logged-out user
       try {
-        final cacheManager = getIt<CacheManager>();
-        final cachedProfile = await cacheManager.getData('user/profile');
-        if (cachedProfile != null) {
-          Logger.auth('Found cached profile, using offline mode');
-          // Parse cached profile and emit AuthAuthenticated
-          // For now, emit unauthenticated to use guest mode
+        final secureStorage = getIt<SecureStorageService>();
+        final accessToken = await secureStorage.getAccessToken();
+        
+        if (accessToken == null || accessToken.isEmpty) {
+          Logger.auth('No token available, clearing cache and emitting unauthenticated');
+          final cacheManager = getIt<CacheManager>();
+          await cacheManager.removeData('user/profile');
+          emit(AuthUnauthenticated());
+          return;
         }
-      } catch (cacheError) {
-        Logger.warning('No cached profile available: $cacheError');
+      } catch (tokenError) {
+        Logger.warning('Error checking token: $tokenError');
       }
 
+      // If token exists but fetch failed, don't use cache (might be stale)
+      Logger.auth('Token exists but profile fetch failed, emitting unauthenticated');
       emit(AuthUnauthenticated());
     }
   }
@@ -175,6 +212,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         event.rememberMe,
       );
       Logger.auth('Login successful: ${user.userName}');
+      _setCrashTrackingUser(user);
       emit(AuthAuthenticated(user));
     } catch (e) {
       String errorMessage = 'Giriş başarısız';
@@ -198,6 +236,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       // AuthService.googleLogin() zaten fetchUserProfile(forceRefresh: true) çağırıyor
       final user = await _authService.googleLogin(idToken: event.idToken);
       Logger.auth('Google login successful: ${user.userName}');
+      _setCrashTrackingUser(user);
       emit(AuthAuthenticated(user));
     } catch (e) {
       String errorMessage = 'Google ile giriş başarısız';
@@ -225,6 +264,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         event.confirmPassword,
       );
       Logger.auth('Registration successful: ${user.userName}');
+      _setCrashTrackingUser(user);
       emit(AuthAuthenticated(user));
     } catch (e) {
       String errorMessage = 'Kayıt başarısız';
@@ -317,8 +357,24 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         Logger.warning('Error clearing Hive boxes: $e');
       }
 
-      // 5. State'i AuthUnauthenticated yap
-      Logger.auth('Step 5: Emitting AuthUnauthenticated state...');
+      // 5. Clear crash tracking user
+      Logger.auth('Step 5: Clearing crash tracking user...');
+      try {
+        final crashTrackingService = getIt<CrashTrackingService>();
+        crashTrackingService.setUserIdentifier(null);
+        crashTrackingService.clearAllCustomKeys();
+        Logger.auth('Crash tracking user cleared');
+      } catch (e) {
+        Logger.warning('Error clearing crash tracking user: $e');
+      }
+
+      // 6. Reset debounce timers to prevent hot reload from restoring state
+      _lastAuthCheckTime = null;
+      _lastRefreshTime = null;
+      Logger.auth('Debounce timers reset');
+
+      // 7. State'i AuthUnauthenticated yap
+      Logger.auth('Step 7: Emitting AuthUnauthenticated state...');
       emit(AuthUnauthenticated());
       Logger.auth('Logout completed successfully');
     } catch (e) {
@@ -419,8 +475,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Logger.error('AuthBloc error: $error', error, stackTrace);
   }
 
+  // Debounce timer for RefreshProfile to prevent excessive API calls
+  DateTime? _lastRefreshTime;
+  
+  // Debounce timer for CheckAuthStatus to prevent excessive API calls
+  DateTime? _lastAuthCheckTime;
+
   /// Refresh user profile without changing auth state
   /// Used when XP or other profile data changes via SignalR
+  /// Debounced to prevent excessive API calls
   Future<void> _onRefreshProfile(
     RefreshProfile event,
     Emitter<AuthState> emit,
@@ -431,13 +494,40 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       return;
     }
 
+    // Debounce: Skip if refreshed recently
+    final now = DateTime.now();
+    if (_lastRefreshTime != null && 
+        now.difference(_lastRefreshTime!) < AppConfig.refreshProfileDebounce) {
+      Logger.auth('Profile refresh skipped (debounced) - last refresh was ${now.difference(_lastRefreshTime!).inMilliseconds}ms ago');
+      return;
+    }
+
+    _lastRefreshTime = now;
+
     try {
-      final user = await _authService.fetchUserProfile(forceRefresh: true);
+      // Use cache-first approach unless explicitly requested to force refresh
+      final user = await _authService.fetchUserProfile(forceRefresh: false);
       Logger.auth('Profile refreshed: ${user.userName}, XP: ${user.experiencePoints}');
+      _setCrashTrackingUser(user);
       emit(AuthAuthenticated(user));
     } catch (e) {
       Logger.warning('Profile refresh failed, keeping current state: $e');
       // Keep current state on error
+    }
+  }
+
+  /// Set crash tracking user identifier
+  void _setCrashTrackingUser(UserProfile user) {
+    try {
+      final crashTrackingService = getIt<CrashTrackingService>();
+      crashTrackingService.setUserIdentifier(user.id);
+      crashTrackingService.setCustomKey('user_name', user.userName);
+      crashTrackingService.setCustomKey('user_email', user.email);
+      crashTrackingService.setCustomKey('user_level', user.levelDisplay ?? user.levelName ?? '');
+      Logger.auth('Crash tracking user set: ${user.id}');
+    } catch (e) {
+      Logger.warning('Error setting crash tracking user: $e');
+      // Continue without crash tracking - app should still work
     }
   }
 }

@@ -33,6 +33,7 @@ import '../cache/cache_manager.dart' as _i326;
 import '../network/api_client.dart' as _i557;
 import '../network/network_manager.dart' as _i474;
 import '../realtime/signalr_service.dart' as _i550;
+import '../services/crash_tracking_service.dart' as _i377;
 import '../services/notification_service.dart' as _i941;
 import '../services/xp_state_service.dart' as _i379;
 import '../storage/last_read_manager.dart' as _i298;
@@ -85,6 +86,8 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i979.Box<String>>(instanceName: 'app_cache'),
           gh<Duration>(),
         ));
+    gh.lazySingleton<_i377.CrashTrackingService>(
+        () => _i377.CrashTrackingService(gh<_i557.ApiClient>()));
     gh.lazySingleton<_i859.EventService>(
         () => _i859.EventService(gh<_i557.ApiClient>()));
     gh.singleton<_i379.XPStateService>(

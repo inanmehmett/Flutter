@@ -35,21 +35,47 @@ class ProfileHeader extends StatelessWidget {
       final imageUrl = _normalize(profile.profileImageUrl!);
       return CircleAvatar(
         radius: 30,
-        backgroundImage: NetworkImage(imageUrl),
-        onBackgroundImageError: (exception, stackTrace) {
-          debugPrint('🖼️ [ProfileHeader] Image load error: $exception');
-        },
-        child: profile.profileImageUrl!.contains('placeholder') || 
-               profile.profileImageUrl!.contains('default') 
-            ? Text(
-                _getInitials(profile.userName),
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+        backgroundColor: Colors.orange.withValues(alpha: 0.2),
+        child: ClipOval(
+          child: Image.network(
+            imageUrl,
+            width: 60,
+            height: 60,
+            fit: BoxFit.cover,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                      : null,
                 ),
-              )
-            : null,
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              // Hata durumunda fallback göster (initials)
+              return Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    _getInitials(profile.userName),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       );
     }
 
@@ -133,14 +159,26 @@ class ProfileHeader extends StatelessWidget {
   }
 
   String _normalize(String url) {
-    // localhost içeren URL'leri AppConfig.apiBaseUrl ile değiştir
-    if (url.contains('localhost') || url.contains('127.0.0.1')) {
-      final uri = Uri.parse(url);
-      final path = uri.path;
-      return '${AppConfig.apiBaseUrl}$path${uri.query.isNotEmpty ? '?${uri.query}' : ''}';
+    // Eğer zaten tam URL ise ve mevcut base URL ile uyumlu değilse, normalize et
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      final uri = Uri.tryParse(url);
+      if (uri != null) {
+        final host = uri.host;
+        // localhost, 127.0.0.1 veya eski IP adresi içeriyorsa, mevcut base URL ile değiştir
+        if (host == 'localhost' || 
+            host == '127.0.0.1' || 
+            host.startsWith('192.168.') ||
+            host.startsWith('10.0.2.2')) {
+          final path = uri.path;
+          final query = uri.query.isNotEmpty ? '?${uri.query}' : '';
+          return '${AppConfig.apiBaseUrl}$path$query';
+        }
+      }
+      // Geçerli bir external URL ise olduğu gibi döndür
+      return url;
     }
     
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    // Relative path ise base URL ile birleştir
     if (url.startsWith('/')) return '${AppConfig.apiBaseUrl}$url';
     return '${AppConfig.apiBaseUrl}/$url';
   }
