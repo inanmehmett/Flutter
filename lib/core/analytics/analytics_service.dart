@@ -7,16 +7,22 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'dart:io';
 import 'dart:async';
 
-/// Event service for tracking learning events (reading, quiz, etc.)
+/// Comprehensive analytics service for tracking user behavior and app metrics
 /// 
-/// This service is focused on learning-specific events.
-/// For general analytics (screen views, user actions), use AnalyticsService.
+/// Features:
+/// - User behavior tracking
+/// - Screen navigation tracking
+/// - Feature usage analytics
+/// - Performance metrics
+/// - Conversion funnel tracking
 @lazySingleton
-class EventService {
+class AnalyticsService {
   final ApiClient _api;
   final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
   PackageInfo? _packageInfo;
+  String? _userId;
   String? _sessionId;
+  DateTime? _sessionStartTime;
   
   // Event batching to reduce API calls
   final List<Map<String, dynamic>> _eventQueue = [];
@@ -26,7 +32,7 @@ class EventService {
   bool _isFlushing = false; // Prevent concurrent flush operations
   Timer? _flushTimer; // Timer for periodic flushing
 
-  EventService(this._api) {
+  AnalyticsService(this._api) {
     _initPackageInfo();
     _startSession();
     _startBatchFlushTimer();
@@ -42,6 +48,7 @@ class EventService {
 
   void _startSession() {
     _sessionId = DateTime.now().millisecondsSinceEpoch.toString();
+    _sessionStartTime = DateTime.now();
   }
 
   void _startBatchFlushTimer() {
@@ -66,13 +73,93 @@ class EventService {
     _flushTimer = null;
   }
 
-  Future<void> sendEvents(List<Map<String, dynamic>> events) async {
+  /// Set user identifier for analytics
+  void setUserId(String? userId) {
+    _userId = userId;
+  }
+
+  /// Track screen view
+  Future<void> trackScreenView(String screenName, {Map<String, dynamic>? parameters}) async {
+    await _trackEvent(
+      eventType: 'screen_view',
+      parameters: {
+        'screen_name': screenName,
+        ...?parameters,
+      },
+    );
+  }
+
+  /// Track user action
+  Future<void> trackAction(String action, {Map<String, dynamic>? parameters}) async {
+    await _trackEvent(
+      eventType: 'user_action',
+      parameters: {
+        'action': action,
+        ...?parameters,
+      },
+    );
+  }
+
+  /// Track feature usage
+  Future<void> trackFeatureUsage(String featureName, {Map<String, dynamic>? parameters}) async {
+    await _trackEvent(
+      eventType: 'feature_usage',
+      parameters: {
+        'feature': featureName,
+        ...?parameters,
+      },
+    );
+  }
+
+  /// Track conversion event (e.g., subscription, purchase)
+  Future<void> trackConversion(String conversionType, {Map<String, dynamic>? parameters}) async {
+    await _trackEvent(
+      eventType: 'conversion',
+      parameters: {
+        'conversion_type': conversionType,
+        ...?parameters,
+      },
+    );
+  }
+
+  /// Track performance metric
+  Future<void> trackPerformance(String metricName, double value, {String? unit}) async {
+    await _trackEvent(
+      eventType: 'performance',
+      parameters: {
+        'metric': metricName,
+        'value': value,
+        if (unit != null) 'unit': unit,
+      },
+    );
+  }
+
+  /// Track error (non-fatal)
+  Future<void> trackError(String errorType, String errorMessage, {Map<String, dynamic>? context}) async {
+    final parameters = <String, dynamic>{
+      'error_type': errorType,
+      'error_message': errorMessage,
+    };
+    if (context != null) {
+      parameters.addAll(context);
+    }
+    await _trackEvent(
+      eventType: 'error',
+      parameters: parameters,
+    );
+  }
+
+  /// Internal method to track events
+  Future<void> _trackEvent({
+    required String eventType,
+    Map<String, dynamic>? parameters,
+  }) async {
     try {
-      // Get device platform info once (cached)
+      // Get device info
       String? devicePlatform;
       String? deviceModel;
       String? osVersion;
-      
+
       try {
         if (Platform.isAndroid) {
           devicePlatform = 'android';
@@ -87,29 +174,31 @@ class EventService {
         }
       } catch (e) {
         // Ignore device info errors
-        Logger.warning('Failed to get device info: $e');
       }
 
-      // Add session and device info to each event
-      final enrichedEvents = events.map((event) {
-        return {
-          ...event,
-          'sessionId': _sessionId,
-          if (_packageInfo != null) 'appVersion': _packageInfo!.version,
-          if (devicePlatform != null) 'devicePlatform': devicePlatform,
-          if (deviceModel != null) 'deviceModel': deviceModel,
-          if (osVersion != null) 'osVersion': osVersion,
-        };
-      }).toList();
+      final event = {
+        'eventType': eventType,
+        'occurredAt': DateTime.now().toUtc().toIso8601String(),
+        'sessionId': _sessionId,
+        if (_sessionStartTime != null)
+          'sessionDuration': DateTime.now().difference(_sessionStartTime!).inSeconds,
+        if (devicePlatform != null) 'devicePlatform': devicePlatform,
+        if (_packageInfo != null) 'appVersion': _packageInfo!.version,
+        if (deviceModel != null) 'deviceModel': deviceModel,
+        if (osVersion != null) 'osVersion': osVersion,
+        if (parameters != null && parameters.isNotEmpty) 'payload': parameters,
+      };
 
-      _eventQueue.addAll(enrichedEvents);
+      // Add to queue
+      _eventQueue.add(event);
 
       // Flush if queue is full
       if (_eventQueue.length >= _maxBatchSize) {
         await _flushEvents();
       }
     } catch (e) {
-      Logger.warning('Failed to queue events: $e');
+      // Analytics must not break UX
+      Logger.warning('Failed to track event: $e');
     }
   }
 
@@ -126,14 +215,14 @@ class EventService {
       try {
         await _api.post('/api/events', data: {'events': eventsToSend});
         if (AppConfig.isDebug) {
-          Logger.debug('Flushed ${eventsToSend.length} learning events');
+          Logger.debug('Flushed ${eventsToSend.length} analytics events');
         }
       } catch (e) {
         // If flush fails, re-add events to queue (but limit queue size)
         // Check combined size: current queue + events being re-added
         if (_eventQueue.length + eventsToSend.length < _maxBatchSize * 2) {
           _eventQueue.insertAll(0, eventsToSend);
-          Logger.warning('Failed to flush learning events: $e');
+          Logger.warning('Failed to flush analytics events: $e');
         } else {
           // Queue would exceed limit - prioritize recent events over old ones
           // Drop oldest events from queue to make space for failed flush events
@@ -148,13 +237,13 @@ class EventService {
               // Remove oldest events to make space
               _eventQueue.removeRange(_eventQueue.length - eventsToDrop, _eventQueue.length);
               _eventQueue.insertAll(0, eventsToSend);
-              Logger.warning('Failed to flush learning events: $e. Dropped $eventsToDrop oldest queued events to make room for failed flush events');
+              Logger.warning('Failed to flush analytics events: $e. Dropped $eventsToDrop oldest queued events to make room for failed flush events');
             } else {
               // Queue is smaller than failed events - replace entire queue with failed events
               final droppedOld = _eventQueue.length;
               _eventQueue.clear();
               _eventQueue.addAll(eventsToSend);
-              Logger.warning('Failed to flush learning events: $e. Replaced entire queue (dropped $droppedOld old events) with failed flush events');
+              Logger.warning('Failed to flush analytics events: $e. Replaced entire queue (dropped $droppedOld old events) with failed flush events');
             }
           } else {
             // Some space available - add as many as possible
@@ -163,9 +252,9 @@ class EventService {
             
             final droppedCount = eventsToSend.length - eventsToReAdd;
             if (droppedCount > 0) {
-              Logger.warning('Failed to flush learning events: $e. Dropped $droppedCount events due to queue limit');
+              Logger.warning('Failed to flush analytics events: $e. Dropped $droppedCount events due to queue limit');
             } else {
-              Logger.warning('Failed to flush learning events: $e');
+              Logger.warning('Failed to flush analytics events: $e');
             }
           }
         }
@@ -182,80 +271,10 @@ class EventService {
     await _flushEvents();
   }
 
-  Future<void> readingStarted(int readingTextId) async {
-    await sendEvents([
-      {
-        'eventType': 'reading_started',
-        'occurredAt': DateTime.now().toUtc().toIso8601String(),
-        'payload': { 'readingTextId': readingTextId }
-      }
-    ]);
-  }
-
-  Future<void> sentenceListened(int readingTextId, int sentenceIndex, int durationMs) async {
-    await sendEvents([
-      {
-        'eventType': 'sentence_listened',
-        'occurredAt': DateTime.now().toUtc().toIso8601String(),
-        'payload': {
-          'readingTextId': readingTextId,
-          'sentenceIndex': sentenceIndex,
-          'durationMs': durationMs,
-        }
-      }
-    ]);
-  }
-
-  Future<void> readingCompleted(int readingTextId, {int? totalMs}) async {
-    await sendEvents([
-      {
-        'eventType': 'reading_completed',
-        'occurredAt': DateTime.now().toUtc().toIso8601String(),
-        'payload': {
-          'readingTextId': readingTextId,
-          if (totalMs != null) 'totalMs': totalMs,
-        }
-      }
-    ]);
-  }
-
-  Future<void> readingActive(int readingTextId, int seconds) async {
-    await sendEvents([
-      {
-        'eventType': 'reading_active',
-        'occurredAt': DateTime.now().toUtc().toIso8601String(),
-        'payload': {
-          'readingTextId': readingTextId,
-          'durationMs': seconds * 1000,
-        }
-      }
-    ]);
-  }
-
-  Future<void> quizCompleted(int readingTextId, {required int score, required double percentage, required bool passed}) async {
-    await sendEvents([
-      {
-        'eventType': 'quiz_completed',
-        'occurredAt': DateTime.now().toUtc().toIso8601String(),
-        'payload': {
-          'readingTextId': readingTextId,
-          'score': score,
-          'percentage': percentage,
-          'passed': passed,
-        }
-      },
-      if (passed)
-        {
-          'eventType': 'quiz_passed',
-          'occurredAt': DateTime.now().toUtc().toIso8601String(),
-          'payload': {
-            'readingTextId': readingTextId,
-            'score': score,
-            'percentage': percentage,
-          }
-        },
-    ]);
+  /// End current session and start new one
+  Future<void> endSession() async {
+    await _flushEvents();
+    _startSession();
   }
 }
-
 

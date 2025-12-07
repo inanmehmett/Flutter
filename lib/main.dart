@@ -40,6 +40,7 @@ import 'core/widgets/celebration_badge.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/xp_state_service.dart';
 import 'core/services/crash_tracking_service.dart';
+import 'core/analytics/analytics_service.dart';
 import 'core/network/api_client.dart';
 import 'core/network/network_manager.dart';
 import 'features/game/services/game_service.dart';
@@ -91,29 +92,40 @@ void main() async {
     await configureDependencies();
     Logger.debug('Dependency injection configured');
 
-    // Setup custom crash tracking error handlers (after DI is configured)
-    Logger.debug('Setting up crash tracking...');
+    // Setup analytics and crash tracking (after DI is configured)
+    Logger.debug('Setting up analytics and crash tracking...');
     try {
       final crashTrackingService = getIt<CrashTrackingService>();
+      final analyticsService = getIt<AnalyticsService>();
       
       // Setup Flutter error handler
       FlutterError.onError = (errorDetails) {
         // Log to console in debug mode
         FlutterError.presentError(errorDetails);
-        // Send to our backend
+        // Track error in analytics
+        analyticsService.trackError(
+          'FlutterError',
+          errorDetails.exceptionAsString(),
+          context: {
+            'library': errorDetails.library,
+            'context': errorDetails.context?.toString(),
+          },
+        );
+        // Send to crash tracking
         crashTrackingService.recordFlutterError(errorDetails, fatal: true);
       };
       
       // Handle platform errors (non-Flutter errors)
       ui.PlatformDispatcher.instance.onError = (error, stack) {
+        analyticsService.trackError('PlatformError', error.toString());
         crashTrackingService.recordError(error, stack, fatal: true);
         return true;
       };
       
-      Logger.info('Crash tracking configured');
+      Logger.info('Analytics and crash tracking configured');
     } catch (e) {
-      Logger.error('Crash tracking setup failed (continuing without crash tracking): $e');
-      // Continue without crash tracking - app should still work
+      Logger.error('Analytics/crash tracking setup failed (continuing): $e');
+      // Continue without analytics - app should still work
     }
 
     // Initialize notification service and schedule daily reminders
@@ -434,6 +446,9 @@ class _AppShellState extends State<AppShell> {
           notificationService.showXPNotification(deltaXP);
           
           // Update local XP state immediately for fast UI updates
+          // Note: Only update total XP here. Daily XP is already updated by the
+          // specific action handlers (ReadingQuizCubit, VocabularyRepository, etc.)
+          // to avoid duplicate increments.
           try {
             final xpStateService = getIt<XPStateService>();
             if (totalXP > 0) {
@@ -441,8 +456,8 @@ class _AppShellState extends State<AppShell> {
             } else {
               await xpStateService.incrementTotalXP(deltaXP);
             }
-            // Also increment daily XP
-            await xpStateService.incrementDailyXP(deltaXP);
+            // Do NOT increment daily XP here - it's already handled by action handlers
+            // to prevent duplicate increments (e.g., ReadingQuizCubit already increments it)
           } catch (e) {
             print('⚠️ Error updating XP state: $e');
           }
@@ -647,6 +662,30 @@ class _AppShellState extends State<AppShell> {
 
   @override
   void dispose() {
+    // Flush analytics events before app closes
+    // Note: dispose() cannot be async, so we use unawaited to start the flush
+    // but the app may close before completion. This is acceptable for analytics.
+    try {
+      final analyticsService = getIt<AnalyticsService>();
+      final eventService = getIt<EventService>();
+      // Start flush operations but don't block dispose
+      // Events will be sent if possible, but app closure won't be delayed
+      Future.wait([
+        analyticsService.flush(),
+        eventService.flush(),
+      ]).timeout(
+        const Duration(seconds: 2),
+        onTimeout: () {
+          // Timeout is acceptable - events will be lost but app should close
+          return <void>[];
+        },
+      ).catchError((e) {
+        // Ignore errors during dispose
+      });
+    } catch (e) {
+      // Ignore errors during dispose
+    }
+    
     _signalRService.stop();
     super.dispose();
   }

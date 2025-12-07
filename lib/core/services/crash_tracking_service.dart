@@ -7,8 +7,14 @@ import '../utils/logger.dart';
 import '../config/app_config.dart';
 import 'package:flutter/foundation.dart';
 
-/// Custom crash tracking service that sends crash reports to our backend
-/// instead of using Firebase Crashlytics
+/// Enhanced crash tracking service with grouping, prioritization, and breadcrumbs
+/// 
+/// Features:
+/// - Crash grouping (similar crashes grouped together)
+/// - Priority levels (fatal, high, medium, low)
+/// - Breadcrumbs (user actions before crash)
+/// - Device and user context
+/// - Debouncing to prevent spam
 @lazySingleton
 class CrashTrackingService {
   final ApiClient _api;
@@ -16,6 +22,10 @@ class CrashTrackingService {
   PackageInfo? _packageInfo;
   String? _userId;
   Map<String, String> _customKeys = {};
+  
+  // Breadcrumbs: Track user actions before crash
+  final List<Map<String, dynamic>> _breadcrumbs = [];
+  static const int _maxBreadcrumbs = 30;
   
   // Debouncing for non-fatal errors to prevent excessive API calls
   final Map<String, DateTime> _lastErrorTime = {};
@@ -57,6 +67,26 @@ class CrashTrackingService {
     _customKeys.clear();
   }
 
+  /// Add breadcrumb (user action before crash)
+  /// Useful for debugging - shows what user was doing before crash
+  void addBreadcrumb(String message, {Map<String, dynamic>? data}) {
+    _breadcrumbs.add({
+      'message': message,
+      'timestamp': DateTime.now().toUtc().toIso8601String(),
+      if (data != null) 'data': data,
+    });
+
+    // Keep only last N breadcrumbs
+    if (_breadcrumbs.length > _maxBreadcrumbs) {
+      _breadcrumbs.removeAt(0);
+    }
+  }
+
+  /// Clear breadcrumbs
+  void clearBreadcrumbs() {
+    _breadcrumbs.clear();
+  }
+
   /// Record a Flutter error
   Future<void> recordFlutterError(
     FlutterErrorDetails errorDetails, {
@@ -89,6 +119,7 @@ class CrashTrackingService {
         stackTrace: errorDetails.stack?.toString(),
         errorType: 'FlutterError',
         isFatal: fatal,
+        priority: fatal ? 'fatal' : 'high',
       );
     } catch (e) {
       // Don't log - we don't want crash reporting to crash the app
@@ -128,6 +159,7 @@ class CrashTrackingService {
         stackTrace: stackTrace?.toString(),
         errorType: 'PlatformError',
         isFatal: fatal,
+        priority: fatal ? 'fatal' : 'medium',
       );
     } catch (e) {
       // Don't log - we don't want crash reporting to crash the app
@@ -146,12 +178,59 @@ class CrashTrackingService {
     return '$errorType:${messageHash.hashCode}';
   }
 
+  /// Record a non-fatal error with custom priority
+  Future<void> recordNonFatalError(
+    String errorMessage, {
+    StackTrace? stackTrace,
+    String priority = 'low',
+    Map<String, dynamic>? context,
+  }) async {
+    try {
+      // Add context as custom keys before sending
+      if (context != null) {
+        context.forEach((key, value) {
+          setCustomKey(key, value.toString());
+        });
+      }
+      
+      // Debounce check for non-fatal errors
+      final errorKey = _getErrorKey(errorMessage, 'NonFatalError');
+      final now = DateTime.now();
+      final lastSent = _lastErrorTime[errorKey];
+      
+      if (lastSent != null && now.difference(lastSent) < AppConfig.crashReportDebounce) {
+        // Skip - same error was sent recently
+        if (kDebugMode) {
+          print('⚠️ [CrashTracking] Skipping duplicate error report (debounced)');
+        }
+        return;
+      }
+      
+      _lastErrorTime[errorKey] = now;
+      
+      // Send with custom priority
+      await _sendCrashReport(
+        errorMessage: errorMessage,
+        stackTrace: stackTrace?.toString(),
+        errorType: 'NonFatalError',
+        isFatal: false,
+        priority: priority,
+      );
+    } catch (e) {
+      // Don't log - we don't want crash reporting to crash the app
+      if (kDebugMode) {
+        print('⚠️ Failed to send non-fatal error report: $e');
+      }
+    }
+  }
+
   /// Send crash report to backend
   Future<void> _sendCrashReport({
     required String errorMessage,
     String? stackTrace,
     required String errorType,
     required bool isFatal,
+    required String priority,
   }) async {
     try {
       // Get device info
@@ -180,12 +259,14 @@ class CrashTrackingService {
         if (stackTrace != null) 'stackTrace': stackTrace,
         'errorType': errorType,
         'isFatal': isFatal,
+        'priority': priority,
         'occurredAt': DateTime.now().toUtc().toIso8601String(),
         if (devicePlatform != null) 'devicePlatform': devicePlatform,
         if (_packageInfo != null) 'appVersion': _packageInfo!.version,
         if (deviceModel != null) 'deviceModel': deviceModel,
         if (osVersion != null) 'osVersion': osVersion,
         if (_customKeys.isNotEmpty) 'context': _customKeys,
+        if (_breadcrumbs.isNotEmpty) 'breadcrumbs': _breadcrumbs,
       };
 
       // Try to send crash report (don't wait for response in fatal cases)
@@ -193,11 +274,13 @@ class CrashTrackingService {
         // For fatal crashes, send asynchronously without waiting
         _api.post('/api/crash', data: request).catchError((e) {
           // Ignore errors - app is crashing anyway
+          return null;
         });
       } else {
         // For non-fatal errors, try to send but don't block
         _api.post('/api/crash', data: request).catchError((e) {
           // Ignore errors - analytics must not break UX
+          return null;
         });
       }
     } catch (e) {

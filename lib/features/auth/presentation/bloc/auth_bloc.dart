@@ -13,6 +13,7 @@ import '../../../../core/config/app_config.dart';
 import '../../../../core/realtime/signalr_service.dart';
 import '../../../../core/storage/secure_storage_service.dart';
 import '../../../../core/services/crash_tracking_service.dart';
+import '../../../../core/analytics/analytics_service.dart';
 
 // Events
 abstract class AuthEvent extends Equatable {
@@ -520,14 +521,21 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   void _setCrashTrackingUser(UserProfile user) {
     try {
       final crashTrackingService = getIt<CrashTrackingService>();
+      final analyticsService = getIt<AnalyticsService>();
+      
+      // Set user ID for crash tracking
       crashTrackingService.setUserIdentifier(user.id);
       crashTrackingService.setCustomKey('user_name', user.userName);
       crashTrackingService.setCustomKey('user_email', user.email);
       crashTrackingService.setCustomKey('user_level', user.levelDisplay ?? user.levelName ?? '');
-      Logger.auth('Crash tracking user set: ${user.id}');
+      
+      // Set user ID for analytics
+      analyticsService.setUserId(user.id);
+      
+      Logger.auth('Analytics and crash tracking user set: ${user.id}');
     } catch (e) {
-      Logger.warning('Error setting crash tracking user: $e');
-      // Continue without crash tracking - app should still work
+      Logger.warning('Error setting analytics/crash tracking user: $e');
+      // Continue without analytics - app should still work
     }
   }
 }

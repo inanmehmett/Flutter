@@ -23,9 +23,7 @@ class ApiClient {
     print('🟡[App START] ApiClient.baseURL = ${dio.options.baseUrl}');
 
     dio.interceptors.addAll([
-      RateLimitInterceptor(
-        maxRequestsPerMinute: AppConfig.maxRequestsPerMinute,
-      ),
+      RateLimitInterceptor(), // Uses endpoint-specific limits
       AuthInterceptor(secureStorage),
       LoggingInterceptor(),
       CacheInterceptor(),
